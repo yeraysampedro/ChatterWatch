@@ -1,0 +1,6 @@
+{
+  "tasks": {
+    "test": "deno test --allow-read tests/core_test.js tests/worker_test.js",
+    "test:ui": "deno test -A tests/ui_test.js"
+  }
+}

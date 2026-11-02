@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Twitch Chatter Watch",
+  "version": "1.1.0",
+  "description": "Twitch moderation with detached multichat, virtualized feeds, spam filters and slow-mode controls.",
+  "minimum_chrome_version": "116",
+  "permissions": ["storage", "identity", "sidePanel", "alarms"],
+  "host_permissions": [
+    "https://api.twitch.tv/*",
+    "https://id.twitch.tv/*"
+  ],
+  "background": {
+    "service_worker": "worker.js"
+  },
+  "action": {
+    "default_title": "Twitch Chatter Watch",
+    "default_popup": "dashboard.html"
+  },
+  "side_panel": {
+    "default_path": "dashboard.html"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.twitch.tv https://id.twitch.tv wss://irc-ws.chat.twitch.tv:443"
+  }
+}

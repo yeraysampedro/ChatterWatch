@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chatter Watch | Multichat</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <link rel="stylesheet" href="chat.css">
+</head>
+<body class="multichat">
+  <header class="chat-topbar">
+    <a class="brand" href="dashboard.html" target="_blank" rel="noopener">
+      <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span>CHATTER<span class="brand-light">WATCH</span></span>
+    </a>
+    <h1>Multichat</h1>
+    <nav class="chat-tools">
+      <a href="dashboard.html" target="_blank" rel="noopener" data-label="moderation">Moderation</a>
+      <button id="open-grid" type="button" data-label="newWindow">New window</button>
+      <button id="chat-settings" type="button" data-label="settings">Settings</button>
+    </nav>
+  </header>
+  <main class="chat-workspace">
+    <div class="workspace-toolbar">
+      <span id="connection-status" role="status"></span>
+      <div class="layout-control" role="group" aria-label="Columns">
+        <span data-label="columns">Columns</span>
+        <button type="button" data-columns="1" aria-pressed="false">1</button>
+        <button type="button" data-columns="2" aria-pressed="true">2</button>
+        <button type="button" data-columns="3" aria-pressed="false">3</button>
+      </div>
+    </div>
+    <div id="chat-grid" class="chat-grid" data-columns="2"></div>
+    <p id="no-channels" data-label="empty" hidden>No channels configured.</p>
+  </main>
+  <dialog id="chat-settings-dialog" aria-labelledby="chat-settings-title">
+    <header class="dialog-header"><h2 id="chat-settings-title" data-label="settings">Settings</h2><button type="button" data-close="chat-settings-dialog" data-label="close">Close</button></header>
+    <form id="chat-settings-form">
+      <label><span data-label="channels">Additional channels (comma separated, 6 total)</span><input id="channels" type="text" autocomplete="off" spellcheck="false" maxlength="160"></label>
+      <label><span data-label="batch">Batch interval (ms)</span><input id="batch-ms" type="number" min="100" max="1000" required></label>
+      <label><span data-label="localSlow">Local slow mode per user (s, 0 = off)</span><input id="local-slow" type="number" min="0" max="120" required></label>
+      <label class="check-label"><input id="spam-enabled" type="checkbox"><span data-label="spam">Spam filter</span></label>
+      <label><span data-label="repeats">Hide repeated text starting at message</span><input id="repeat-limit" type="number" min="2" max="20" required></label>
+      <label><span data-label="frequency">Maximum messages per user / window</span><input id="frequency-limit" type="number" min="2" max="50" required></label>
+      <label><span data-label="window">Detection window (s)</span><input id="window-seconds" type="number" min="1" max="120" required></label>
+      <label><span data-label="pattern">Spam pattern (restricted regex)</span><input id="spam-pattern" type="text" maxlength="240" spellcheck="false"></label>
+      <label class="check-label"><input id="pause-hover" type="checkbox"><span data-label="hover">Pause on hover</span></label>
+      <p class="form-error" id="config-error" role="alert"></p>
+      <button class="primary-command" type="submit" data-label="save">Save</button>
+    </form>
+  </dialog>
+  <dialog id="message-dialog" aria-labelledby="message-author">
+    <header class="dialog-header"><h2 id="message-author"></h2><button type="button" data-close="message-dialog" data-label="close">Close</button></header>
+    <p id="message-text"></p>
+  </dialog>
+  <div id="chat-toast" class="chat-toast" role="status" hidden></div>
+  <script src="chat-flow.js"></script>
+  <script src="virtual-chat.js"></script>
+  <script src="chat.js"></script>
+</body>
+</html>
