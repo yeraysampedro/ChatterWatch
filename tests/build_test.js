@@ -1,9 +1,9 @@
 import { assert, assertEquals, assertThrows } from "jsr:@std/assert@1";
 import { unzipSync } from "npm:fflate@0.8.2";
 import { pathToFileURL } from "node:url";
-import { buildPackages, manifestFor } from "../build.js";
+import { buildPackages, manifestFor } from "../build/build.js";
 
-const source = JSON.parse(await Deno.readTextFile(new URL("../manifest.json", import.meta.url)));
+const source = JSON.parse(await Deno.readTextFile(new URL("../src/manifest.json", import.meta.url)));
 
 Deno.test("browser manifests preserve security settings and select supported background and sidebar APIs", () => {
   const original = structuredClone(source);
@@ -63,7 +63,7 @@ Deno.test("distribution ZIPs contain only runtime files at their root and rebuil
       }
       for (const [name, content] of Object.entries(entries)) {
         assertEquals(await Deno.readFile(new URL(name, artifact.directory)), content);
-        if (name !== "manifest.json") assertEquals(content, await Deno.readFile(new URL(`../${name}`, import.meta.url)));
+        if (name !== "manifest.json") assertEquals(content, await Deno.readFile(new URL(`../src/${name}`, import.meta.url)));
       }
       await Deno.writeTextFile(new URL("stale.txt", artifact.directory), "old build");
     }

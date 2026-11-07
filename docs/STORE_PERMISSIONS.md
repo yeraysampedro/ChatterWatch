@@ -1,6 +1,6 @@
 # Permission Justifications - Ready to Paste
 
-Twitch Chatter Watch 1.3.0. English text for the Chrome Web Store Privacy practices fields and Mozilla reviewer notes. Checked against the local manifest and relevant request paths on 7 November 2026. Recheck against the exact ZIP submitted. These explanations are not a security certification or permission to bypass store review.
+Twitch Chatter Watch 1.3.1. English text for the Chrome Web Store Privacy practices fields and Mozilla reviewer notes. Checked against the local manifest and relevant request paths on 7 November 2026. Recheck against the exact ZIP submitted. These explanations are not a security certification or permission to bypass store review.
 
 ## Single Purpose
 
@@ -61,11 +61,11 @@ The code uses browser extension storage/session storage and IndexedDB; it does n
 
 ## Verification References
 
-- manifest.json: required/optional permissions and CSP.
-- worker.js: apiRequest, validateToken, translateChatMessage, pollStream, token-validation/stream-status alarms.
-- dashboard.js: official identity flow, side-panel opening and explicit translation-origin permission request.
-- chat.js and view-tools.js: confirmation dialogs and text-only rendering.
-- build.js: runtime allowlist and Firefox-specific manifest generation.
+- src/manifest.json: required/optional permissions and CSP; it becomes the root manifest.json in the runtime package.
+- src/worker.js: apiRequest, validateToken, translateChatMessage, pollStream, token-validation/stream-status alarms.
+- src/dashboard.js: official identity flow, side-panel opening and explicit translation-origin permission request.
+- src/chat.js and src/view-tools.js: confirmation dialogs and text-only rendering.
+- build/build.js: runtime allowlist and Firefox-specific manifest generation.
 - tests/worker_test.js: translation consent, retained source text, omitted credentials and rejected redirects; additional moderation/connection regressions.
 - tests/ui_test.js: translated HTML-like strings remain text; canceling actions does not send moderation requests.
 

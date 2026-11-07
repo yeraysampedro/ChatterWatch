@@ -1,6 +1,6 @@
 # Privacy and Data Handling
 
-Applies to Twitch Chatter Watch 1.3.0. Updated 7 November 2026.
+Applies to Twitch Chatter Watch 1.3.1. Updated 7 November 2026.
 
 ## Purpose
 
@@ -12,12 +12,14 @@ The browser identity API opens Twitch's official authorization flow. The extensi
 
 ## Local Storage
 
-- Browser local extension storage: configuration, language, appearance, saved workspaces, remembered window geometry, translation endpoint/target and the primary-channel review epoch/last observed stream ID.
+- Browser local extension storage: configuration, language, appearance, saved workspaces, remembered window geometry, translation endpoint/target, the primary-channel review epoch/last observed stream ID and the last identified review channel for offline access to local history.
 - Browser session storage: access token, authenticated identity and connection/session metadata. Session credentials are not synchronized between devices.
-- IndexedDB: reviewed-account profiles, user/channel identifiers, notes, recent message samples, review outcomes, approval reasons/timestamps and observed subscription evidence. There is currently no automatic time-based purge of this database.
+- IndexedDB: locally observed chatter profiles (including users exempt from automatic review), user/channel identifiers, current notes, up to 50 recent message samples per person/channel across sessions, review outcomes, approval reasons/timestamps and observed subscription evidence. Each record also retains up to 100 local activity events, including confirmed bans/timeouts/warnings/deletions, manual approvals and note changes, with date, duration, reason, previous/current note and acting moderator identifier when known. There is currently no automatic time-based purge of this database.
 - Bounded in-memory buffers: live and paused chat histories, queued batches and local message pins. These are not a durable archive and may disappear when a view or background context closes.
 
 The former-subscriber rule only uses subscription status actually observed locally. It is not a complete historical subscription lookup. Manual approvals are persistent; automatic approvals and dismissals can be reevaluated after configured inactivity or a verified stream transition. Such reevaluation does not delete the underlying notes/profile records or undo a Twitch sanction.
+
+The All chatters directory is a local record search, not a complete Twitch audience or moderation-history service. Historic actions that were never recorded cannot be recovered; older records may contain only an undated latest-action label. Message and activity bounds can evict older entries. Reading local history does not itself send it to Twitch or a translation provider. Disconnecting does not erase it; deletion controls are described below.
 
 ## Optional Translation
 

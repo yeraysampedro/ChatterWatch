@@ -5,16 +5,17 @@ import { Buffer } from "node:buffer";
 import { pathToFileURL } from "node:url";
 import { buildPackages } from "./build.js";
 
-const root = new URL("./", import.meta.url);
-const output = new URL("assets/store/", root);
-const manifest = JSON.parse(await Deno.readTextFile(new URL("manifest.json", root)));
-const screenshots = ["01-review-dashboard", "02-multichat-grid", "03-unified-feed", "04-timeout-confirmation", "05-autoapproval-settings"];
+const root = new URL("../", import.meta.url);
+const extensionRoot = new URL("src/", root);
+const output = new URL("dist/store/", root);
+const manifest = JSON.parse(await Deno.readTextFile(new URL("manifest.json", extensionRoot)));
+const screenshots = ["01-review-dashboard", "02-multichat-grid", "03-unified-feed", "04-timeout-confirmation", "05-chatter-history"];
 const assets = [];
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const supportUrl = "https://github.com/yeraysampedro/Twtich-Moderatr/issues";
 const homepageUrl = "https://github.com/yeraysampedro/Twtich-Moderatr";
-const privacyUrl = `${homepageUrl}/blob/main/PRIVACY.md`;
+const privacyUrl = `${homepageUrl}/blob/main/docs/PRIVACY.md`;
 
 function demoApi({ firefoxApi }) {
   const now = Date.now();
@@ -52,6 +53,11 @@ function demoApi({ firefoxApi }) {
     { key: "demo:501", userId: "501", login: "sample_viewer_01", displayName: "SampleViewer01", ageDays: 2,
       messageCount: 2, firstMessage: true, followedAt: new Date(now - 20 * 60000).toISOString(),
       reasons: ["new-account", "first-message", "new-follower"], note: "Introduced by the community raid.",
+      activityHistory: [
+        { type: "timeout", at: now - 3600000, actor: "demo_moderator", source: "manual", duration: 300, reason: "Example: repeated off-topic messages" },
+        { type: "note", at: now - 7200000, actor: "demo_moderator", source: "manual", previousNote: "", note: "Introduced by the community raid." },
+        { type: "timeout", at: now - 86400000, actor: "demo_moderator", source: "quick", duration: 1, reason: "/srs" }
+      ],
       recentMessages: [{ text: "Hi everyone, first time here. How does the schedule work?", sentAt: now - 45000 }], lastMessageAt: now - 45000 },
     { key: "demo:502", userId: "502", login: "sample_viewer_02", displayName: "SampleViewer02", ageDays: 120,
       messageCount: 4, firstMessage: false, followedAt: new Date(now - 10 * 60000).toISOString(),
@@ -69,6 +75,11 @@ function demoApi({ firefoxApi }) {
       }),
       sendMessage: async (message) => {
         if (message.type === "GET_STATE") return { state: snapshot() };
+        if (message.type === "GET_CHATTERS") {
+          const matches = accounts.filter((account) => !message.query || `${account.login} ${account.displayName}`.toLowerCase().includes(message.query.toLowerCase()));
+          return { accounts: matches, total: matches.length, page: 0, pageSize: 25, broadcasterId: "demo" };
+        }
+        if (message.type === "GET_ACCOUNT_HISTORY") return { account: accounts.find((account) => account.key === message.key) };
         if (message.type === "SAVE_SETTINGS") {
           settings = structuredClone(message.settings);
           for (const listener of storageListeners) listener({ settings: { newValue: settings } }, "local");
@@ -114,7 +125,7 @@ async function writePng(name, bytes, width, height, opaque = false) {
   await Deno.mkdir(new URL("./", target), { recursive: true });
   await Deno.writeFile(target, encoded);
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", encoded));
-  assets.push({ path: `assets/store/${name}`, width, height, bytes: encoded.length,
+  assets.push({ path: `dist/store/${name}`, width, height, bytes: encoded.length,
     sha256: [...digest].map((value) => value.toString(16).padStart(2, "0")).join("") });
 }
 
@@ -134,12 +145,12 @@ async function captureBrowser(name, browser) {
     await context.addInitScript(demoApi, { firefoxApi: name === "firefox" });
     const dashboard = await context.newPage();
     dashboard.on("pageerror", (error) => errors.push(error.message));
-    await dashboard.goto(new URL("dashboard.html", root).href);
+    await dashboard.goto(new URL("dashboard.html", extensionRoot).href);
     await dashboard.waitForFunction(() => document.querySelectorAll(".chatter-card").length === 2);
     await capture(dashboard, `${name}/${screenshots[0]}.png`);
 
     const chat = dashboard;
-    await chat.goto(new URL("chat.html", root).href);
+    await chat.goto(new URL("chat.html", extensionRoot).href);
     await chat.waitForFunction(() => document.querySelectorAll(".chat-panel").length === 3 && document.querySelectorAll(".chat-row").length > 0);
     await capture(chat, `${name}/${screenshots[1]}.png`);
     await chat.locator('[data-mode="unified"]').click();
@@ -148,16 +159,18 @@ async function captureBrowser(name, browser) {
     await chat.waitForFunction(() => document.querySelector(".pinned-message"));
     await capture(chat, `${name}/${screenshots[2]}.png`);
 
-    await dashboard.goto(new URL("dashboard.html", root).href);
+    await dashboard.goto(new URL("dashboard.html", extensionRoot).href);
     await dashboard.waitForFunction(() => document.querySelectorAll(".chatter-card").length === 2);
     await dashboard.locator(".action-row .action-button").nth(1).click();
     await dashboard.locator('.action-dialog input[name="duration"]').fill("300");
     await dashboard.locator('.action-dialog input[name="reason"]').fill("Example: repeated off-topic messages");
     await capture(dashboard, `${name}/${screenshots[3]}.png`);
     await dashboard.locator(".dialog-cancel").click();
-    await dashboard.locator("#settings-toggle").click();
-    await dashboard.locator(".preference-group").first().evaluate((node) => node.scrollIntoView({ block: "start" }));
+    await dashboard.locator(".action-row .action-button").nth(3).click();
+    await dashboard.locator('[data-history-view="actions"]').click();
     await capture(dashboard, `${name}/${screenshots[4]}.png`);
+    const obsolete = new URL(`${name}/05-autoapproval-settings.png`, output);
+    try { await Deno.remove(obsolete); } catch (error) { if (!(error instanceof Deno.errors.NotFound)) throw error; }
     if (errors.length) throw new Error(`${name}: ${errors.join("; ")}`);
 
     if (name === "chromium") await graphics(dashboard);
@@ -165,7 +178,7 @@ async function captureBrowser(name, browser) {
 }
 
 async function graphics(page) {
-  const master = await Deno.readFile(new URL("assets/icons/chatter-watch-512.png", root));
+  const master = await Deno.readFile(new URL("assets/icons/chatter-watch-512.png", extensionRoot));
   const dataUrl = `data:image/png;base64,${Buffer.from(master).toString("base64")}`;
   const images = await page.evaluate(async (source) => {
     const image = new Image();
@@ -198,11 +211,15 @@ async function graphics(page) {
     return output;
   }, dataUrl);
   for (const image of images) await writePng(image.name, Buffer.from(image.data, "base64"), image.width, image.height, image.width !== 128);
-  for (const size of [32, 64]) await writePng(`icon-${size}.png`, await Deno.readFile(new URL(`assets/icons/chatter-watch-${size}.png`, root)), size, size);
+  for (const size of [32, 64]) await writePng(`icon-${size}.png`, await Deno.readFile(new URL(`assets/icons/chatter-watch-${size}.png`, extensionRoot)), size, size);
 }
 
 function verify(condition, detail) {
   if (!condition) throw new Error(detail);
+}
+
+function verifyPublicPaths(paths) {
+  for (const path of paths) verify(!/(^|\/)(example_accounts\.md|\.env(?:\..*)?|[^/]+\.(?:pem|pfx|p12|key))$/i.test(path), `Private file is not allowed in an archive: ${path}`);
 }
 
 async function hash(bytes) {
@@ -230,12 +247,15 @@ async function metadata() {
   }
   verify(manifest.name.length <= 75 && manifest.description.length <= 132, "Manifest name/description exceeds Chrome limits");
   const permissions = Object.fromEntries(["storage", "identity", "sidePanel", "alarms"].map((name) => [name, paragraphUnder(permissionText, name)]));
+  let privateAccountsPresent = false;
+  try { privateAccountsPresent = (await Deno.stat(new URL("example_accounts.md", root))).isFile; }
+  catch (error) { if (!(error instanceof Deno.errors.NotFound)) throw error; }
   return { name: manifest.name, version: manifest.version, defaultLocale: "en", supportUrl, homepageUrl,
     privacyUrlAfterPublication: privacyUrl, privacyUrlMustBeVerified: true,
     solePurpose: paragraphUnder(permissionText, "Single Purpose"),
     permissions, hostPermission: paragraphUnder(permissionText, "Host Permission - Combined Store Field"),
     remoteCode: "No executable remote JavaScript or Wasm in the inspected runtime package; network responses are data. See STORE_PERMISSIONS.md.",
-    locales: localized, testCredentials: { status: "OWNER_REQUIRED_PRIVATE_SUBMISSION", included: false },
+    locales: localized, testCredentials: { status: privateAccountsPresent ? "LOCAL_PRIVATE_FILE_PRESENT_NOT_READ_OR_VALIDATED" : "OWNER_REQUIRED_PRIVATE_SUBMISSION", included: false },
     license: { status: "OWNER_DECISION_REQUIRED", thirdPartyIcons: "LICENSE.lucide" } };
 }
 
@@ -247,10 +267,27 @@ async function checkUrl(url) {
   } catch (error) { return { url, status: 0, accessible: false, error: error.message }; }
 }
 
+async function checkPublicPrivacy() {
+  const normalize = (text) => text.replace(/^\uFEFF/, "").replaceAll("\r\n", "\n").trim();
+  const local = normalize(await Deno.readTextFile(new URL("docs/PRIVACY.md", root)));
+  const url = `https://raw.githubusercontent.com${new URL(homepageUrl).pathname}/main/docs/PRIVACY.md`;
+  const localSha256 = await hash(encoder.encode(local));
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "ChatterWatch-Publication-Validation/1.3" } });
+    if (!response.ok) {
+      await response.body?.cancel();
+      return { url, status: response.status, matchesLocal: false, localSha256 };
+    }
+    const published = normalize(await response.text());
+    return { url, status: response.status, matchesLocal: published === local, localSha256, publishedSha256: await hash(encoder.encode(published)) };
+  } catch (error) { return { url, status: 0, matchesLocal: false, localSha256, error: error.message }; }
+}
+
 async function validatePackage(artifact) {
   const bytes = await Deno.readFile(artifact.archive);
   const entries = unzipSync(bytes);
   const names = Object.keys(entries).sort();
+  verifyPublicPaths(names);
   const expected = ["LICENSE.lucide", "core.js", "chat-flow.js", "worker.js", "virtual-chat.js", "dashboard.html", "dashboard.css", "dashboard.js", "chat.html", "chat.css", "chat.js", "view-tools.js", "view-tools.css", "icons.js", "manifest.json", ...[16, 32, 48, 64, 96, 128].map((size) => `assets/icons/chatter-watch-${size}.png`)].sort();
   verify(JSON.stringify(names) === JSON.stringify(expected), `${artifact.target}: unexpected/missing archive files`);
   verify(names.every((name) => !name.startsWith("/") && !name.includes("..") && !name.includes("\\")), "Unsafe ZIP path");
@@ -269,12 +306,12 @@ async function validatePackage(artifact) {
     }
   }
   for (const [name, content] of Object.entries(entries)) {
-    if (name !== "manifest.json") verify(await hash(content) === await hash(await Deno.readFile(new URL(name, root))), `Packaged source mismatch: ${name}`);
+    if (name !== "manifest.json") verify(await hash(content) === await hash(await Deno.readFile(new URL(name, extensionRoot))), `Packaged source mismatch: ${name}`);
     const text = decoder.decode(content);
     if (name.endsWith(".html")) for (const match of text.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["']/gi)) verify(Boolean(entries[match[1]]), `Non-packaged script in ${name}: ${match[1]}`);
     if (name.endsWith(".js")) verify(!/\beval\s*\(|\bnew\s+Function\s*\(|importScripts\s*\(\s*["']https?:|WebAssembly\.(?:compile|instantiate)/.test(text), `Executable-code pattern requires review: ${name}`);
   }
-  return { target: artifact.target, path: `dist/chatter-watch-${manifest.version}-${artifact.target}.zip`, sha256: await hash(bytes), entries: names,
+  return { target: artifact.target, path: `dist/packages/chatter-watch-${manifest.version}-${artifact.target}.zip`, sha256: await hash(bytes), entries: names,
     structuralStatus: "PASS", icon128: "PASS: exact 128x128 PNG", screenshotsInsideExtension: 0,
     remoteCodeStaticCheck: "PASS: packaged script references; no eval/new Function/remote importScripts/Wasm execution patterns. Not a complete security audit.",
     manifest: packaged, bytes: bytes.length };
@@ -302,7 +339,8 @@ async function reproduceSource(sourceZip, packages) {
 }
 
 async function bundle() {
-  const documents = ["README.md", "PRIVACY.md", "LICENSE.lucide", "CHANGELOG.md", "SUPPORT.md", "docs/STORE_SUBMISSION.md", "docs/STORE_REQUIREMENTS.md", "docs/STORE_PERMISSIONS.md", "docs/STORE_LISTING.md", "docs/STORE_TESTING.md", "docs/IMPLEMENTATION.md", "docs/en.md", "docs/es.md", "docs/de.md"];
+  const documents = ["README.md", "docs/PRIVACY.md", "src/LICENSE.lucide", "docs/CHANGELOG.md", "docs/SUPPORT.md", "docs/STORE_SUBMISSION.md", "docs/STORE_REQUIREMENTS.md", "docs/STORE_PERMISSIONS.md", "docs/STORE_LISTING.md", "docs/STORE_TESTING.md", "docs/IMPLEMENTATION.md", "docs/en.md", "docs/es.md", "docs/de.md"];
+  verifyPublicPaths(documents);
   const artifacts = await buildPackages();
   const packages = [];
   for (const artifact of artifacts) packages.push(await validatePackage(artifact));
@@ -316,13 +354,16 @@ async function bundle() {
   await Deno.writeTextFile(new URL("firefox-lint.json", output), `${JSON.stringify(firefoxLint, null, 2)}\n`);
   const links = [];
   for (const url of [supportUrl, homepageUrl, privacyUrl]) links.push(await checkUrl(url));
+  const publicPrivacy = await checkPublicPrivacy();
   const listingMetadata = await metadata();
+  listingMetadata.publicPrivacy = publicPrivacy;
   const metadataBytes = encoder.encode(`${JSON.stringify(listingMetadata, null, 2)}\n`);
   await Deno.writeFile(new URL("metadata.json", output), metadataBytes);
   const failures = [
     ...(!lintRun.success || firefoxLint.summary.errors ? ["Firefox web-ext validation failed; see firefox-lint.json for actual findings."] : []),
     ...links.filter((link) => !link.accessible).map((link) => `Public URL unavailable or unverified (${link.status}): ${link.url}`),
-    "No authorized Twitch reviewer credentials/test Client ID have been supplied. Provide them privately in the store dashboard; none are included in this kit.",
+    ...(!publicPrivacy.matchesLocal ? ["The publicly published privacy text does not match the local policy, or could not be verified. Publish the current policy and rerun validation; HTTP 200 alone is insufficient."] : []),
+    "Reviewer credentials, the actual store callback and live Twitch access are not validated by this build. Any local account file remains private, unread and excluded from every archive; supply review access only through the store's private fields.",
     "Application-wide distribution license and publisher/account contact declarations require the owner's decision.",
     "At-rest encryption compliance remains unresolved: this implementation uses browser storage/IndexedDB without its own encryption. Do not certify compliance without resolving the store-policy requirement."
   ];
@@ -333,12 +374,14 @@ async function bundle() {
     "The 128px store artwork includes 16px transparent padding. Runtime icon dimensions are valid; recheck the store's artwork-weight guidance for the packaged original.",
     "German/Spanish listing copy is supplied, but the current package has no _locales metadata. Verify Chrome's available listing locales before using those translations there."
   ];
-  const report = { version: manifest.version, validatedAt: new Date().toISOString(), structuralStatus: "PASS", publicationStatus: "NOT_READY_FOR_FINAL_CERTIFICATION", packages, firefoxLint: { tool: "web-ext 9.1.0", exitCode: lintRun.code, ...firefoxLint.summary }, publicLinks: links, blockers: failures, warnings, storeKits: [] };
+  const report = { version: manifest.version, validatedAt: new Date().toISOString(), structuralStatus: "PASS", publicationStatus: "NOT_READY_FOR_FINAL_CERTIFICATION", packages, firefoxLint: { tool: "web-ext 9.1.0", exitCode: lintRun.code, ...firefoxLint.summary }, publicLinks: links, publicPrivacy, blockers: failures, warnings, storeKits: [] };
   const sourceEntries = {};
-  const sourceFiles = new Set([...packages[0].entries, ...documents, "build.js", "deno.json", "deno.lock", "store-assets.js", "AGENTS.md", "assets/icons/chatter-watch-512.png", "tests/core_test.js", "tests/worker_test.js", "tests/ui_test.js", "tests/build_test.js"]);
+  const sourceFiles = new Set([...packages[0].entries.map((name) => `src/${name}`), ...documents, "build/build.js", "deno.json", "deno.lock", ".gitignore", "build/store-assets.js", "AGENTS.md", "src/assets/icons/chatter-watch-512.png", "tests/core_test.js", "tests/worker_test.js", "tests/ui_test.js", "tests/build_test.js"]);
+  verifyPublicPaths(sourceFiles);
   for (const name of sourceFiles) sourceEntries[name] = await Deno.readFile(new URL(name, root));
   const sourceZip = zipSync(sourceEntries, { level: 9, mtime: new Date(2000, 0, 1) });
-  const sourcePath = `dist/chatter-watch-${manifest.version}-source.zip`;
+  const sourcePath = `dist/source/chatter-watch-${manifest.version}-source.zip`;
+  await Deno.mkdir(new URL("dist/source/", root), { recursive: true });
   await Deno.writeFile(new URL(sourcePath, root), sourceZip);
   report.sourceArchive = { path: sourcePath, sha256: await hash(sourceZip), files: Object.keys(sourceEntries), rebuild: "deno task build", reproducibility: await reproduceSource(sourceZip, packages) };
   for (const artifact of artifacts) {
@@ -370,25 +413,29 @@ async function bundle() {
       "- Nested extension ZIP: 21 allowlisted files, root Manifest V3, browser-specific configuration, exact source match, valid icon references.",
       "- The extension ZIP intentionally has no listing screenshots; upload them separately. Do not upload this whole kit as the extension.",
       `- Firefox web-ext result: ${firefoxLint.summary.errors || 0} errors, ${firefoxLint.summary.warnings || 0} warnings, exit code ${lintRun.code}. See firefox-lint.json.`,
+      `- Public privacy content: ${publicPrivacy.matchesLocal ? "matches the local policy" : "MISMATCH or unavailable"}; normalized SHA-256 comparison, not a compliance certificate.`,
       "", "## Publication blockers / missing evidence", "", ...failures.map((item) => `- ${item}`),
       "", "## Warnings", "", ...warnings.map((item) => `- ${item}`),
       "", "## Package SHA-256", "", ...subset.packages.map((item) => `- ${item.path}: ${item.sha256}`),
       "", `Source archive SHA-256: ${report.sourceArchive.sha256}. Rebuild from its root with deno task build. ${report.sourceArchive.reproducibility}.`,
       "", "validation.json contains detailed checks and public URL statuses. The repository-level STORE_VALIDATION.md records the final kit ZIP hashes; a ZIP cannot contain a non-circular hash of itself.", ""
     ].join("\n"));
+    verifyPublicPaths(Object.keys(entries));
     const zip = zipSync(entries, { level: 9, mtime: new Date(2000, 0, 1) });
     const reread = unzipSync(zip);
     verify(Object.keys(reread).length === Object.keys(entries).length, "ZIP round-trip entry mismatch");
     for (const [name, content] of Object.entries(entries)) verify(await hash(reread[name]) === await hash(content), `ZIP round-trip content mismatch: ${name}`);
-    const path = `dist/chatter-watch-${manifest.version}-${artifact.target}-store-kit.zip`;
+    const path = `dist/store-kits/chatter-watch-${manifest.version}-${artifact.target}-store-kit.zip`;
+    await Deno.mkdir(new URL("dist/store-kits/", root), { recursive: true });
     await Deno.writeFile(new URL(path, root), zip);
     report.storeKits.push({ target: artifact.target, path, sha256: await hash(zip), bytes: zip.length, listingIconCount: 1, listingIconSize: "128x128", screenshotCount: captures.length, screenshotSize: "1280x800", structuralStatus: "PASS" });
     console.log(`Validated store kit: ${path}`);
   }
   await Deno.writeTextFile(new URL("validation.json", output), `${JSON.stringify(report, null, 2)}\n`);
-  const lines = ["# Final ZIP Validation", "", `Version ${manifest.version}. Validated ${report.validatedAt}.`, "", "**Archive/asset checks: PASS. Publication certification: NOT READY.**", "", "## Extension ZIPs", "", "| Browser | Entries | Root manifest | Icon | Screenshots inside | Source match |", "| --- | --- | --- | --- | --- | --- |", ...packages.map((item) => `| ${item.target} | ${item.entries.length} | Manifest V3, browser-specific | 128x128 PNG | 0 (correct: listing uploads are separate) | PASS |`), "", "## Store Kits", "", "Extract these ZIPs. Upload only the nested package from packages/ as the extension, and the five screenshots separately to the listing.", "", "| Kit | Listing icon | Screenshots | Pixel dimensions | ZIP integrity |", "| --- | --- | --- | --- | --- |", ...report.storeKits.map((item) => `| ${item.path} | Exactly one 128x128 PNG | Exactly ${item.screenshotCount} | All 1280x800, opaque | PASS |`), "", "## Publication Blockers / Missing Evidence", "", ...failures.map((item) => `- ${item}`), "", "## Warnings", "", ...warnings.map((item) => `- ${item}`), "", "## Public URLs", "", ...links.map((link) => `- HTTP ${link.status}: ${link.url} (${link.accessible ? "publicly reachable" : "unavailable/unverified"})`), "", "## Package SHA-256", "", ...packages.map((item) => `- ${item.path}: ${item.sha256}`), "", "## Kit SHA-256", "", ...report.storeKits.map((item) => `- ${item.path}: ${item.sha256}`), "", "Machine-readable evidence: assets/store/validation.json, metadata.json and inventory.json. Remote-code checks are focused static checks, not a penetration test or a store approval.", ""];
+  const lines = ["# Final ZIP Validation", "", `Version ${manifest.version}. Validated ${report.validatedAt}.`, "", "**Archive/asset checks: PASS. Publication certification: NOT READY.**", "", "## Extension ZIPs", "", "| Browser | Entries | Root manifest | Icon | Screenshots inside | Source match |", "| --- | --- | --- | --- | --- | --- |", ...packages.map((item) => `| ${item.target} | ${item.entries.length} | Manifest V3, browser-specific | 128x128 PNG | 0 (correct: listing uploads are separate) | PASS |`), "", "## Store Kits", "", "Extract these ZIPs. Upload only the nested package from packages/ as the extension, and the five screenshots separately to the listing.", "", "| Kit | Listing icon | Screenshots | Pixel dimensions | ZIP integrity |", "| --- | --- | --- | --- | --- |", ...report.storeKits.map((item) => `| ${item.path} | Exactly one 128x128 PNG | Exactly ${item.screenshotCount} | All 1280x800, opaque | PASS |`), "", "## Publication Blockers / Missing Evidence", "", ...failures.map((item) => `- ${item}`), "", "## Warnings", "", ...warnings.map((item) => `- ${item}`), "", "## Public URLs", "", ...links.map((link) => `- HTTP ${link.status}: ${link.url} (${link.accessible ? "publicly reachable" : "unavailable/unverified"})`), "", "## Package SHA-256", "", ...packages.map((item) => `- ${item.path}: ${item.sha256}`), "", "## Kit SHA-256", "", ...report.storeKits.map((item) => `- ${item.path}: ${item.sha256}`), "", "Machine-readable evidence: dist/store/validation.json, metadata.json and inventory.json. Remote-code checks are focused static checks, not a penetration test or a store approval.", ""];
   await Deno.writeTextFile(new URL("docs/STORE_VALIDATION.md", root), lines.join("\n"));
-  await Deno.writeTextFile(new URL("docs/STORE_VALIDATION.md", root), `\n## Mozilla Validator\n\nweb-ext 9.1.0: exit ${lintRun.code}, ${firefoxLint.summary.errors || 0} errors, ${firefoxLint.summary.warnings || 0} warnings. Actual output: assets/store/firefox-lint.json (also included inside both kits).\n`, { append: true });
+  await Deno.writeTextFile(new URL("docs/STORE_VALIDATION.md", root), `\n## Published Privacy Content\n\n${publicPrivacy.matchesLocal ? "PASS: the public policy matches the local text after normalizing line endings." : "BLOCKED: public and local policy text differ or the public content could not be checked."}\n\nSource: ${publicPrivacy.url}\n\nLocal SHA-256: ${publicPrivacy.localSha256}\n\nPublished SHA-256: ${publicPrivacy.publishedSha256 || "unavailable"}\n`, { append: true });
+  await Deno.writeTextFile(new URL("docs/STORE_VALIDATION.md", root), `\n## Mozilla Validator\n\nweb-ext 9.1.0: exit ${lintRun.code}, ${firefoxLint.summary.errors || 0} errors, ${firefoxLint.summary.warnings || 0} warnings. Actual output: dist/store/firefox-lint.json (also included inside both kits).\n`, { append: true });
   await Deno.writeTextFile(new URL("docs/STORE_VALIDATION.md", root), `\n## Source Archive\n\n${sourcePath}: ${report.sourceArchive.sha256}. ${sourceFiles.size} allowlisted source/resource/documentation files. Extract and run deno task build; no Twitch credentials are needed to reproduce the runtime packages.\n\n${report.sourceArchive.reproducibility}.\n`, { append: true });
   console.log(`Archive validation PASS; ${failures.length} publication blockers/missing-evidence items are recorded, not silently certified.`);
 }

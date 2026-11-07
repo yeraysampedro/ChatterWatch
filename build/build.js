@@ -1,6 +1,6 @@
 import { zipSync } from "npm:fflate@0.8.2";
 
-const root = new URL("./", import.meta.url);
+const root = new URL("../src/", import.meta.url);
 const runtimeFiles = [
   "core.js", "chat-flow.js", "worker.js", "virtual-chat.js",
   "dashboard.html", "dashboard.css", "dashboard.js", "chat.html", "chat.css", "chat.js",
@@ -27,7 +27,7 @@ export function manifestFor(source, target) {
   return manifest;
 }
 
-export async function buildPackages(output = new URL("./dist/", root)) {
+export async function buildPackages(output = new URL("../dist/", import.meta.url)) {
   const source = JSON.parse(await Deno.readTextFile(new URL("manifest.json", root)));
   if (!/^\d+(?:\.\d+){0,3}$/.test(source.version)) throw new Error("Invalid extension version.");
   const files = Object.fromEntries(await Promise.all(runtimeFiles.map(async (name) => [
@@ -46,7 +46,8 @@ export async function buildPackages(output = new URL("./dist/", root)) {
       await Deno.mkdir(new URL("./", target), { recursive: true });
       await Deno.writeFile(target, content);
     }
-    const archive = new URL(`chatter-watch-${source.version}-${target}.zip`, output);
+    const archive = new URL(`packages/chatter-watch-${source.version}-${target}.zip`, output);
+    await Deno.mkdir(new URL("./", archive), { recursive: true });
     await Deno.writeFile(archive, zipSync(entries, { level: 9, mtime: new Date(2000, 0, 1) }));
     artifacts.push({ target, directory, archive });
   }

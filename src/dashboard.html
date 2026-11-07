@@ -49,12 +49,20 @@
     </section>
 
     <nav class="filter-bar" aria-label="Filter chatter" data-i18n-aria="filter.label">
-      <button class="filter active" data-filter="all" type="button"><span data-i18n="filter.all">All</span><span id="filter-all-count">0</span></button>
+      <button class="filter active" data-filter="pending" type="button"><span data-i18n="filter.pending">Pending review</span><span id="filter-all-count">0</span></button>
+      <button class="filter" data-filter="all" type="button" data-i18n="filter.everyone">All chatters</button>
       <button class="filter" data-filter="new" type="button" data-i18n="filter.new">New accounts</button>
       <button class="filter" data-filter="first" type="button" data-i18n="filter.first">First message</button>
       <button class="filter" data-filter="follower" type="button" data-i18n="filter.follower">New followers</button>
       <button class="filter" data-filter="approved" type="button" data-i18n="filter.approved">Approved</button>
     </nav>
+
+    <div class="directory-tools">
+      <label class="directory-search"><span data-i18n="directory.search">Search chatters</span><input id="chatter-search" type="search" maxlength="80" autocomplete="off" data-i18n-placeholder="directory.search" placeholder="Search chatters"></label>
+      <span id="directory-status" role="status"></span>
+      <button id="directory-previous" class="icon-button" type="button" data-i18n-title="directory.previous" data-i18n-aria="directory.previous" title="Previous page" aria-label="Previous page" disabled>&#8592;</button>
+      <button id="directory-next" class="icon-button" type="button" data-i18n-title="directory.next" data-i18n-aria="directory.next" title="Next page" aria-label="Next page" disabled>&#8594;</button>
+    </div>
 
     <section class="feed" id="feed" aria-live="polite" aria-label="Flagged chatters" data-i18n-aria="feed.label">
       <div class="empty-state" id="empty-state">
@@ -89,8 +97,17 @@
     <footer class="footer"><span><span data-i18n="theme.footer">CHAT MONITOR</span> <span class="footer-separator">/</span> <span data-i18n="theme.local">LOCAL ONLY</span></span><span id="auth-label">Not signed in</span></footer>
   </main>
   <dialog class="history-dialog" id="history-dialog" aria-labelledby="history-title">
-    <div class="history-heading"><div><p class="eyebrow" data-i18n="history.eyebrow">CHAT LOG</p><h2 id="history-title" data-i18n="history.title">Message history</h2><p class="history-user" id="history-user"></p></div><button class="icon-button" id="history-close" type="button" title="Close history" aria-label="Close history" data-i18n-title="close" data-i18n-aria="close"><span aria-hidden="true">×</span></button></div>
-    <ol class="history-list" id="history-list"></ol>
+    <div class="history-heading"><div><p class="eyebrow" data-i18n="history.local">LOCAL HISTORY</p><h2 id="history-title" data-i18n="history.profile">Chatter history</h2><p class="history-user" id="history-user"></p></div><button class="icon-button" id="history-close" type="button" title="Close history" aria-label="Close history" data-i18n-title="close" data-i18n-aria="close"><span aria-hidden="true">×</span></button></div>
+    <p class="history-coverage" data-i18n="history.coverage">Local records only: up to 50 messages and 100 activity events.</p>
+    <nav class="history-tabs" aria-label="History views">
+      <button type="button" data-history-view="messages" aria-pressed="true" data-i18n="history.messages">Messages</button>
+      <button type="button" data-history-view="notes" aria-pressed="false" data-i18n="history.notes">Notes</button>
+      <button type="button" data-history-view="actions" aria-pressed="false" data-i18n="history.actions">Moderation</button>
+    </nav>
+    <div class="history-body">
+      <section id="history-note-panel" hidden><h3 data-i18n="history.currentNote">Current note</h3><p id="history-note"></p></section>
+      <ol class="history-list" id="history-list"></ol>
+    </div>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="core.js"></script>

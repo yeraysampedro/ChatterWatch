@@ -11,7 +11,7 @@ Homepage: https://github.com/yeraysampedro/Twtich-Moderatr
 ## Before Reporting
 
 1. Check the extension version and use the correct Chromium or Firefox package.
-2. Read the relevant [English](docs/en.md), [Spanish](docs/es.md) or [German](docs/de.md) guide.
+2. Read the relevant [English](en.md), [Spanish](es.md) or [German](de.md) guide.
 3. For OAuth problems, compare the exact redirect shown in Settings with the redirect registered in Twitch Developers. Use a Client ID, never a Client Secret.
 4. For denied moderation actions, verify the Twitch scope and the account's moderator/broadcaster privileges in the target channel. Reauthorize when a new scope is required.
 5. For translation, verify the selected HTTPS endpoint, its origin permission, Firefox data consent and provider requirements. No default provider or API key is included.

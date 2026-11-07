@@ -1,10 +1,10 @@
 # Testing Instructions for Store Reviewers
 
-Twitch Chatter Watch 1.3.0. These instructions describe the implemented extension. They are suitable for the Chrome Web Store Test instructions field and Mozilla Notes for Reviewers after the publisher provides the private test-access details below.
+Twitch Chatter Watch 1.3.1. These instructions describe the implemented extension. They are suitable for the Chrome Web Store Test instructions field and Mozilla Notes for Reviewers after the publisher provides the private test-access details below.
 
 ## Credentials and Access: Publisher Must Supply Privately
 
-**No real Twitch test credentials have been provided for this release.** There is no working username/password, access token or Client ID in this document or the store kit. Screenshot accounts such as SampleViewer01 and demo_moderator are fictional fixtures, not usable login credentials. Automated-test strings such as test-token are not valid Twitch authorization.
+**Real credentials are private and are not included in this document or any store/source kit.** The owner has reported preparing accounts in an ignored local file; its contents were not opened or validated during housekeeping. Actual sign-in, channel roles, the store callback and private reviewer access still require verification. Screenshot accounts such as SampleViewer01 and demo_moderator are fictional fixtures, not usable login credentials. Automated-test strings such as test-token are not valid Twitch authorization.
 
 | Required access item | Value / preparation |
 | --- | --- |
@@ -17,9 +17,58 @@ Twitch Chatter Watch 1.3.0. These instructions describe the implemented extensio
 
 Account creation, verification, moderator assignment and store-private credentials are publisher actions. Revoke or rotate temporary reviewer access after review. Missing access must be reported as a review-preparation blocker, not replaced with invented credentials.
 
+## Publisher Preflight: Complete Before Pasting Reviewer Notes
+
+1. **Dedicated Twitch account.** Create an owner-controlled test account through Twitch's official sign-up flow, using an address and any verification method the owner can maintain. Do not use a production account, an invented identity/age, a bought account or an inbox you cannot monitor. Keep its password in the owner's password manager, never in this repository or an assistant conversation.
+2. **Authorized primary channel.** Prefer that test broadcaster's own channel, or have the owner of another controlled test channel grant the account moderator privileges. The authorized broadcaster/moderator token still needs the required OAuth scopes. A broadcaster cannot be used as the target of its own ban/timeout test.
+3. **Separate ordinary chatter.** Arrange a second controlled account or explicitly allow reviewers to send harmless messages from their own account. The test target must not be the broadcaster, a moderator or another exempt role. Only perform timeout/deletion tests on an agreed test account; do not moderate random users in a public channel.
+4. **Exact store callback.** Open https://chrome.google.com/webstore/devconsole and copy the actual item ID of the submitted extension. Chrome extension IDs are 32 lowercase letters in the range a-p. Register `https://<STORE-ITEM-ID>.chromiumapp.org/twitch` in the Twitch application at https://dev.twitch.tv/console/apps. Compare it with the URL displayed by the store-identity extension build. Keep an unpacked-development callback separately if needed; it is not a substitute. Supply the actual Client ID, never a Client Secret. Firefox has its own identity callback: copy/register the URL displayed by that build rather than deriving it from the Chrome item ID or Gecko ID.
+5. **Account access from new devices.** Test that both arranged accounts can sign in. A successful local login does not guarantee that Twitch will omit an email/new-device/2FA challenge for a reviewer in another location. Prepare a monitored private contact and a store-approved way to coordinate a fresh challenge if one occurs. Do not publish mailbox passwords, verification codes, recovery codes or an OTP seed, and do not bypass or disable Twitch security checks merely to make review easier. If workable reviewer access cannot be arranged, mark that as a blocker.
+6. **Live smoke test before submission.** In the controlled channel, leave automatic timeout off and initially leave auto-approval off. Confirm messages arrive in Multichat and the person appears in All chatters. Pending review only contains people matching enabled review signals, so an arbitrary established/approved/exempt chatter is not guaranteed to appear there. Use an unapproved test chatter and the appropriate enabled signals for the review-queue test; use All chatters to find an already resolved person. Cancel a moderation dialog first, then perform only an agreed short timeout/deletion and restore changed settings.
+
+The final credentials and new-device verification arrangement belong exclusively in Chrome's private Test instructions or AMO's private reviewer notes. Do not put a filled credential block in this public Markdown file, a store-kit ZIP, GitHub Issues, a screenshot or source control. The extension does not obtain credentials from this document or any setup script.
+
+**Twitch application-owner prerequisite:** the official registration guide requires a verified email and 2FA for the account registering the application. This owner can be different from the temporary reviewer account; do not share the owner's production account or its 2FA secrets. At the developer console, use Applications → Register Your Application, add the exact OAuth Redirect URL, complete Twitch's human verification, and obtain the Client ID from Manage. The current extension uses `response_type=token` (implicit grant); select an application registration that supports that flow. Twitch's token guide states that its Public client type is limited to device-code flow and cannot use implicit grant. If the console presents Public/Confidential choices, do not choose Public merely because the extension runs in a browser. The implicit request still needs no Client Secret, and any generated secret must remain outside the extension and review notes.
+
+Official references checked for this preparation: https://dev.twitch.tv/docs/authentication/register-app/ and https://dev.twitch.tv/docs/authentication/getting-tokens-oauth/ . Reconfirm current console labels and flow restrictions when registering; this document does not bypass email, CAPTCHA, new-device or 2FA checks.
+
+## Concise English Reviewer Notes Template
+
+This template is not complete until the owner replaces the access markers in the store's private reviewer field. Leave the second-account password out if the reviewer will use their own ordinary Twitch account. Do not claim that login verification is disabled or that a live test succeeded unless it was actually checked.
+
+```text
+Login: this extension requires a Twitch account and a Twitch application Client ID.
+
+Test moderator/broadcaster username: <ENTER_PRIVATELY>
+Test account password: <ENTER_PRIVATELY>
+Primary authorized test channel: <ENTER_CHANNEL>
+Client ID (not a Client Secret): <ENTER_CLIENT_ID>
+Registered callback for this store build: <ENTER_VERIFIED_CALLBACK>
+Second ordinary test chatter: <ENTER_USERNAME_AND_PASSWORD_PRIVATELY_OR_STATE_REVIEWERS_MAY_USE_THEIR_OWN_ACCOUNT>
+New-device/2FA verification arrangement: <ENTER_A_WORKING_PRIVATE_CONTACT_AND_PROCEDURE>
+
+Setup:
+1. Open the toolbar popup and use the pin-window button to open a persistent dashboard.
+2. Open Settings, enter the Client ID and primary test channel, and save.
+3. Click Connect, sign in through Twitch with the test moderator/broadcaster account and approve the requested scopes.
+4. Wait for Connected / Monitoring.
+
+Core features:
+- From the separate ordinary account, open twitch.tv/<CHANNEL> and send harmless sample messages. They appear in Multichat and in All chatters. Pending review is conditional on enabled account-review signals; it does not list every chatter.
+- Find the test chatter, add a note, inspect local history and approve them. Approved messages remain in live chat.
+- Open Multichat, add another public channel for read-only observation, and switch Grid / Unified. Do not perform moderation in an unrelated public channel.
+- Test timeout or deletion only on the agreed second account/message in the controlled primary channel. Manual actions require confirmation; cancel first, then confirm one arranged test action. Automatic timeout is separate and should remain disabled for this review unless specifically arranged.
+
+Translation is optional and disabled until a compatible HTTPS LibreTranslate endpoint is configured and authorized. No translation server is supplied; this optional test can be skipped. Each translation requires message-level confirmation and sends the selected text to the configured provider, never the Twitch token.
+
+All executable extension code is packaged locally. There are no website content scripts and no publisher-operated backend or telemetry. Records are stored locally; network traffic includes Twitch authentication/API/IRC and, only if configured and confirmed, the optional translation provider. Local storage is not described as application-encrypted.
+
+After testing, restore any changed channel settings and disconnect. The publisher will rotate temporary review passwords or retain the dedicated accounts only for future authorized reviews, and revoke unneeded sessions/authorizations.
+```
+
 ## Package and Setup
 
-1. Extract the browser-specific store kit. Install only `packages/chatter-watch-1.3.0-chromium.zip` or `packages/chatter-watch-1.3.0-firefox.zip` through the relevant review workflow. The store kit itself is not an installable extension ZIP.
+1. Extract the browser-specific store kit. Install only `packages/chatter-watch-1.3.1-chromium.zip` or `packages/chatter-watch-1.3.1-firefox.zip` through the relevant review workflow. The store kit itself is not an installable extension ZIP.
 2. Use desktop Chromium/Chrome 116+ or Firefox 140+. The ordinary Firefox release requires signing for permanent installation; temporary loading is a development check, not proof of signing. No mobile compatibility is claimed.
 3. Open the extension and use the pin-window button for a persistent dashboard. This avoids the native toolbar popup closing while the official OAuth flow runs.
 4. Open Settings. Confirm the displayed browser-specific OAuth redirect is registered in the test Twitch application. A locally unpacked Chrome installation can have a different ID/redirect from the store build. Prepare the final redirect after the item ID is known, before submitting the item for review.
@@ -38,6 +87,8 @@ Account creation, verification, moderator assignment and store-private credentia
 
 ## Safe Moderation Checks
 
+After an authorized timeout, verify the chatter remains in applicable review/category filters and is always reachable through All chatters. Open History and check the recorded duration, reason, source and date. Change a local note and verify its current/previous values in Notes. Search and page through the directory; these are local observed records, not Twitch's complete historical moderation log. Existing undetailed legacy states are labeled rather than assigned invented dates.
+
 1. Open a ban/timeout dialog for the authorized test chatter and cancel. No sanction should be sent. Verify that the target and channel remain clear while the dialog is open.
 2. With the publisher's authorization, confirm a short timeout on the test account. The manual duration is in seconds; never use a real participant for an unarranged sanction. `/srs 1s` also requests confirmation before its one-second timeout.
 3. Delete one agreed test message using the row's Delete action and confirm. Only that retained message is targeted; the local feed keeps it as a marked deletion ghost. Missing scope or role must report an error rather than success.
@@ -53,6 +104,8 @@ Account creation, verification, moderator assignment and store-private credentia
 5. Revoke the origin permission (and optionally Firefox data consent) and confirm that a new request is rejected. Clear the configured URL to disable the feature. JSON responses are displayed as text, not executed as code.
 
 ## Preferences, Alerts and Cleanup
+
+Repeated and concurrent Open Multichat/Detach clicks must reuse the matching window, including while it loads. Minimizing and reopening focuses/restores it; closing it permits a later replacement. At most twelve extension popup windows can be open, including workspace restoration. Existing duplicates and unrelated windows are not closed. Check the dashboard and settings fill 280px through wide desktop viewports without a centered strip or a theme-dependent size change.
 
 1. Change language or theme and open another view. Confirm the shared preference appears there and persists after reload; pause, scroll and pins remain window-local.
 2. Move/resize a detached window, close and reopen it. The browser may adjust unavailable-monitor positions. The native action popup itself cannot be forced to remain open on focus loss.

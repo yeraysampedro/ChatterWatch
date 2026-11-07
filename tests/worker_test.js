@@ -3,7 +3,7 @@ import vm from "node:vm";
 import { IDBFactory, IDBKeyRange } from "npm:fake-indexeddb@6.2.2";
 
 const sources = Object.fromEntries(await Promise.all(["core.js", "chat-flow.js", "worker.js"].map(async (name) => [
-  name, await Deno.readTextFile(new URL(`../${name}`, import.meta.url))
+  name, await Deno.readTextFile(new URL(`../src/${name}`, import.meta.url))
 ])));
 
 function eventBus() {
@@ -24,8 +24,10 @@ async function harness({ scopes = ["moderator:manage:chat_settings"], connected 
   const sockets = [];
   const requests = [];
   const windows = [];
+  const tabs = [];
   const timers = new Map();
   let nextTimer = 0;
+  let nextWindowId = 0;
   class Socket {
     static OPEN = 1;
     static CONNECTING = 0;
@@ -48,9 +50,19 @@ async function harness({ scopes = ["moderator:manage:chat_settings"], connected 
       getContexts: async () => windows.map((info) => ({ documentUrl: info.url, windowId: info.id }))
     },
     windows: {
-      async create(options) { const info = { id: windows.length + 1, left: 0, top: 0, state: "normal", ...options }; windows.push(info); return info; },
-      async getAll() { return windows; },
+      async create(options) { const info = { id: ++nextWindowId, left: 0, top: 0, state: "normal", ...options }; windows.push(info); return info; },
+      async getAll(options = {}) { return windows.filter((info) => !options.windowTypes || options.windowTypes.includes(info.type)); },
       async update(id, values) { const info = windows.find((item) => item.id === id); Object.assign(info, values); return info; }
+    },
+    tabs: {
+      async create({ url }) {
+        const info = { id: tabs.length + 1, windowId: 200, url };
+        tabs.push(info);
+        if (!windows.some((window) => window.id === 200)) windows.push({ id: 200, type: "normal", url });
+        return info;
+      },
+      async get(id) { const tab = tabs.find((info) => info.id === id); if (!tab) throw new Error("Tab closed"); return tab; },
+      async update(id, values) { const tab = tabs.find((info) => info.id === id); Object.assign(tab, values); return tab; }
     },
     alarms: { create() {}, onAlarm: eventBus() }
   };
@@ -79,7 +91,7 @@ async function harness({ scopes = ["moderator:manage:chat_settings"], connected 
   }
   vm.runInContext(sources["worker.js"], context);
   await vm.runInContext("chatReady", context);
-  return { context, chrome, sockets, requests, windows, call: (message) => context.handleMessage(message) };
+  return { context, chrome, sockets, requests, windows, tabs, call: (message) => context.handleMessage(message) };
 }
 
 Deno.test("worker detects the browser locale until a supported language is saved", async () => {
@@ -366,4 +378,145 @@ Deno.test("manual approval cannot be overwritten by a pending message update", a
   const account = await app.context.getAccount("100:77");
   assertEquals(account.isVetted, true);
   assertEquals(account.approvalSource, "manual");
+});
+
+for (const firefox of [false, true]) Deno.test(`window opens are single-instance even during concurrent clicks (${firefox ? "Firefox" : "Chromium"})`, async () => {
+  const app = await harness({ firefox });
+  const results = await Promise.all(Array.from({ length: 40 }, () => app.call({ type: "OPEN_CHAT_WINDOW" })));
+  assertEquals(new Set(results.map((result) => result.windowId)).size, 1);
+  assertEquals(app.windows.length, 1);
+  await app.call({ type: "OPEN_CHAT_WINDOW", channel: "primary" });
+  await app.call({ type: "OPEN_CHAT_WINDOW", channel: "primary" });
+  assertEquals(app.windows.length, 2);
+  assertEquals(app.windows[1].focused, true);
+  const dashboards = await Promise.all(Array.from({ length: 40 }, () => app.call({ type: "OPEN_DASHBOARD" })));
+  assertEquals(new Set(dashboards.map((result) => result.windowId)).size, 1);
+  assertEquals(app.windows.length, 3);
+});
+
+Deno.test("window opens reuse a loading view before runtime contexts become available", async () => {
+  const app = await harness();
+  app.chrome.runtime.getContexts = async () => [];
+  const first = await app.call({ type: "OPEN_CHAT_WINDOW" });
+  const second = await app.call({ type: "OPEN_CHAT_WINDOW" });
+  assertEquals(second.windowId, first.windowId);
+  const dashboard = await app.call({ type: "OPEN_DASHBOARD" });
+  assertEquals((await app.call({ type: "OPEN_DASHBOARD" })).windowId, dashboard.windowId);
+  assertEquals(app.windows.length, 2);
+});
+
+Deno.test("window opens reject additions above the extension popup limit", async () => {
+  const app = await harness();
+  for (let index = 0; index < 12; index += 1) {
+    app.windows.push({ id: index + 1, type: "popup", url: `chrome-extension://test/chat.html?channel=old_${index}`, state: "normal" });
+  }
+  const chatError = await assertRejects(() => app.call({ type: "OPEN_CHAT_WINDOW" }));
+  const dashboardError = await assertRejects(() => app.call({ type: "OPEN_DASHBOARD" }));
+  assert(chatError.message.includes("12"));
+  assert(dashboardError.message.includes("12"));
+  assertEquals(app.windows.length, 12);
+});
+
+Deno.test("window opens restore minimized views, reopen closed ones and recover after errors", async () => {
+  const app = await harness();
+  const first = await app.call({ type: "OPEN_CHAT_WINDOW" });
+  app.windows[0].state = "minimized";
+  assertEquals((await app.call({ type: "OPEN_CHAT_WINDOW" })).windowId, first.windowId);
+  assertEquals(app.windows[0].state, "normal");
+  app.windows.length = 0;
+  const second = await app.call({ type: "OPEN_CHAT_WINDOW" });
+  assert(second.windowId !== first.windowId);
+  assertEquals(app.windows.length, 1);
+  await assertRejects(() => app.call({ type: "OPEN_CHAT_WINDOW", channel: "bad channel" }));
+  assertEquals((await app.call({ type: "OPEN_CHAT_WINDOW" })).windowId, second.windowId);
+});
+
+Deno.test("window opens reuse a loading dashboard page without creating popup windows", async () => {
+  const app = await harness();
+  app.chrome.runtime.getContexts = async () => [];
+  const pages = await Promise.all(Array.from({ length: 30 }, () => app.call({ type: "OPEN_DASHBOARD", page: true })));
+  assertEquals(app.tabs.length, 1);
+  assertEquals(new Set(pages.map((info) => info.tabId)).size, 1);
+  assertEquals(app.windows.filter((info) => info.type === "popup").length, 0);
+});
+
+Deno.test("workspace restores share the window limit and never close unrelated windows", async () => {
+  const app = await harness();
+  await app.call({ type: "OPEN_CHAT_WINDOW" });
+  await app.call({ type: "SAVE_WORKSPACE", name: "One grid" });
+  app.windows.length = 0;
+  for (let index = 0; index < 12; index += 1) app.windows.push({ id: index + 10, type: "popup", url: `chrome-extension://test/chat.html?channel=old_${index}` });
+  app.windows.push({ id: 99, type: "popup", url: "https://example.com/" });
+  const error = await assertRejects(() => app.call({ type: "RESTORE_WORKSPACE", name: "One grid" }));
+  assert(error.message.includes("12"));
+  assertEquals(app.windows.length, 13);
+  assert(app.windows.some((info) => info.id === 99));
+});
+
+Deno.test("a confirmed timeout keeps the chatter reviewable and records local history", async () => {
+  const app = await harness({ scopes: ["moderator:manage:banned_users", "moderator:manage:warnings"] });
+  await app.call({ type: "SAVE_SETTINGS", settings: { clientId: "client", channel: "primary", flagNewFollower: false } });
+  await app.call({ type: "CONNECT" });
+  await app.context.processChatMessage({ command: "PRIVMSG", prefix: "viewer!viewer", params: ["#primary"], tags: { id: "history-message", "user-id": "77", "room-id": "100", "first-msg": "1" }, trailing: "hello" });
+  const response = await app.call({ type: "MODERATE", key: "100:77", action: "timeout", duration: 300, reason: "Test reason", confirmed: true });
+  assertEquals(response.state.flagged, 1);
+  assertEquals(response.state.accounts[0].dismissed, false);
+  await app.call({ type: "NOTE", key: "100:77", note: "First note" });
+  await app.call({ type: "NOTE", key: "100:77", note: "Updated note" });
+  const history = (await app.call({ type: "GET_ACCOUNT_HISTORY", key: "100:77" })).account;
+  assertEquals(history.recentMessages[0].text, "hello");
+  assertEquals(history.activityHistory.find((event) => event.type === "timeout").duration, 300);
+  assertEquals(history.activityHistory.find((event) => event.type === "timeout").reason, "Test reason");
+  assertEquals(history.activityHistory[0].previousNote, "First note");
+  assertEquals(history.activityHistory[0].note, "Updated note");
+  const count = history.activityHistory.length;
+  app.context.fetch = async () => ({ ok: false, status: 403, json: async () => ({ message: "Denied" }) });
+  await assertRejects(() => app.call({ type: "MODERATE", key: "100:77", action: "timeout", duration: 60, confirmed: true }));
+  assertEquals((await app.call({ type: "GET_ACCOUNT_HISTORY", key: "100:77" })).account.activityHistory.length, count);
+  await app.call({ type: "DISCONNECT" });
+  assertEquals((await app.call({ type: "GET_CHATTERS", filter: "all" })).total, 1);
+  assertEquals((await app.call({ type: "GET_ACCOUNT_HISTORY", key: "100:77" })).account.note, "Updated note");
+});
+
+Deno.test("all chatters supports bounded pages and search including resolved accounts", async () => {
+  const app = await harness();
+  await app.call({ type: "CONNECT" });
+  for (let index = 0; index < 130; index += 1) {
+    await app.context.saveAccount({ key: `100:${index}`, broadcasterId: "100", userId: String(index), login: `user_${index}`, displayName: `User ${index}`, lastMessageAt: index, ageDays: 2, isVetted: index % 2 === 0, dismissed: index % 3 === 0, reasons: ["new-account"], note: "", recentMessages: [] });
+  }
+  await app.context.saveAccount({ key: "200:other", broadcasterId: "200", login: "user_other", recentMessages: [] });
+  const first = await app.call({ type: "GET_CHATTERS", filter: "all", page: 0 });
+  const second = await app.call({ type: "GET_CHATTERS", filter: "all", page: 1 });
+  assertEquals(first.total, 130);
+  assertEquals(first.accounts.length, 25);
+  assertEquals(second.accounts.length, 25);
+  assert(!second.accounts.some((account) => first.accounts.some((previous) => previous.key === account.key)));
+  assertEquals((await app.call({ type: "GET_CHATTERS", filter: "all", query: "user_12" })).total, 11);
+  assertEquals((await app.call({ type: "GET_CHATTERS", filter: "new" })).total, 130);
+  await assertRejects(() => app.call({ type: "GET_ACCOUNT_HISTORY", key: "200:other" }));
+});
+
+Deno.test("privileged chatters are recorded for history without automatic review sanctions", async () => {
+  const app = await harness({ scopes: ["moderator:manage:banned_users"] });
+  await app.call({ type: "SAVE_SETTINGS", settings: { clientId: "client", channel: "primary", autoTimeout: true, messageThreshold: 1 } });
+  await app.call({ type: "CONNECT" });
+  await app.context.handleChatMessage({ command: "PRIVMSG", prefix: "moderator!moderator", params: ["#primary"], tags: { "user-id": "88", "room-id": "100", mod: "1", "first-msg": "1" }, trailing: "Moderator message" });
+  const all = await app.call({ type: "GET_CHATTERS", filter: "all" });
+  assertEquals(all.total, 1);
+  assertEquals(all.accounts[0].reviewExempt, true);
+  assertEquals((await app.call({ type: "GET_STATE" })).state.flagged, 0);
+  assert(!app.requests.some((request) => request.url.includes("/moderation/bans")));
+});
+
+Deno.test("quick timeouts record exact seconds and account activity remains bounded", async () => {
+  const app = await harness({ scopes: ["moderator:manage:banned_users"] });
+  await app.call({ type: "CONNECT" });
+  vm.runInContext('chatFlow.ingest({ channel: "primary", id: "quick-history", userId: "77", login: "viewer", text: "hello" })', app.context);
+  await app.call({ type: "QUICK_TIMEOUT", channel: "primary", id: "quick-history", confirmed: true });
+  const account = (await app.call({ type: "GET_ACCOUNT_HISTORY", key: "100:77" })).account;
+  assertEquals(account.activityHistory[0].duration, 1);
+  assertEquals(account.activityHistory[0].source, "quick");
+  for (let index = 0; index < 150; index += 1) app.context.recordAccountActivity(account, { type: "note", note: String(index) });
+  assertEquals(account.activityHistory.length, 100);
+  assertEquals(account.activityHistory[0].note, "149");
 });

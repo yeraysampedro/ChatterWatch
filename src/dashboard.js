@@ -19,6 +19,9 @@ const iconPaths = {
 
 const messages = {
   en: {
+    "directory.connectOnce": "Connect this channel once to identify its local history.", "directory.error": "Could not load chatters.",
+    "filter.pending": "Pending review", "filter.everyone": "All chatters", "directory.search": "Search chatters", "directory.previous": "Previous page", "directory.next": "Next page", "directory.page": "{total} people · {page}/{pages}", "directory.loading": "Loading...", "directory.empty": "No matching chatters recorded in this channel.", "directory.title": "Channel chatters",
+    "history.profile": "Chatter history", "history.local": "LOCAL HISTORY", "history.coverage": "Local records only: up to 50 messages and 100 activity events. Earlier unrecorded actions are unavailable.", "history.messages": "Messages", "history.notes": "Notes", "history.actions": "Moderation", "history.currentNote": "Current note", "history.noNote": "No note", "history.noEvents": "No recorded activity in this view.", "history.previous": "Previous", "history.current": "Current", "history.timeout": "Timeout: {seconds} s", "history.ban": "Ban", "history.warning": "Warning", "history.delete": "Message deleted", "history.approval": "Approval", "history.note": "Note changed", "history.manual": "Manual", "history.automatic": "Automatic", "history.quick": "/srs 1s", "history.legacy": "Previous state (no detailed event): {action}",
     "filter.approved": "Approved", "approval.manual": "Manually approved", "approval.messages": "Approved: message count", "approval.follower": "Approved: follower", "approval.subscriber": "Approved: subscriber", "approval.previous-subscriber": "Approved: locally observed former subscriber",
     "error.invalidSettings": "Complete the numeric settings with valid values.",
     "brand.home": "Chatter Watch home", "theme.dark": "Switch to dark mode", "theme.light": "Switch to light mode", "sidePanel.open": "Open side panel", "settings.title": "Settings", "close": "Close",
@@ -37,6 +40,9 @@ const messages = {
     "error.extension": "The extension service is unavailable. Reload the extension and try again.", "error.approval": "That chatter is no longer available.", "error.oauth": "Save your Twitch application client ID first.", "error.login": "Sign in with Twitch before connecting chat.", "error.helixLogin": "Sign in with Twitch before using Helix.", "error.moderateLogin": "Sign in and connect to a channel first.", "error.unsupported": "Unsupported request.", "error.warningScope": "Warning needs moderator:manage:warnings. Disconnect Twitch and sign in again to grant it.", "error.timeoutBounds": "Timeout must be between 1 second and 14 days.", "error.channelRequired": "Enter a channel name first.", "error.channelNotFound": "Twitch channel {channel} was not found.", "error.authExpired": "Twitch sign-in expired. Sign in again to continue.", "error.clientMismatch": "The Twitch token does not match this app or is not a user token.", "error.chatScope": "Grant the chat:read permission to connect to Twitch chat.", "error.banScope": "Grant the moderator:manage:banned_users permission to moderate chatters.", "error.followerScope": "Grant the moderator:read:followers permission or turn off recent-follower checks.", "error.signInCancelled": "Twitch sign-in was cancelled.", "error.authorization": "Twitch did not authorize this app.", "error.stateMismatch": "The Twitch sign-in state did not match. Please try again.", "error.noToken": "Twitch did not return an access token."
   },
   de: {
+    "directory.connectOnce": "Diesen Kanal einmal verbinden, um seinen lokalen Verlauf zuzuordnen.", "directory.error": "Chatter konnten nicht geladen werden.",
+    "filter.pending": "Zur Prüfung", "filter.everyone": "Alle Chatter", "directory.search": "Chatter suchen", "directory.previous": "Vorherige Seite", "directory.next": "Nächste Seite", "directory.page": "{total} Personen · {page}/{pages}", "directory.loading": "Lädt...", "directory.empty": "Keine passenden Chatter für diesen Kanal gespeichert.", "directory.title": "Chatter des Kanals",
+    "history.profile": "Chatter-Verlauf", "history.local": "LOKALER VERLAUF", "history.coverage": "Nur lokale Daten: bis zu 50 Nachrichten und 100 Ereignisse. Frühere nicht erfasste Aktionen sind nicht verfügbar.", "history.messages": "Nachrichten", "history.notes": "Notizen", "history.actions": "Moderation", "history.currentNote": "Aktuelle Notiz", "history.noNote": "Keine Notiz", "history.noEvents": "Keine aufgezeichneten Ereignisse in dieser Ansicht.", "history.previous": "Vorher", "history.current": "Aktuell", "history.timeout": "Timeout: {seconds} s", "history.ban": "Ban", "history.warning": "Verwarnung", "history.delete": "Nachricht gelöscht", "history.approval": "Freigabe", "history.note": "Notiz geändert", "history.manual": "Manuell", "history.automatic": "Automatisch", "history.quick": "/srs 1s", "history.legacy": "Vorheriger Zustand (ohne Ereignisdetails): {action}",
     "filter.approved": "Freigegeben", "approval.manual": "Manuell freigegeben", "approval.messages": "Freigegeben: Nachrichtenanzahl", "approval.follower": "Freigegeben: Follower", "approval.subscriber": "Freigegeben: Abonnent", "approval.previous-subscriber": "Freigegeben: lokal beobachteter fr\u00fcherer Abonnent",
     "error.invalidSettings": "Bitte g\u00fcltige Werte in die Zahlenfelder eintragen.",
     "brand.home": "Chatter Watch Startseite", "theme.dark": "Dunkelmodus aktivieren", "theme.light": "Hellmodus aktivieren", "sidePanel.open": "Seitenleiste öffnen", "settings.title": "Einstellungen", "close": "Schließen",
@@ -55,6 +61,9 @@ const messages = {
     "error.extension": "Der Erweiterungsdienst ist nicht verfügbar. Lade die Erweiterung neu und versuche es erneut.", "error.approval": "Dieser Chatter ist nicht mehr verfügbar.", "error.oauth": "Speichere zuerst deine Twitch-Client-ID.", "error.login": "Melde dich bei Twitch an, bevor du den Chat verbindest.", "error.helixLogin": "Melde dich bei Twitch an, bevor du Helix verwendest.", "error.moderateLogin": "Melde dich an und verbinde zuerst einen Kanal.", "error.unsupported": "Nicht unterstützte Anfrage.", "error.warningScope": "Für Warnungen wird moderator:manage:warnings benötigt. Trenne Twitch und melde dich erneut an, um die Berechtigung zu erteilen.", "error.timeoutBounds": "Der Timeout muss zwischen 1 Sekunde und 14 Tagen liegen.", "error.channelRequired": "Gib zuerst einen Kanalnamen ein.", "error.channelNotFound": "Der Twitch-Kanal {channel} wurde nicht gefunden.", "error.authExpired": "Die Twitch-Anmeldung ist abgelaufen. Bitte erneut anmelden.", "error.clientMismatch": "Das Twitch-Token gehört nicht zu dieser App oder ist kein Benutzer-Token.", "error.chatScope": "Erteile chat:read, um den Twitch-Chat zu verbinden.", "error.banScope": "Erteile moderator:manage:banned_users, um Chatter moderieren zu können.", "error.followerScope": "Erteile moderator:read:followers oder deaktiviere die Prüfung neuer Follower.", "error.signInCancelled": "Die Twitch-Anmeldung wurde abgebrochen.", "error.authorization": "Twitch hat diese App nicht autorisiert.", "error.stateMismatch": "Der Twitch-Anmeldestatus stimmt nicht überein. Bitte erneut versuchen.", "error.noToken": "Twitch hat kein Zugriffstoken zurückgegeben."
   },
   es: {
+    "directory.connectOnce": "Conecta este canal una vez para identificar su historial local.", "directory.error": "No se pudo cargar la lista.",
+    "filter.pending": "Por revisar", "filter.everyone": "Todos los chatters", "directory.search": "Buscar chatters", "directory.previous": "Página anterior", "directory.next": "Página siguiente", "directory.page": "{total} personas · {page}/{pages}", "directory.loading": "Cargando...", "directory.empty": "No hay chatters registrados que coincidan en este canal.", "directory.title": "Chatters del canal",
+    "history.profile": "Historial del chatter", "history.local": "HISTORIAL LOCAL", "history.coverage": "Solo registros locales: hasta 50 mensajes y 100 eventos. Las acciones anteriores no registradas no están disponibles.", "history.messages": "Mensajes", "history.notes": "Notas", "history.actions": "Moderación", "history.currentNote": "Nota actual", "history.noNote": "Sin nota", "history.noEvents": "No hay actividad registrada en esta vista.", "history.previous": "Anterior", "history.current": "Actual", "history.timeout": "Timeout: {seconds} s", "history.ban": "Ban", "history.warning": "Aviso", "history.delete": "Mensaje borrado", "history.approval": "Aprobación", "history.note": "Nota modificada", "history.manual": "Manual", "history.automatic": "Automático", "history.quick": "/srs 1s", "history.legacy": "Estado anterior (sin evento detallado): {action}",
     "filter.approved": "Aprobados", "approval.manual": "Aprobado manualmente", "approval.messages": "Aprobado: cantidad de mensajes", "approval.follower": "Aprobado: seguidor", "approval.subscriber": "Aprobado: suscriptor", "approval.previous-subscriber": "Aprobado: antiguo suscriptor observado localmente",
     "error.invalidSettings": "Completa los ajustes num\u00e9ricos con valores v\u00e1lidos.",
     "brand.home": "Inicio de Chatter Watch", "theme.dark": "Activar modo nocturno", "theme.light": "Activar modo diurno", "sidePanel.open": "Abrir panel lateral", "settings.title": "Ajustes", "close": "Cerrar",
@@ -75,7 +84,14 @@ const messages = {
 };
 
 let currentState = null;
-let selectedFilter = "all";
+let selectedFilter = "pending";
+let directoryPage = 0;
+let directoryVersion = 0;
+let directoryLoading = false;
+let directoryRefreshQueued = false;
+let directorySearchTimer;
+let historyAccount;
+let historyView = "messages";
 let toastTimer;
 let currentLanguage = ModerationCore.resolveLanguage();
 let languageDirty = false;
@@ -262,19 +278,12 @@ function localizedAction(action) {
   if (action === "Approved") return t("action.approvedState");
   if (action === "Warned") return t("action.warnedState");
   if (action === "Banned") return t("action.bannedState");
+  const seconds = action.match(/^Timed out for (\d+) s$/);
+  if (seconds) return t("history.timeout", { seconds: seconds[1] });
   const timeout = action.match(/^Timed out for (\d+) min$/);
   if (timeout) return t("action.timeoutState", { count: timeout[1] });
   const automaticTimeout = action.match(/^Automatic timeout failed: (.+)$/);
   return automaticTimeout ? t("action.autoTimeoutFailed", { reason: automaticTimeout[1] }) : action;
-}
-
-function visibleAccounts(accounts) {
-  return accounts.filter((account) => {
-    if (selectedFilter === "new") return Number.isFinite(account.ageDays) && account.ageDays < currentState.settings.ageLimitDays;
-    if (selectedFilter === "first") return account.firstMessage;
-    if (selectedFilter === "follower") return Boolean(account.followedAt && Date.now() - Date.parse(account.followedAt) <= currentState.settings.recentFollowerDays * 86_400_000);
-    return true;
-  });
 }
 
 function renderCard(account, index) {
@@ -385,33 +394,98 @@ function renderCard(account, index) {
   return card;
 }
 
-function showHistory(account) {
-  byId("history-user").textContent = t("message.historyCount", { login: account.login, count: account.recentMessages?.length || 0 });
+async function showHistory(account) {
+  const channel = currentState.settings.channel;
+  const response = await request("GET_ACCOUNT_HISTORY", { key: account.key });
+  if (channel !== currentState.settings.channel) return;
+  historyAccount = response.account;
+  historyView = "messages";
+  renderHistory();
+  if (!byId("history-dialog").open) byId("history-dialog").showModal();
+}
+
+function renderHistory() {
+  const account = historyAccount;
+  if (!account) return;
+  byId("history-user").textContent = `#${currentState.settings.channel} / @${account.login}`;
+  for (const button of document.querySelectorAll("[data-history-view]")) button.setAttribute("aria-pressed", String(button.dataset.historyView === historyView));
+  byId("history-note-panel").hidden = historyView !== "notes";
+  byId("history-note").textContent = account.note || t("history.noNote");
   const list = byId("history-list");
   list.replaceChildren();
-  const messages = account.recentMessages || [];
-  if (messages.length === 0) {
+  const events = historyView === "messages" ? (account.recentMessages || []).map((entry) => ({ at: entry.sentAt, text: entry.text }))
+    : (account.activityHistory || []).filter((entry) => historyView === "notes" ? entry.type === "note" : entry.type !== "note").map((entry) => ({ at: entry.at, text: [
+      t(`history.${entry.type}`, { seconds: entry.duration }),
+      `${t(`history.${entry.source || "manual"}`)}${entry.actor ? ` / @${entry.actor}` : ""}`,
+      entry.type === "note" ? `${t("history.previous")}: ${entry.previousNote || t("history.noNote")}\n${t("history.current")}: ${entry.note || t("history.noNote")}` : entry.reason || ""
+    ].filter(Boolean).join("\n") }));
+  if (events.length === 0) {
     const empty = document.createElement("li");
     empty.className = "history-empty";
-    empty.textContent = t("message.historyEmpty");
+    empty.textContent = historyView === "messages" ? t("message.historyEmpty") : t("history.noEvents");
+    if (historyView === "actions" && account.latestAction) empty.textContent += `\n${t("history.legacy", { action: localizedAction(account.latestAction) })}`;
     list.append(empty);
   } else {
-    for (const entry of messages) {
+    for (const entry of events) {
       const item = document.createElement("li");
       const timestamp = document.createElement("time");
-      timestamp.dateTime = new Date(entry.sentAt).toISOString();
       const locale = { en: "en-US", de: "de-DE", es: "es-ES" }[currentLanguage];
-      timestamp.textContent = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(entry.sentAt);
+      if (Number.isFinite(entry.at)) {
+        timestamp.dateTime = new Date(entry.at).toISOString();
+        timestamp.textContent = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "medium" }).format(entry.at);
+      }
       const text = document.createElement("p");
       text.textContent = entry.text || t("message.empty");
       item.append(timestamp, text);
       list.append(item);
     }
   }
-  byId("history-dialog").showModal();
+}
+
+async function refreshDirectory() {
+  if (!currentState) return;
+  if (directoryLoading) { directoryRefreshQueued = true; return; }
+  directoryLoading = true;
+  const version = directoryVersion;
+  const channel = currentState.settings.channel;
+  feed.setAttribute("aria-busy", "true");
+  byId("directory-status").textContent = t("directory.loading");
+  try {
+    const result = await request("GET_CHATTERS", { filter: selectedFilter, query: byId("chatter-search").value, page: directoryPage });
+    if (version !== directoryVersion || channel !== currentState.settings.channel) return;
+    directoryPage = result.page;
+    byId("directory-status").textContent = t("directory.page", { total: result.total, page: result.page + 1, pages: Math.max(1, Math.ceil(result.total / result.pageSize)) });
+    byId("directory-previous").disabled = result.page === 0;
+    byId("directory-next").disabled = (result.page + 1) * result.pageSize >= result.total;
+    feed.setAttribute("aria-label", t("directory.title"));
+    feed.replaceChildren();
+    if (!result.accounts.length) {
+      const empty = document.createElement("p");
+      empty.className = "directory-empty";
+      empty.textContent = t(result.broadcasterId ? "directory.empty" : "directory.connectOnce");
+      feed.append(empty);
+    }
+    result.accounts.forEach((account, index) => feed.append(renderCard(account, index)));
+  } catch (error) {
+    if (version === directoryVersion && channel === currentState.settings.channel) {
+      byId("directory-status").textContent = t("directory.error");
+      showToast(error.message, true);
+    }
+  }
+  finally {
+    directoryLoading = false;
+    feed.setAttribute("aria-busy", "false");
+    if (directoryRefreshQueued) { directoryRefreshQueued = false; void refreshDirectory(); }
+  }
 }
 
 function render(state) {
+  if (currentState && currentState.settings.channel !== state.settings.channel) {
+    directoryVersion += 1;
+    directoryPage = 0;
+    feed.replaceChildren();
+    byId("history-dialog").close();
+  }
   currentState = state;
   applyLanguage(languageDirty ? currentLanguage : state.settings.language);
   if (!settingsDirty && byId("settings-panel").hidden && document.activeElement !== byId("channel-input")) updateSettingsForm(state.settings);
@@ -425,26 +499,8 @@ function render(state) {
   byId("connect-button").disabled = ["connecting", "reconnecting"].includes(state.status);
   byId("connect-button").querySelector("span:last-child").textContent = state.status === "connected" ? t("connect.disconnect") : state.moderator ? t("connect.connect") : t("connect.signIn");
 
-  const accounts = visibleAccounts((selectedFilter === "approved" ? state.approved : state.accounts) || []);
-  feed.replaceChildren();
-  if (accounts.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    const orbit = document.createElement("div");
-    orbit.className = "empty-orbit";
-    orbit.setAttribute("aria-hidden", "true");
-    orbit.append(document.createElement("span"), document.createElement("span"), document.createElement("span"));
-    const title = document.createElement("p");
-    title.className = "empty-title";
-    title.textContent = state.status === "connected" ? t("empty.allClear") : t("empty.quiet");
-    const copy = document.createElement("p");
-    copy.className = "empty-copy";
-    copy.textContent = state.status === "connected" ? t("empty.none") : t("empty.connect");
-    empty.append(orbit, title, copy);
-    feed.append(empty);
-    return;
-  }
-  accounts.forEach((account, index) => feed.append(renderCard(account, index)));
+  void refreshDirectory();
+  if (byId("history-dialog").open) renderHistory();
 }
 
 async function runAction(action, account, button) {
@@ -467,7 +523,7 @@ async function runAction(action, account, button) {
       await request("NOTE", { key: account.key, note });
       showToast(t("note.saved"));
     } else if (action === "history") {
-      showHistory(account);
+      await showHistory(account);
     } else if (action === "warn") {
       const reason = window.prompt(t("warning.reason", { name: account.displayName }), "");
       if (reason === null) return;
@@ -492,6 +548,7 @@ async function runAction(action, account, button) {
     showToast(error.message, true);
   } finally {
     button.disabled = false;
+    if (action !== "history") void refreshDirectory();
   }
 }
 
@@ -544,7 +601,7 @@ async function saveSettings() {
     if (revision === settingsRevision) {
       settingsDirty = false;
       languageDirty = false;
-      if (currentState) currentState.settings = response.settings;
+      if (currentState) render({ ...currentState, settings: response.settings });
       applyLanguage(response.settings.language);
       updateSettingsForm(response.settings);
       ExtensionView.saveState("saved");
@@ -608,9 +665,28 @@ async function connectOrDisconnect() {
 filters.forEach((button) => {
   button.addEventListener("click", () => {
     selectedFilter = button.dataset.filter;
+    directoryPage = 0;
+    directoryVersion += 1;
+    feed.replaceChildren();
     filters.forEach((filter) => filter.classList.toggle("active", filter === button));
     if (currentState) render(currentState);
   });
+});
+
+byId("chatter-search").addEventListener("input", () => {
+  directoryPage = 0;
+  directoryVersion += 1;
+  clearTimeout(directorySearchTimer);
+  directorySearchTimer = setTimeout(() => void refreshDirectory(), 200);
+});
+for (const [id, direction] of [["directory-previous", -1], ["directory-next", 1]]) byId(id).addEventListener("click", () => {
+  directoryPage += direction;
+  directoryVersion += 1;
+  void refreshDirectory();
+});
+for (const button of document.querySelectorAll("[data-history-view]")) button.addEventListener("click", () => {
+  historyView = button.dataset.historyView;
+  renderHistory();
 });
 
 byId("match-any").addEventListener("click", () => {
@@ -675,11 +751,16 @@ byId("open-side-panel").addEventListener("click", async () => {
 });
 
 if (extensionApi.sidePanel?.open || extensionApi.sidebarAction?.open) byId("open-side-panel").hidden = false;
-byId("open-multichat").addEventListener("click", () => {
-  request("OPEN_CHAT_WINDOW").catch((error) => showToast(error.message, true));
-});
-byId("pin-window").addEventListener("click", () => request("OPEN_DASHBOARD").catch((error) => showToast(error.message, true)));
-byId("open-page").addEventListener("click", () => request("OPEN_DASHBOARD", { page: true }).catch((error) => showToast(error.message, true)));
+async function openView(button, type, payload = {}) {
+  if (button.disabled) return;
+  button.disabled = true;
+  try { await request(type, payload); }
+  catch (error) { showToast(error.message, true); }
+  finally { button.disabled = false; }
+}
+byId("open-multichat").addEventListener("click", (event) => void openView(event.currentTarget, "OPEN_CHAT_WINDOW"));
+byId("pin-window").addEventListener("click", (event) => void openView(event.currentTarget, "OPEN_DASHBOARD"));
+byId("open-page").addEventListener("click", (event) => void openView(event.currentTarget, "OPEN_DASHBOARD", { page: true }));
 byId("show-client-id").addEventListener("click", () => {
   const input = byId("client-id-input");
   input.type = input.type === "password" ? "text" : "password";
@@ -753,9 +834,9 @@ extensionApi.storage.onChanged?.addListener((changes, area) => {
   if (area !== "local") return;
   if (changes.appearance) void setTheme(changes.appearance.newValue, false);
   if (changes.settings && currentState && !settingsDirty) {
-    currentState.settings = ModerationCore.normalizeSettings(changes.settings.newValue);
-    updateSettingsForm(currentState.settings);
-    render(currentState);
+    const next = { ...currentState, settings: ModerationCore.normalizeSettings(changes.settings.newValue) };
+    updateSettingsForm(next.settings);
+    render(next);
   }
 });
 extensionApi.runtime.onMessage.addListener((message) => {

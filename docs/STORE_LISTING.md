@@ -1,6 +1,6 @@
 # Store Listing Copy and Assets
 
-Twitch Chatter Watch 1.3.0. Prepared 7 November 2026 for Chrome Web Store and Mozilla Add-ons. Copy the text under the relevant field, not the editorial notes. This kit is not a store approval or a claim that live Twitch testing is complete.
+Twitch Chatter Watch 1.3.1. Prepared 7 November 2026 for Chrome Web Store and Mozilla Add-ons. Copy the text under the relevant field, not the editorial notes. This kit is not a store approval or a claim that live Twitch testing is complete.
 
 ## Shared Fields
 
@@ -10,7 +10,7 @@ Twitch Chatter Watch 1.3.0. Prepared 7 November 2026 for Chrome Web Store and Mo
 | Default listing language | English |
 | Support URL / Support-URL | https://github.com/yeraysampedro/Twtich-Moderatr/issues |
 | Homepage URL | https://github.com/yeraysampedro/Twtich-Moderatr |
-| Privacy policy URL | After publishing the current PRIVACY.md: https://github.com/yeraysampedro/Twtich-Moderatr/blob/main/PRIVACY.md . Do not submit until this URL is publicly accessible and displays the current policy. |
+| Privacy policy URL | After publishing the current PRIVACY.md: https://github.com/yeraysampedro/Twtich-Moderatr/blob/main/docs/PRIVACY.md . Do not submit until this URL is publicly accessible and displays the current policy. |
 | Support email / publisher contact | The owner must supply a real monitored address if requested. No email has been invented. |
 | Distribution / price / license | Owner decision. LICENSE.lucide covers third-party UI icons only, not the application's distribution license. |
 | Platforms | Desktop only. Package minimums: Chromium 116+, Firefox 140+. Automated checks ran on Windows; select other OS platforms only after validating them. |
@@ -27,6 +27,8 @@ Read and moderate Twitch chat with multichat windows, review queues, optional au
 ### Detailed Description / Beschreibung
 
 Twitch Chatter Watch gives streamers and moderators a dedicated workspace for reading Twitch chat and reviewing chatters without losing their place.
+
+Search all locally recorded chatters, including approved and resolved accounts, with 25-person pages. Open a chatter's Messages, Notes and Moderation history: up to 50 recent messages across sessions and 100 locally recorded actions/note changes with dates, reasons and durations. A timeout does not automatically dismiss the person. Earlier actions never recorded by the extension cannot be recovered. Window-opening controls reuse existing views instead of creating duplicates, with a limit of twelve extension windows.
 
 Keep up to six channels in a responsive grid, detach individual channels into separate windows, or combine messages in a chronological feed with channel labels. Pause the view to read, pin important messages, highlight keywords and export the retained live buffer as a local TXT file.
 
@@ -54,6 +56,8 @@ Twitch-Chats in mehreren Fenstern lesen und moderieren, Personen prüfen und Mod
 
 Twitch Chatter Watch bietet Streamern und Moderatoren einen eigenen Arbeitsbereich zum Lesen von Twitch-Chats und Prüfen von Chatteilnehmern.
 
+Alle lokal erfassten Chatter einschließlich freigegebener und abgeschlossener Konten auf Seiten mit 25 Personen durchsuchen. Der Verlauf zeigt Nachrichten, Notizen und Moderation: bis zu 50 aktuelle Nachrichten über Sitzungen hinweg und 100 lokal erfasste Aktionen/Notizänderungen mit Datum, Grund und Dauer. Ein Timeout verwirft die Person nicht automatisch. Frühere, nie erfasste Aktionen lassen sich nicht rekonstruieren. Fenster werden wiederverwendet statt dupliziert; höchstens zwölf Erweiterungsfenster sind erlaubt.
+
 Bis zu sechs Kanäle als anpassbares Raster anzeigen, einzelne Kanäle in eigene Fenster abtrennen oder Nachrichten chronologisch mit Kanalmarkierungen zusammenführen. Zum Lesen pausieren, wichtige Nachrichten anheften, Schlüsselwörter hervorheben und den behaltenen Live-Puffer als lokale TXT-Datei exportieren.
 
 Im Hauptkanal neue Konten, erste Nachrichten und kürzlich gefolgte Nutzer prüfen. Eine Warteschlange zeigt ausstehende Personen; Notizen unterstützen RAID und FRONT PAGE. Freigegebene Personen bleiben im Live-Chat sichtbar. Optionale automatische Freigabe unterstützt mehr als N Nachrichten, bestätigte Follower, aktuelle Abonnenten und lokal beobachtete frühere Abonnenten. Regeln sind anfangs ausgeschaltet; lokale Beobachtungen sind keine vollständige Twitch-Abonnementhistorie.
@@ -79,6 +83,8 @@ Lee y modera Twitch con ventanas multichat, revisión de usuarios, aprobación o
 ### Descripción Completa
 
 Twitch Chatter Watch ofrece a streamers y moderadores un espacio dedicado para leer el chat de Twitch y revisar participantes sin perder el contexto.
+
+Busca entre todos los chatters registrados localmente, incluidos aprobados y resueltos, en páginas de 25 personas. Su ficha muestra Mensajes, Notas y Moderación: hasta 50 mensajes recientes entre sesiones y 100 acciones/cambios de nota locales con fecha, motivo y duración. Un timeout no descarta automáticamente a la persona. Las acciones antiguas nunca registradas no pueden recuperarse. Los controles reutilizan las ventanas abiertas, con un límite de doce ventanas de la extensión.
 
 Organiza hasta seis canales en una cuadrícula adaptable, separa canales en ventanas independientes o reúne sus mensajes en un feed cronológico con etiquetas. Pausa para leer, fija mensajes, resalta palabras y exporta el buffer vivo retenido como TXT local.
 
@@ -106,11 +112,11 @@ Use the `chromium/` image set for Chrome Web Store and the `firefox/` set for AM
 | 2 | `02-multichat-grid.png` | Read multiple channels with per-message tools and keyword highlights. | Mehrere Kanäle mit Nachrichtenaktionen und Hervorhebungen lesen. | Lee varios canales con acciones por mensaje y resaltados. |
 | 3 | `03-unified-feed.png` | Combine channels chronologically and keep an important message pinned. | Kanäle chronologisch zusammenführen und wichtige Nachrichten anheften. | Combina canales cronológicamente y mantén un mensaje fijado. |
 | 4 | `04-timeout-confirmation.png` | Check the target, duration and reason before confirming a timeout. No action was sent for this image. | Ziel, Dauer und Grund vor einem Timeout prüfen. Für dieses Bild wurde keine Aktion gesendet. | Comprueba objetivo, duración y motivo antes de confirmar. La captura no ejecutó la acción. |
-| 5 | `05-autoapproval-settings.png` | Configure optional auto-approval, inactivity reevaluation and review alerts. | Optionale automatische Freigabe, Inaktivität und Prüfhinweise konfigurieren. | Configura autoaprobación opcional, inactividad y alertas. |
+| 5 | `05-chatter-history.png` | Inspect locally recorded moderation history with dates, reasons and durations. Demonstration data, not a live Twitch audit log. | Lokalen Moderationsverlauf mit Datum, Grund und Dauer prüfen. Beispieldaten, kein vollständiges Twitch-Protokoll. | Consulta moderación registrada localmente con fecha, motivo y duración. Datos ficticios, no un registro completo de Twitch. |
 
-- Store icon: `assets/store/icon-128.png`, RGBA PNG with square artwork within a 96px region and transparent padding. Firefox derivatives: `icon-32.png` and `icon-64.png`; confirm the current AMO uploader's accepted size.
-- Optional Chrome promotions: `assets/store/promo-440x280.png` and `assets/store/marquee-1400x560.png`. They are brand graphics, not screenshots and not extra screenshot slots. No promotional video is supplied or required by the cited guides.
-- `assets/store/inventory.json` records dimensions, byte sizes and SHA-256 for every generated asset.
+- Store icon: `dist/store/icon-128.png`, RGBA PNG with square artwork within a 96px region and transparent padding. Firefox derivatives: `icon-32.png` and `icon-64.png`; confirm the current AMO uploader's accepted size.
+- Optional Chrome promotions: `dist/store/promo-440x280.png` and `dist/store/marquee-1400x560.png`. They are brand graphics, not screenshots and not extra screenshot slots. No promotional video is supplied or required by the cited guides.
+- `dist/store/inventory.json` records dimensions, byte sizes and SHA-256 for every generated asset.
 
 ## Store-Only Notes: Do Not Paste Into the Description
 

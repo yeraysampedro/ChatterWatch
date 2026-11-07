@@ -1,6 +1,6 @@
 import { assertEquals, assertFalse, assert } from "jsr:@std/assert@1";
-import "../core.js";
-import "../chat-flow.js";
+import "../src/core.js";
+import "../src/chat-flow.js";
 
 const { parseIrcLine, accountAgeDays, resolveLanguage, normalizeSettings, getFlagReasons, recordMessage } = globalThis.ModerationCore;
 const { FlowController, normalizeConfig, compilePattern, HISTORY_LIMIT, BATCH_LIMIT, TRACKING_LIMIT } = globalThis.ChatFlow;
@@ -141,7 +141,9 @@ Deno.test("counts messages within a session and resets on the next stream", () =
   assertEquals(account.recentMessages.length, 2);
   recordMessage(account, { tags: { "tmi-sent-ts": "2000" }, trailing: "new stream" }, "stream-2");
   assertEquals(account.messageCount, 1);
-  assertEquals(account.recentMessages.map((entry) => entry.text), ["new stream"]);
+  assertEquals(account.recentMessages.map((entry) => entry.text), ["new stream", "hello", "earlier"]);
+  for (let index = 0; index < 70; index += 1) recordMessage(account, { tags: {}, trailing: `message ${index}` }, "stream-2");
+  assertEquals(account.recentMessages.length, 50);
 });
 
 Deno.test("uses configurable follower recency and cools down social signals after enough messages", () => {

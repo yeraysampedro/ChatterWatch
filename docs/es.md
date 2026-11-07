@@ -9,7 +9,7 @@
 - Chromium/Chrome/Edge de escritorio 116+ o Firefox de escritorio 140+. No se declara soporte para navegadores móviles.
 - Cuenta Twitch y una aplicación registrada en [Twitch Developers](https://dev.twitch.tv/console/apps). Twitch puede exigir 2FA para registrar aplicaciones.
 - Git para versionar/publicar. Deno 2 solo para generar paquetes y ejecutar pruebas; no es necesario para instalar o usar los paquetes.
-- No se necesita Node.js, npm, servidor, framework ni compilación. Chromium puede ejecutar directamente la raíz; Firefox necesita el manifiesto generado para ese navegador. `fflate@0.8.2` solo se usa al empaquetar, nunca en la extensión.
+- No se necesita Node.js, npm, servidor, framework ni compilación. Chromium puede cargar `src/` directamente, no la raíz del repositorio; Firefox necesita el manifiesto generado en `dist/firefox/`. Las herramientas están en `build/` y se ejecutan desde la raíz con Deno. `fflate@0.8.2` solo se usa al empaquetar, nunca en la extensión.
 - Las pruebas descargan `@std/assert@1`, `fake-indexeddb@6.2.2` y `playwright@1.56.1`; no se incluyen en la extensión. El lockfile fija las resoluciones.
 
 ### Carga sin empaquetar en Chromium
@@ -28,7 +28,7 @@ El ID y la URL de redirección pueden cambiar al cambiar de navegador, equipo, r
 ### Firefox
 
 1. Extrae el ZIP Firefox o ejecuta `deno task build` para obtener `dist/firefox`.
-2. Abre `about:debugging#/runtime/this-firefox`, pulsa **Cargar complemento temporal** y selecciona el `manifest.json` de esa carpeta, no el de la raíz del repositorio.
+2. Abre `about:debugging#/runtime/this-firefox`, pulsa **Cargar complemento temporal** y selecciona el `manifest.json` de `dist/firefox/` o del ZIP Firefox extraído, no el de `src/`.
 3. Abre Ajustes, copia la URL OAuth que muestra Firefox y regístrala también en Twitch. No uses la URL `chromiumapp.org` de Chromium. Guarda el Client ID y conecta como se indica arriba.
 
 El popup, panel lateral y Multichat están disponibles en ambos navegadores. Firefox usa scripts de fondo y `sidebarAction`, mientras Chromium usa service worker y `sidePanel`. Las menciones a `chrome.storage` en esta guía corresponden a `browser.storage` en Firefox.
@@ -48,7 +48,7 @@ La carga temporal se elimina al cerrar Firefox. Para distribuir una instalación
 
 Leer un canal adicional no exige moderarlo. Las acciones Helix sí requieren ser moderador o broadcaster del canal afectado, además del scope. La validación actual de la extensión exige `chat:read` y `moderator:manage:banned_users`; exige seguidores si esa señal está activada. Un token antiguo puede seguir leyendo chat sin el nuevo scope de ajustes: desconecta Twitch e inicia sesión de nuevo para concederlo antes de usar el slow mode real.
 
-Ambas variantes solicitan `storage`, `identity` y `alarms`; solo Chromium añade `sidePanel`. El acceso obligatorio corresponde a Twitch; la traducción añade acceso HTTPS opcional al dominio elegido. No se inyectan scripts ni se carga código remoto. Firefox declara `authenticationInfo` y `personallyIdentifyingInfo` para Twitch y `personalCommunications` opcional para traducción. No hay telemetría ni backend propio. Solo se envía texto a un traductor después de configurar/autorizar el servidor y confirmar el mensaje. Consulta [Privacidad](../PRIVACY.md).
+Ambas variantes solicitan `storage`, `identity` y `alarms`; solo Chromium añade `sidePanel`. El acceso obligatorio corresponde a Twitch; la traducción añade acceso HTTPS opcional al dominio elegido. No se inyectan scripts ni se carga código remoto. Firefox declara `authenticationInfo` y `personallyIdentifyingInfo` para Twitch y `personalCommunications` opcional para traducción. No hay telemetría ni backend propio. Solo se envía texto a un traductor después de configurar/autorizar el servidor y confirmar el mensaje. Consulta [Privacidad](PRIVACY.md).
 
 ### Desarrollo, pruebas y build
 
@@ -78,7 +78,7 @@ deno run -A npm:playwright@1.56.1 install firefox
 deno task test:ui:firefox
 ```
 
-Para generar ambos entregables, ejecuta `deno task build`. Crea `dist/chatter-watch-<versión>-chromium.zip`, `dist/chatter-watch-<versión>-firefox.zip` y las carpetas `dist/chromium` y `dist/firefox`. La lista permitida incluye los recursos locales, la licencia de los iconos Lucide 0.468.0 y los PNG de marca de 16/32/48/64/96/128 px, sin pruebas, credenciales ni datos de usuario. El arte de 512 px en `assets/icons` queda disponible para material de tienda, fuera del ZIP. Las carpetas generadas se reemplazan; no las edites. La distribución por tienda requiere revisión y firma por separado.
+Para generar ambos entregables, ejecuta `deno task build`. Crea `dist/packages/chatter-watch-<versión>-chromium.zip`, `dist/packages/chatter-watch-<versión>-firefox.zip` y las carpetas `dist/chromium` y `dist/firefox`. La lista permitida incluye los recursos locales, la licencia de los iconos Lucide 0.468.0 y los PNG de marca de 16/32/48/64/96/128 px, sin pruebas, credenciales ni datos de usuario. El arte de 512 px en `src/assets/icons/` queda fuera del ZIP de ejecución. Las capturas/metadatos se generan en `dist/store/`, los kits en `dist/store-kits/` y las fuentes empaquetadas en `dist/source/`. No edites las salidas generadas. Si antes cargabas la raíz del repositorio, selecciona ahora `src/` y comprueba su URL OAuth; `dist/chromium` y `dist/firefox` mantienen su ubicación. La distribución por tienda requiere revisión y firma por separado.
 
 ## 2. Guía de uso
 
@@ -92,7 +92,7 @@ Los cambios válidos se aplican al guardarse: cambiar el Client ID puede cerrar 
 
 ### Mejoras de la versión 1.3
 
-El tema inicial es oscuro; una elección clara guardada se conserva. El panel principal es más ancho y mantiene el tamaño al abrir ajustes. Solo se destaca el total de personas por revisar. **Aprobados** permite consultar aprobaciones y motivos, sin mezclar esas personas con los pendientes ni ocultarlas del chat. Las listas muestran hasta 100 personas; el total pendiente no se limita a ese número.
+El tema inicial es oscuro; una elección clara guardada se conserva. El panel y Ajustes ocupan el ancho disponible y mantienen la geometría al cambiar de tema. Solo se destaca el total pendiente de revisión; el listado dispone de navegación por páginas de 25 personas. **Aprobados** permite consultar aprobaciones y motivos sin ocultar mensajes del chat.
 
 El botón de fijar la ventana abre o reutiliza un panel independiente de 820 × 820 por defecto. El popup nativo sigue cerrándose al perder foco: usa esa ventana, el panel lateral o la página interna para trabajar al cambiar de pestaña. OAuth desde el popup pasa primero a una ventana persistente; continúa allí el inicio de sesión. El Client ID se muestra oculto con opción de revelarlo; no es un Client Secret. **Todos los ajustes** en Multichat abre la configuración común.
 
@@ -110,13 +110,27 @@ Para traducir, configura un endpoint HTTPS compatible con LibreTranslate (habitu
 
 ### Multichat y ventanas
 
+Desde 1.3.1, **Abrir Multichat** y **Separar** reutilizan y enfocan la ventana equivalente, incluso si aún carga o recibe varios clics. El dashboard también se reutiliza. Hay un máximo de doce ventanas independientes de la extensión, incluyendo el dashboard y las restauradas por espacios. No se cierran ventanas ajenas ni duplicados antiguos: ciérralos manualmente si quedan de una versión anterior. Los espacios guardados que excedan la capacidad disponible indican restauración parcial.
+
+### Todos los chatters e historial local
+
+**Por revisar** mantiene la cola de pendientes. **Todos los chatters** busca entre los usuarios registrados localmente en el canal principal, incluidos aprobados, descartados y usuarios exentos de sanciones automáticas. Los filtros de cuentas nuevas, primeros mensajes y seguidores usan ese registro completo, no solo los pendientes. Busca por login o nombre visible y navega en páginas de 25; no se trata de la lista completa de espectadores de Twitch y pueden faltar mensajes no recibidos o no procesados por saturación.
+
+Un timeout confirmado ya no descarta automáticamente a la persona. Un ban resuelve la entrada pendiente, pero el registro sigue accesible en Todos y los filtros que correspondan. Una aprobación previa conserva su significado; las sanciones no borran notas ni mensajes guardados.
+
+**Historial** abre Mensajes, Notas y Moderación. Se conservan hasta 50 mensajes recientes por persona/canal entre sesiones y hasta 100 eventos locales combinados: timeouts manuales/automáticos y `/srs 1s`, bans, avisos, borrados, aprobaciones manuales y cambios de nota. Los eventos incluyen fecha, motivo, duración, origen y actor cuando están disponibles. Los errores no se registran como sanciones realizadas. La nota actual permanece aunque eventos antiguos salgan del límite.
+
+El historial se obtiene solo del almacenamiento local: no recupera timeouts anteriores de Twitch que nunca registró la extensión. Los registros antiguos pueden mostrar únicamente el último estado sin fecha detallada. Después de conectar una vez el canal con esta versión, sus datos locales se pueden consultar al desconectar. Desinstalar o borrar el almacenamiento de la extensión elimina estos registros; no hay purga automática por fecha. Consulta también [Privacidad](PRIVACY.md).
+
+### Organización de canales
+
 La autoaprobación por seguimiento utiliza consultas de como máximo cinco minutos de antigüedad y las renueva al recibir mensajes cuando hace falta. Los cambios de una misma cuenta se procesan en orden para que una actualización retrasada no sobrescriba una aprobación o nota manual.
 
 1. Conecta el canal principal desde el panel de moderación.
 2. Abre **Multichat**. En **Ajustes**, introduce canales adicionales separados por comas, por ejemplo `canal_dos, canal_tres`. No pegues URLs.
 3. Guarda. El máximo es seis canales únicos contando el principal. Se admiten nombres alfanuméricos y guiones bajos; `#` y `@` iniciales son opcionales.
 4. Elige 1, 2 o 3 columnas. En pantallas menores se reducen automáticamente para mantener legibilidad.
-5. Pulsa **Separar** en un canal para abrirlo en una ventana nativa independiente. **Nueva ventana** abre otra cuadrícula completa. Mueve y redimensiona las ventanas con el sistema operativo.
+5. Pulsa **Separar** en un canal para abrir o enfocar su ventana independiente. **Abrir Multichat** abre o enfoca la cuadrícula existente. Mueve y redimensiona las ventanas con el sistema operativo.
 6. Elimina un canal adicional del campo de Ajustes para dejar de recibirlo. Si estaba separado, su ventana queda vacía. Cambia el principal desde el panel de moderación.
 
 Todas las vistas comparten conexión, configuración, idioma y tema. Cambiar columnas o filtros afecta a todas las cuadrículas; las ventanas de un solo canal conservan una columna. La pausa y el scroll son locales a cada vista. Si dos ventanas editan ajustes simultáneamente, se rechaza el guardado obsoleto: cierra y vuelve a abrir Ajustes antes de guardar de nuevo.
@@ -183,7 +197,7 @@ En la parte inferior de cada chat, indica **0** para desactivar o un entero de *
 | Espacio | Alternar pausa/directo en el canal bajo el puntero, enfocado o el primero |
 | End / Fin | Volver al directo en ese canal |
 | S | Abrir Ajustes |
-| N | Abrir otra cuadrícula |
+| N | Abrir o enfocar la cuadrícula Multichat |
 | Esc | Cerrar el diálogo abierto |
 | Tab, Enter | Navegación y activación de controles; Enter fija una fila |
 

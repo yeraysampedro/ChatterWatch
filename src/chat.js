@@ -5,7 +5,7 @@ const extensionApi = globalThis.browser ?? globalThis.chrome;
 const labels = {
   es: {
     invalidSettings: "Completa los campos con valores v\u00e1lidos.",
-    moderation: "Moderaci\u00f3n", newWindow: "Nueva ventana", settings: "Ajustes", columns: "Columnas", close: "Cerrar", save: "Guardar",
+    moderation: "Moderaci\u00f3n", newWindow: "Abrir Multichat", settings: "Ajustes", columns: "Columnas", close: "Cerrar", save: "Guardar",
     channels: "Canales adicionales (separados por comas, 6 en total)", batch: "Intervalo entre lotes (ms)", localSlow: "Slow mode local por usuario (s, 0 = no)",
     spam: "Filtro de spam", repeats: "Ocultar texto repetido a partir del mensaje", frequency: "M\u00e1ximo de mensajes por usuario / ventana",
     window: "Ventana de detecci\u00f3n (s)", pattern: "Patr\u00f3n de spam (regex limitada)", hover: "Pausar al pasar el cursor", empty: "No hay canales configurados.",
@@ -22,7 +22,7 @@ const labels = {
   },
   en: {
     invalidSettings: "Complete the fields with valid values.",
-    moderation: "Moderation", newWindow: "New window", settings: "Settings", columns: "Columns", close: "Close", save: "Save",
+    moderation: "Moderation", newWindow: "Open Multichat", settings: "Settings", columns: "Columns", close: "Close", save: "Save",
     channels: "Additional channels (comma separated, 6 total)", batch: "Batch interval (ms)", localSlow: "Local slow mode per user (s, 0 = off)",
     spam: "Spam filter", repeats: "Hide repeated text starting at message", frequency: "Maximum messages per user / window",
     window: "Detection window (s)", pattern: "Spam pattern (restricted regex)", hover: "Pause on hover", empty: "No channels configured.",
@@ -39,7 +39,7 @@ const labels = {
   },
   de: {
     invalidSettings: "Bitte g\u00fcltige Werte in die Felder eintragen.",
-    moderation: "Moderation", newWindow: "Neues Fenster", settings: "Einstellungen", columns: "Spalten", close: "Schlie\u00dfen", save: "Speichern",
+    moderation: "Moderation", newWindow: "Multichat \u00f6ffnen", settings: "Einstellungen", columns: "Spalten", close: "Schlie\u00dfen", save: "Speichern",
     channels: "Weitere Kan\u00e4le (kommagetrennt, insgesamt 6)", batch: "Stapelintervall (ms)", localSlow: "Lokaler Slow Mode je Nutzer (s, 0 = aus)",
     spam: "Spamfilter", repeats: "Wiederholten Text ausblenden ab Nachricht", frequency: "Maximale Nachrichten je Nutzer / Zeitfenster",
     window: "Erkennungszeitfenster (s)", pattern: "Spammuster (eingeschr\u00e4nkte Regex)", hover: "Bei Mauszeiger pausieren", empty: "Keine Kan\u00e4le eingerichtet.",
@@ -518,7 +518,15 @@ document.querySelectorAll("button[data-mode]").forEach((button) => button.addEve
   try { await request("SAVE_CHAT_CONFIG", { revision: state.revision, config: { ...state.config, viewMode: button.dataset.mode } }); }
   catch (error) { toast(localError(error)); }
 }));
-element("open-grid").addEventListener("click", () => request("OPEN_CHAT_WINDOW").catch((error) => toast(localError(error))));
+async function openGrid() {
+  const button = element("open-grid");
+  if (button.disabled) return;
+  button.disabled = true;
+  try { await request("OPEN_CHAT_WINDOW"); }
+  catch (error) { toast(localError(error)); }
+  finally { button.disabled = false; }
+}
+element("open-grid").addEventListener("click", openGrid);
 document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", async () => {
   if (button.dataset.close === "chat-settings-dialog") {
     try { await saveChatSettings(); }
@@ -602,7 +610,7 @@ document.addEventListener("keydown", (event) => {
   if (event.code === "Space" && view) { event.preventDefault(); view.paused ? view.resume() : view.setPaused("manual", true); }
   if (event.key === "End" && view) { event.preventDefault(); view.resume(); }
   if (event.key.toLowerCase() === "s") { event.preventDefault(); openSettings(); }
-  if (event.key.toLowerCase() === "n") { event.preventDefault(); void request("OPEN_CHAT_WINDOW").catch((error) => toast(localError(error))); }
+  if (event.key.toLowerCase() === "n") { event.preventDefault(); void openGrid(); }
 });
 window.addEventListener("resize", updateLayout);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) for (const panel of panels.values()) panel.view.schedule(); });

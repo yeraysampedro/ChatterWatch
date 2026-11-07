@@ -32,6 +32,10 @@ let chatConfigRevision = 0;
 let configWrites = Promise.resolve();
 let settingsWrites = Promise.resolve();
 let workspaceWrites = Promise.resolve();
+let windowOperations = Promise.resolve();
+const pendingWindowViews = new Map();
+let pendingDashboardTab = null;
+const MAX_EXTENSION_WINDOWS = 12;
 let geometryWrites = Promise.resolve();
 let streamPolling = false;
 let lastReviewAlertAt = 0;
@@ -98,11 +102,19 @@ async function saveAccount(account) {
   });
 }
 
-async function getChannelAccounts(broadcasterId) {
+async function getChannelAccounts(broadcasterId, summaries = false) {
   const database = await openDatabase();
   return new Promise((resolve, reject) => {
-    const request = database.transaction(STORE).objectStore(STORE).index("broadcasterId").getAll(broadcasterId);
-    request.onsuccess = () => resolve(request.result || []);
+    const index = database.transaction(STORE).objectStore(STORE).index("broadcasterId");
+    const request = summaries ? index.openCursor(broadcasterId) : index.getAll(broadcasterId);
+    const accounts = [];
+    request.onsuccess = () => {
+      if (!summaries) { resolve(request.result || []); return; }
+      const cursor = request.result;
+      if (!cursor) { resolve(accounts); return; }
+      accounts.push(accountSummary(cursor.value));
+      cursor.continue();
+    };
     request.onerror = () => reject(request.error);
   });
 }
@@ -190,12 +202,63 @@ function broadcast(type, payload = {}) {
   extensionApi.runtime.sendMessage({ type, ...payload }).catch(() => {});
 }
 
+async function reviewChannelId(settings) {
+  const session = await extensionApi.storage.session.get(["broadcasterId", "broadcasterLogin"]);
+  if (session.broadcasterId && session.broadcasterLogin === settings.channel) return session.broadcasterId;
+  const saved = (await extensionApi.storage.local.get("lastReviewChannel")).lastReviewChannel;
+  return saved?.login === settings.channel ? saved.id : "";
+}
+
+function accountSummary(account) {
+  const { activityHistory, ...summary } = account;
+  return { ...summary, recentMessages: (account.recentMessages || []).slice(0, 3) };
+}
+
+async function listChatters(message) {
+  const { settings } = await getSessionData();
+  const broadcasterId = await reviewChannelId(settings);
+  const all = broadcasterId ? await getChannelAccounts(broadcasterId, true) : [];
+  const query = String(message.query || "").trim().toLowerCase().slice(0, 80);
+  const filter = ["all", "pending", "approved", "new", "first", "follower"].includes(message.filter) ? message.filter : "all";
+  const accounts = all.filter((account) => {
+    if (account.createdAt) account.ageDays = accountAgeDays(account.createdAt);
+    if (query && !`${account.login || ""} ${account.displayName || ""}`.toLowerCase().includes(query)) return false;
+    if (filter === "pending") return !account.reviewExempt && !account.isVetted && !account.dismissed && (account.reasons?.length || account.lookupPending);
+    if (filter === "approved") return account.isVetted;
+    if (filter === "new") return Number.isFinite(account.ageDays) && account.ageDays < settings.ageLimitDays;
+    if (filter === "first") return account.firstMessage;
+    if (filter === "follower") {
+      const age = Date.now() - Date.parse(account.followedAt || "");
+      return age >= 0 && age <= settings.recentFollowerDays * 86400000;
+    }
+    return true;
+  }).sort((left, right) => (right.lastMessageAt || 0) - (left.lastMessageAt || 0) || String(left.key).localeCompare(String(right.key)));
+  const pageSize = 25;
+  const page = Math.max(0, Math.min(Number.isInteger(message.page) ? message.page : 0, Math.max(0, Math.ceil(accounts.length / pageSize) - 1)));
+  return { accounts: accounts.slice(page * pageSize, (page + 1) * pageSize).map(accountSummary), total: accounts.length, page, pageSize, broadcasterId };
+}
+
+function recordAccountActivity(account, event, moderator) {
+  account.activityHistory = [{ id: crypto.randomUUID(), at: Date.now(), actor: moderator?.login || moderator?.user_id || "", ...event }, ...(account.activityHistory || [])].slice(0, 100);
+}
+
+async function recordMessageAction(broadcasterId, entry, event, moderator) {
+  if (!/^\d+$/.test(entry.userId)) return;
+  await withAccount(`${broadcasterId}:${entry.userId}`, async () => {
+    const account = await getAccountOrCreate({ broadcasterId, userId: entry.userId, login: entry.login, displayName: entry.displayName || entry.login, tags: {} });
+    recordAccountActivity(account, event, moderator);
+    if (event.type === "timeout") { account.latestAction = `Timed out for ${event.duration} s`; account.autoTimeoutApplied = true; }
+    await saveAccount(account);
+  });
+  await publishSnapshot();
+}
+
 async function snapshot() {
   const { settings, moderator } = await getSessionData();
-  const broadcasterId = (await extensionApi.storage.session.get("broadcasterId")).broadcasterId;
-  const accounts = broadcasterId ? await getChannelAccounts(broadcasterId) : [];
+  const broadcasterId = await reviewChannelId(settings);
+  const accounts = broadcasterId ? await getChannelAccounts(broadcasterId, true) : [];
   const flagged = accounts
-    .filter((account) => !account.isVetted && !account.dismissed && (account.reasons?.length || account.lookupPending))
+    .filter((account) => !account.reviewExempt && !account.isVetted && !account.dismissed && (account.reasons?.length || account.lookupPending))
     .sort((left, right) => (right.lastMessageAt || 0) - (left.lastMessageAt || 0));
   await extensionApi.action?.setBadgeText({ text: settings.alertAttention && flagged.length ? (flagged.length > 999 ? "999+" : String(flagged.length)) : "" });
   return {
@@ -207,8 +270,8 @@ async function snapshot() {
     chatters: sessionChatters.size,
     newAccounts: sessionNewAccounts.size,
     flagged: flagged.length,
-    accounts: flagged.slice(0, 100),
-    approved: accounts.filter((account) => account.isVetted).sort((left, right) => (right.lastMessageAt || 0) - (left.lastMessageAt || 0)).slice(0, 100)
+    accounts: flagged.slice(0, 100).map(accountSummary),
+    approved: accounts.filter((account) => account.isVetted).sort((left, right) => (right.lastMessageAt || 0) - (left.lastMessageAt || 0)).slice(0, 100).map(accountSummary)
   };
 }
 
@@ -350,6 +413,7 @@ async function quickTimeout(message) {
       method: "POST", query: { broadcaster_id: broadcaster.id, moderator_id: moderator.user_id },
       body: { data: { user_id: entry.userId, duration: 1, reason: "/srs" } }
     });
+    await recordMessageAction(broadcaster.id, entry, { type: "timeout", duration: 1, reason: "/srs", source: "quick", messageId: entry.id }, moderator);
     return { ok: true };
   } finally { quickTimeouts.delete(key); }
 }
@@ -379,6 +443,30 @@ async function saveWindowGeometry(message) {
 async function openDashboard(page = false, settings = false) {
   const target = new URL(extensionApi.runtime.getURL("dashboard.html"));
   if (settings) target.searchParams.set("settings", "1");
+  if (!page) {
+    const existing = (await currentExtensionWindows()).find((info) => info.view === "dashboard");
+    if (existing) {
+      if (settings) broadcast("OPEN_SETTINGS");
+      await focusExtensionWindow(existing);
+      return { windowId: existing.id };
+    }
+    const bounds = (await extensionApi.storage.local.get("windowGeometry")).windowGeometry?.dashboard;
+    const info = await createExtensionWindow({ url: target.href, type: "popup", width: 820, height: 820, ...(bounds ? windowBounds(bounds) : {}) });
+    return { windowId: info.id };
+  }
+  if (pendingDashboardTab !== null) {
+    try {
+      const tab = await extensionApi.tabs.get(pendingDashboardTab);
+      const url = new URL(tab.url || tab.pendingUrl);
+      if (url.protocol === target.protocol && url.host === target.host && url.pathname === target.pathname) {
+        if (settings) broadcast("OPEN_SETTINGS");
+        await extensionApi.tabs.update(tab.id, { active: true });
+        await extensionApi.windows.update(tab.windowId, { focused: true });
+        return { tabId: tab.id, windowId: tab.windowId };
+      }
+    } catch {}
+    pendingDashboardTab = null;
+  }
   const contexts = await extensionApi.runtime.getContexts({ contextTypes: ["TAB"] });
   const windows = await extensionApi.windows.getAll();
   const existing = contexts.find((context) => {
@@ -393,9 +481,39 @@ async function openDashboard(page = false, settings = false) {
     await extensionApi.windows.update(existing.windowId, { focused: true });
     return { windowId: existing.windowId };
   }
-  if (page) return { tabId: (await extensionApi.tabs.create({ url: target.href })).id };
-  const bounds = (await extensionApi.storage.local.get("windowGeometry")).windowGeometry?.dashboard;
-  const info = await extensionApi.windows.create({ url: target.href, type: "popup", width: 820, height: 820, ...(bounds ? windowBounds(bounds) : {}) });
+  const tab = await extensionApi.tabs.create({ url: target.href });
+  pendingDashboardTab = tab.id;
+  return { tabId: tab.id, windowId: tab.windowId };
+}
+
+function runWindowOperation(operation) {
+  const task = windowOperations.then(operation);
+  windowOperations = task.catch(() => {});
+  return task;
+}
+
+async function focusExtensionWindow(info) {
+  if (info.tabId >= 0) await extensionApi.tabs.update(info.tabId, { active: true });
+  await extensionApi.windows.update(info.id, { focused: true, ...(info.state === "minimized" ? { state: "normal" } : {}) });
+}
+
+async function createExtensionWindow(options) {
+  if ((await currentExtensionWindows()).length >= MAX_EXTENSION_WINDOWS) throw new Error("At most 12 extension windows can be open. Close an existing window before opening another.");
+  const info = await extensionApi.windows.create(options);
+  pendingWindowViews.set(info.id, options.url);
+  return info;
+}
+
+async function openChatWindow(message) {
+  const channel = message.channel ? ChatFlow.channelName(message.channel) : "";
+  if (channel && !allChannels().includes(channel)) throw new Error("Add this channel before detaching it.");
+  const existing = (await currentChatWindows()).find((info) => info.channel === channel);
+  if (existing) {
+    await focusExtensionWindow(existing);
+    return { windowId: existing.id };
+  }
+  const bounds = (await extensionApi.storage.local.get("windowGeometry")).windowGeometry?.[geometryKey({ channel })];
+  const info = await createExtensionWindow({ url: chatWindowUrl(channel), type: "popup", width: channel ? 520 : 1180, height: 760, ...(bounds ? windowBounds(bounds) : {}) });
   return { windowId: info.id };
 }
 
@@ -416,6 +534,7 @@ async function deleteChatMessage(message) {
   const broadcaster = (await apiRequest("/users", { query: { login: channel } })).data?.[0];
   if (!broadcaster) throw new Error("Twitch channel was not found.");
   await apiRequest("/moderation/chat", { method: "DELETE", query: { broadcaster_id: broadcaster.id, moderator_id: moderator.user_id, message_id: entry.id } });
+  await recordMessageAction(broadcaster.id, entry, { type: "delete", messageId: entry.id, source: "manual" }, moderator);
   chatFlow.purge(channel, { id: entry.id });
   postChat({ type: "CHAT_PURGE", channel, id: entry.id });
   return { ok: true };
@@ -479,19 +598,28 @@ async function pollStream() {
   } finally { streamPolling = false; }
 }
 
-async function currentChatWindows() {
+async function currentExtensionWindows() {
   const contexts = await extensionApi.runtime.getContexts({ contextTypes: ["TAB"] });
   const windows = await extensionApi.windows.getAll({ windowTypes: ["popup"] });
   const base = new URL(chatWindowUrl());
+  const dashboardPath = new URL(extensionApi.runtime.getURL("dashboard.html")).pathname;
   const found = new Map();
-  for (const context of contexts) {
+  for (const [windowId] of pendingWindowViews) {
+    if (!windows.some((info) => info.id === windowId)) pendingWindowViews.delete(windowId);
+  }
+  for (const context of [...contexts, ...[...pendingWindowViews].filter(([windowId]) => !contexts.some((item) => item.windowId === windowId)).map(([windowId, documentUrl]) => ({ windowId, documentUrl }))]) {
     if (!context.documentUrl) continue;
     const url = new URL(context.documentUrl);
-    if (url.protocol !== base.protocol || url.host !== base.host || url.pathname !== base.pathname) continue;
-    const windowInfo = windows.find((item) => item.id === context.windowId);
-    if (windowInfo) found.set(windowInfo.id, { ...windowInfo, channel: url.searchParams.get("channel") || "" });
+    if (url.protocol !== base.protocol || url.host !== base.host || ![base.pathname, dashboardPath].includes(url.pathname)) continue;
+    const windowInfo = windows.find((item) => item.id === context.windowId && item.type === "popup");
+    if (windowInfo) found.set(windowInfo.id, { ...windowInfo, tabId: context.tabId, view: url.pathname === dashboardPath ? "dashboard" : "chat", channel: url.searchParams.get("channel") || "" });
   }
+  for (const context of contexts) pendingWindowViews.delete(context.windowId);
   return [...found.values()];
+}
+
+async function currentChatWindows() {
+  return (await currentExtensionWindows()).filter((info) => info.view === "chat");
 }
 
 function workspaceName(value) {
@@ -554,7 +682,7 @@ async function manageWorkspace(message) {
           await extensionApi.windows.update(windowInfo.id, { state: "normal" });
           await extensionApi.windows.update(windowInfo.id, windowBounds(descriptor));
         } else {
-          windowInfo = await extensionApi.windows.create({ url: chatWindowUrl(descriptor.channel), type: "popup", focused: false, ...windowBounds(descriptor) });
+          windowInfo = await createExtensionWindow({ url: chatWindowUrl(descriptor.channel), type: "popup", focused: false, ...windowBounds(descriptor) });
         }
         if (descriptor.state === "maximized") await extensionApi.windows.update(windowInfo.id, { state: "maximized" });
       } catch (error) { failures.push(error.message); }
@@ -652,7 +780,7 @@ async function lookupSignals(account) {
 }
 
 async function processChatMessage(message) {
-  if (message.command !== "PRIVMSG" || !message.prefix || hasPrivilegedBadge(message.tags)) return;
+  if (message.command !== "PRIVMSG" || !message.prefix) return;
   const userId = message.tags["user-id"];
   const broadcasterId = message.tags["room-id"] || (await extensionApi.storage.session.get("broadcasterId")).broadcasterId;
   if (!userId || !broadcasterId) return;
@@ -666,6 +794,9 @@ async function processChatMessage(message) {
     account.displayName = displayName;
     account.ageDays = account.createdAt ? accountAgeDays(account.createdAt) : null;
     prepareReview(account, message, activeSessionId, activeSettings);
+    if (account.reviewExempt && !hasPrivilegedBadge(message.tags)) account.lookupPending = true;
+    account.reviewExempt = hasPrivilegedBadge(message.tags);
+    if (account.reviewExempt) account.lookupPending = false;
     recordMessage(account, message, activeSessionId);
     account.reasons = getFlagReasons(account, activeSettings);
     applyApproval(account, activeSettings);
@@ -679,7 +810,6 @@ async function processChatMessage(message) {
 
 function handleChatMessage(message) {
   if (message.command !== "PRIVMSG" || !message.tags["user-id"]) return Promise.resolve();
-  if (hasPrivilegedBadge(message.tags)) return Promise.resolve();
   if (queuedModeration >= 256) {
     chatFlow.channel(primaryChannel).stats.moderationSkipped += 1;
     return Promise.resolve();
@@ -711,7 +841,7 @@ function drainModeration() {
   }
 }
 
-async function moderateUser(account, { duration, reason }) {
+async function moderateUser(account, { duration, reason, source = "manual" }) {
   const { moderator } = await getSessionData();
   const broadcasterId = account.broadcasterId;
   if (!moderator?.user_id || !broadcasterId) throw new Error("Sign in and connect to a channel first.");
@@ -719,8 +849,10 @@ async function moderateUser(account, { duration, reason }) {
   const body = { data: { user_id: account.userId, reason: String(reason || "").slice(0, 500) } };
   if (duration != null) body.data.duration = duration;
   await apiRequest(`/moderation/bans?broadcaster_id=${encodeURIComponent(broadcasterId)}&moderator_id=${encodeURIComponent(moderator.user_id)}`, { method: "POST", body });
-  account.latestAction = duration == null ? "Banned" : `Timed out for ${Math.ceil(duration / 60)} min`;
-  account.dismissed = true;
+  account.latestAction = duration == null ? "Banned" : `Timed out for ${duration} s`;
+  if (duration == null) account.dismissed = true;
+  else account.autoTimeoutApplied = true;
+  recordAccountActivity(account, { type: duration == null ? "ban" : "timeout", duration: duration ?? null, reason: body.data.reason, source }, moderator);
   await saveAccount(account);
   await publishSnapshot();
 }
@@ -735,18 +867,20 @@ async function warnUser(account, reason) {
     body: { data: { user_id: account.userId, reason: String(reason || "").trim().slice(0, 500) } }
   });
   account.latestAction = "Warned";
+  recordAccountActivity(account, { type: "warning", reason: String(reason).trim().slice(0, 500), source: "manual" }, moderator);
   await saveAccount(account);
   await publishSnapshot();
 }
 
 async function applyAutomaticTimeout(account) {
-  if (!activeSettings.autoTimeout || account.autoTimeoutApplied || account.isVetted || account.dismissed) return;
+  if (!activeSettings.autoTimeout || account.reviewExempt || account.autoTimeoutApplied || account.isVetted || account.dismissed) return;
   if (!account.reasons?.length || account.messageCount < activeSettings.messageThreshold) return;
   account.autoTimeoutApplied = true;
   await saveAccount(account);
   try {
     await moderateUser(account, {
       duration: activeSettings.timeoutMinutes * 60,
+      source: "automatic",
       reason: `Automatic timeout: flagged chatter reached ${activeSettings.messageThreshold} messages.`
     });
   } catch (error) {
@@ -803,6 +937,7 @@ async function startChat({ reconnect = false, resume = false } = {}) {
   manualDisconnect = false;
   await extensionApi.storage.session.set({ chatConnected: true });
   await extensionApi.storage.session.set({ broadcasterId: broadcaster.id, broadcasterLogin: broadcaster.login });
+  await extensionApi.storage.local.set({ lastReviewChannel: { id: broadcaster.id, login: broadcaster.login } });
   if (generation !== connectionGeneration) return;
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = null;
@@ -940,7 +1075,19 @@ async function saveModeratorSettings(settings) {
 
 async function handleMessage(message) {
   await chatReady;
-  if (message.type === "OPEN_DASHBOARD") return openDashboard(message.page === true, message.settings === true);
+  if (message.type === "GET_CHATTERS") return listChatters(message);
+  if (message.type === "GET_ACCOUNT_HISTORY") {
+    const { settings } = await getSessionData();
+    const broadcasterId = await reviewChannelId(settings);
+    const key = String(message.key || "");
+    if (!broadcasterId || !key.startsWith(`${broadcasterId}:`)) throw new Error("This account does not belong to the selected channel.");
+    return withAccount(key, async () => {
+      const account = await getAccount(key);
+      if (!account || account.broadcasterId !== broadcasterId) throw new Error("That chatter is no longer available.");
+      return { account: { ...account, recentMessages: (account.recentMessages || []).slice(0, 50), activityHistory: (account.activityHistory || []).slice(0, 100) } };
+    });
+  }
+  if (message.type === "OPEN_DASHBOARD") return runWindowOperation(() => openDashboard(message.page === true, message.settings === true));
   if (message.type === "DELETE_MESSAGE") return deleteChatMessage(message);
   if (message.type === "TRANSLATE_MESSAGE") return translateChatMessage(message);
   if (message.type === "SAVE_WINDOW_GEOMETRY") {
@@ -958,18 +1105,12 @@ async function handleMessage(message) {
   if (message.type === "QUICK_TIMEOUT") return quickTimeout(message);
   if (message.type === "LIST_WORKSPACES") return { names: (await workspaces()).map((entry) => entry.name) };
   if (["SAVE_WORKSPACE", "RESTORE_WORKSPACE", "DELETE_WORKSPACE"].includes(message.type)) {
-    const task = workspaceWrites.then(() => manageWorkspace(message));
+    const task = workspaceWrites.then(() => runWindowOperation(() => manageWorkspace(message)));
     workspaceWrites = task.catch(() => {});
     return task;
   }
   if (message.type === "OPEN_CHAT_WINDOW") {
-    const channel = message.channel ? ChatFlow.channelName(message.channel) : "";
-    if (channel && !allChannels().includes(channel)) throw new Error("Add this channel before detaching it.");
-    const url = new URL(extensionApi.runtime.getURL("chat.html"));
-    if (channel) url.searchParams.set("channel", channel);
-    const bounds = (await extensionApi.storage.local.get("windowGeometry")).windowGeometry?.[geometryKey(message)];
-    const windowInfo = await extensionApi.windows.create({ url: url.href, type: "popup", width: channel ? 520 : 1180, height: 760, ...(bounds ? windowBounds(bounds) : {}) });
-    return { windowId: windowInfo.id };
+    return runWindowOperation(() => openChatWindow(message));
   }
   if (message.type === "GET_STATE") return { state: await snapshot() };
   if (message.type === "AUTH") {
@@ -997,6 +1138,7 @@ async function handleMessage(message) {
     return withAccount(String(message.key || ""), async () => {
     const account = await getAccount(String(message.key || ""));
     if (!account) throw new Error("That chatter is no longer available.");
+    const { moderator } = await getSessionData();
     if (message.type === "VET") {
       account.isVetted = true;
       account.approvalSource = "manual";
@@ -1006,10 +1148,13 @@ async function handleMessage(message) {
       account.dismissed = false;
       account.reasons = [];
       account.latestAction = "Approved";
+      recordAccountActivity(account, { type: "approval", source: "manual" }, moderator);
     } else if (message.type === "DISMISS") {
       account.dismissed = true;
     } else if (message.type === "NOTE") {
-      account.note = String(message.note || "").trim().slice(0, 500);
+      const note = String(message.note || "").trim().slice(0, 500);
+      if (note !== (account.note || "")) recordAccountActivity(account, { type: "note", note, previousNote: account.note || "", source: "manual" }, moderator);
+      account.note = note;
     } else if (message.type === "WARN") {
       const reason = String(message.reason || "").trim();
       if (!reason) throw new Error("Enter a reason for the warning.");
@@ -1032,7 +1177,7 @@ async function handleMessage(message) {
 async function refreshAllReasons() {
   const broadcasterId = (await extensionApi.storage.session.get("broadcasterId")).broadcasterId;
   if (!broadcasterId) return;
-  const accounts = await getChannelAccounts(broadcasterId);
+  const accounts = await getChannelAccounts(broadcasterId, true);
   for (const previous of accounts) {
     await withAccount(previous.key, async () => {
       const account = await getAccount(previous.key);

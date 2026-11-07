@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.1 - 2026-11-07
+
+- Dashboard, settings and footer fill the available viewport width in both themes; removed the minimum width that clipped narrow views.
+- Opening Multichat, detached channels and the dashboard reuses/focuses matching windows. Opening operations and workspace restores are serialized, including views still loading. At most twelve extension popup windows can be open; unrelated windows are untouched.
+- A timeout no longer implicitly dismisses the chatter or removes them from pending review. Bans still resolve the pending item; all recorded users remain discoverable through the directory.
+- Added All chatters, name search and 25-person pages across local primary-channel records, including approved, dismissed and moderation-exempt users. Category filters are independent of pending-review status.
+- Chatter history has Messages, Notes and Moderation views. The last 50 observed messages survive stream/session changes; up to 100 confirmed local actions/note changes retain dates, reasons, durations, source and actor when known.
+- Recorded manual/automatic timeouts, one-second timeouts, bans, warnings, message deletion, manual approvals and note edits. Failed remote actions are not recorded as successful events.
+- Local directory/history remain accessible after disconnecting a channel identified by this version. Summaries are read with an IndexedDB cursor; full history loads on demand.
+- Existing unrecorded actions cannot be reconstructed; legacy last-action text is labeled as an undetailed previous state. No new Twitch permissions were added.
+
 ## 1.3.0 - 2026-11-07
 
 - Original Chatter Watch app icon in six PNG sizes for Chromium/Firefox manifests, toolbar, Firefox sidebar and internal-page favicons; 512px artwork is available for store materials.

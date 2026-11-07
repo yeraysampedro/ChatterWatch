@@ -9,7 +9,7 @@
 - Desktop Chromium/Chrome/Edge 116+ or Firefox 140+. Mobile browser support is not declared.
 - A Twitch account and an application registered in the [Twitch Developer Console](https://dev.twitch.tv/console/apps). Twitch may require two-factor authentication to register applications.
 - Git for version control and publishing. Deno 2 is needed only to generate packages and run tests, not to install or run the packages.
-- No Node.js, npm, backend, framework or compilation. Chromium can load the root directly; Firefox needs its generated manifest. `fflate@0.8.2` is used only for packaging, never inside the extension.
+- No Node.js, npm, backend, framework or compilation. Chromium can load `src/` directly, not the repository root; Firefox needs the generated manifest in `dist/firefox/`. Tooling lives in `build/` and Deno tasks run from the project root. `fflate@0.8.2` is used only for packaging, never inside the extension.
 - Tests download `@std/assert@1`, `fake-indexeddb@6.2.2` and `playwright@1.56.1`. They are not runtime dependencies of the extension; the lockfile pins resolved versions.
 
 ### Load Unpacked in Chromium
@@ -28,7 +28,7 @@ The extension ID and redirect URL may change with the browser, machine, director
 ### Firefox
 
 1. Extract the Firefox ZIP or run `deno task build` to generate `dist/firefox`.
-2. Open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**, and select that folder's `manifest.json`, not the repository root manifest.
+2. Open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**, and select `manifest.json` from `dist/firefox/` or the extracted Firefox ZIP, not from `src/`.
 3. Open Settings, copy Firefox's displayed OAuth URL and register it in Twitch too. Do not reuse Chromium's `chromiumapp.org` URL. Save the Client ID and connect as described above.
 
 Both browsers provide the popup, sidebar and Multichat windows. Firefox uses background scripts and `sidebarAction`; Chromium uses a service worker and `sidePanel`. References to `chrome.storage` in this guide correspond to `browser.storage` on Firefox.
@@ -48,7 +48,7 @@ Temporary installation ends when Firefox closes. For permanent distribution, sub
 
 Reading additional channels does not require moderator status. Helix moderation actions require the appropriate scope and moderator/broadcaster privileges in the target channel. Current token validation requires `chat:read` and `moderator:manage:banned_users`, plus the follower scope when that signal is enabled. Older tokens may still read chat without the new settings scope: disconnect Twitch and sign in again to grant it before changing slow mode.
 
-Both variants request `storage`, `identity` and `alarms`; only Chromium adds `sidePanel`. Required host access covers Twitch; translation adds optional HTTPS access to the chosen origin. No website scripts or remote code are injected. Firefox declares required `authenticationInfo`/`personallyIdentifyingInfo` for Twitch and optional `personalCommunications` for translation. There is no telemetry or independent backend. Text is sent to a translator only after configuring/authorizing its server and confirming the message. See [Privacy](../PRIVACY.md).
+Both variants request `storage`, `identity` and `alarms`; only Chromium adds `sidePanel`. Required host access covers Twitch; translation adds optional HTTPS access to the chosen origin. No website scripts or remote code are injected. Firefox declares required `authenticationInfo`/`personallyIdentifyingInfo` for Twitch and optional `personalCommunications` for translation. There is no telemetry or independent backend. Text is sent to a translator only after configuring/authorizing its server and confirming the message. See [Privacy](PRIVACY.md).
 
 ### Development, Tests and Build
 
@@ -78,7 +78,7 @@ deno run -A npm:playwright@1.56.1 install firefox
 deno task test:ui:firefox
 ```
 
-Run `deno task build` to generate `dist/chatter-watch-<version>-chromium.zip`, `dist/chatter-watch-<version>-firefox.zip` and the `dist/chromium`/`dist/firefox` folders. The allowlist includes local resources, the Lucide 0.468.0 icon license and 16/32/48/64/96/128px branding PNGs, without tests, credentials or user data. The 512px artwork in `assets/icons` is available for store materials and is excluded from runtime ZIPs. Generated folders are replaced; do not edit them. Store distribution requires separate review and signing.
+Run `deno task build` to generate `dist/packages/chatter-watch-<version>-chromium.zip`, `dist/packages/chatter-watch-<version>-firefox.zip` and the `dist/chromium`/`dist/firefox` folders. The allowlist includes local resources, the Lucide 0.468.0 icon license and 16/32/48/64/96/128px branding PNGs, without tests, credentials or user data. The 512px artwork in `src/assets/icons/` is excluded from runtime ZIPs. Screenshots/metadata go to `dist/store/`, store kits to `dist/store-kits/` and source archives to `dist/source/`. Do not edit generated output. If you previously loaded the repository root, select `src/` instead and verify its OAuth redirect; `dist/chromium` and `dist/firefox` keep their existing locations. Store distribution requires separate review and signing.
 
 ## 2. Usage Guide
 
@@ -92,7 +92,7 @@ Valid changes take effect when saved: changing Client ID may sign you out, chang
 
 ### Version 1.3 Improvements
 
-The initial theme is dark; a saved light choice is preserved. The main panel is wider and keeps its dimensions when settings open. Only the pending-review total is emphasized. **Approved** shows approval reasons separately from pending people, without hiding them from live chat. Lists show up to 100 people; the pending total is not capped to that number.
+The initial theme is dark; a saved light choice is preserved. Dashboard and settings use the available width with stable geometry across themes. Only the pending-review total is emphasized; the directory has 25-person pages. **Approved** shows approval reasons without hiding messages from live chat.
 
 The pin-window button opens or reuses an independent dashboard, initially 820 x 820. The native action popup still closes on focus loss: use the window, sidebar or internal page when working across tabs. OAuth started from the popup first moves to a persistent window; continue sign-in there. Client ID is masked with a reveal option; it is not a Client Secret. **All settings** in Multichat opens the shared configuration.
 
@@ -110,13 +110,27 @@ For translation, configure an HTTPS LibreTranslate-compatible endpoint (usually 
 
 ### Multichat Layout and Windows
 
+Since 1.3.1, **Open Multichat** and **Detach** reuse and focus the matching window, even while loading or receiving repeated clicks. The dashboard is reused too. A maximum of twelve independent extension windows applies, including dashboard and workspace restoration. Unrelated windows and old duplicates are not closed; close duplicates from earlier versions manually. Workspaces exceeding available capacity report partial restoration.
+
+### All Chatters and Local History
+
+**Pending review** retains the pending queue. **All chatters** searches locally recorded primary-channel users, including approved, dismissed and moderation-exempt users. New-account, first-message and follower filters use that complete local directory, not just pending users. Search by login/display name and navigate 25-person pages. This is not Twitch's complete viewer list; unreceived messages or overloaded review queues can leave gaps.
+
+A confirmed timeout no longer automatically dismisses the person. A ban resolves the pending item, but its record remains in All chatters and applicable filters. Existing approval keeps its meaning; sanctions do not erase notes or retained messages.
+
+**History** opens Messages, Notes and Moderation. Up to 50 recent messages per person/channel persist across sessions, together with up to 100 combined local events: manual/automatic timeouts and `/srs 1s`, bans, warnings, deletions, manual approvals and note edits. Events include date, reason, duration, source and actor when available. Errors are not recorded as successful sanctions. The current note remains even if older events are evicted.
+
+History comes only from local storage; it cannot recover earlier Twitch timeouts the extension never recorded. Legacy records may show only the latest state without a detailed date. After this version has connected to a channel once, its local records remain readable after disconnecting. Uninstalling or clearing extension storage removes them; there is no time-based automatic purge. See [Privacy](PRIVACY.md).
+
+### Channel Organization
+
 Follower-based auto-approval uses lookups no more than five minutes old, refreshed on later messages when needed. Changes to the same account are processed in order so a delayed update cannot overwrite a manual approval or note.
 
 1. Connect the primary channel from the moderation panel.
 2. Open **Multichat**, then **Settings**. Enter additional channel names separated by commas, such as `channel_two, channel_three`; do not enter URLs.
 3. Save. The limit is six unique channels including the primary channel. Names contain letters, numbers and underscores; a leading `#` or `@` is optional.
 4. Choose 1, 2 or 3 columns. Narrow windows reduce the number of columns automatically.
-5. Use **Detach** on a channel to open a native single-channel window. **New window** opens another complete grid. Move/resize windows using your operating system.
+5. Use **Detach** to open or focus a channel's independent window. **Open Multichat** opens or focuses the existing grid. Move/resize windows using your operating system.
 6. Remove an additional channel from Settings to leave it. Its detached window becomes empty. Change the primary channel in the moderation panel.
 
 All views share the connection, settings, language and theme. Layout/filter changes affect all grids; single-channel windows remain one column. Pause and scroll state are local to each view. Concurrent settings edits are revision-checked: if a save is rejected, close and reopen Settings before editing again.
@@ -183,7 +197,7 @@ At the bottom of a channel, enter **0** to disable or an integer from **3 to 120
 | Space | Toggle pause/live for the hovered, focused or first channel |
 | End | Return that channel to live |
 | S | Open Settings |
-| N | Open another grid window |
+| N | Open or focus the Multichat grid |
 | Esc | Close the open dialog |
 | Tab, Enter | Navigate/activate controls; Enter pins a message row |
 

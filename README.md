@@ -1,6 +1,10 @@
 # Twitch Chatter Watch
 
-## Versión 1.3.0
+## Versión 1.3.1
+
+El panel y Ajustes utilizan el ancho disponible en ambos temas, sin la franja centrada de 960 px. Abrir Multichat, Separar y abrir el dashboard reutilizan la ventana correspondiente, incluso durante su carga o con clics simultáneos. Hay un máximo de doce ventanas independientes de la extensión, incluida la restauración de espacios; las ventanas ajenas y los duplicados ya existentes no se cierran automáticamente.
+
+Un timeout ya no descarta automáticamente al chatter. **Por revisar** muestra pendientes; **Todos los chatters** y los filtros de cuentas nuevas, primeros mensajes, seguidores y aprobados consultan los registros locales del canal, con búsqueda y páginas de 25 personas. La ficha **Historial** muestra los últimos 50 mensajes, la nota actual y hasta 100 eventos de moderación/cambios de nota, con fecha, duración, motivo y origen. Se conserva lo observado entre emisiones, no un historial retrospectivo completo de Twitch. Los timeouts anteriores sin eventos detallados solo pueden mostrar el último estado que ya estuviera guardado.
 
 Modo oscuro por defecto con contraste corregido, panel más amplio, Client ID ocultable, ventanas persistentes y geometría recordada. La configuración se comparte entre popup, panel lateral, página y ventanas. Se conserva Guardar y se muestra el estado del autoguardado.
 
@@ -8,7 +12,7 @@ La autoaprobación es configurable y viene desactivada: más de N mensajes, segu
 
 Cada mensaje ofrece Borrar, Traducir y Fijar. Las sanciones manuales y `/srs 1s` requieren confirmación; el timeout automático continúa siendo una opción explícita independiente. Las notas admiten RAID con canal de origen y FRONT PAGE. Las alertas de revisión permiten sonido y atención de ventana/barra de tareas, sujetas al navegador y sistema operativo.
 
-La traducción requiere configurar y autorizar un endpoint HTTPS compatible con LibreTranslate y confirmar cada envío. No hay un servidor externo predeterminado. Solo se envían el texto seleccionado y los parámetros de idioma, nunca el token de Twitch. Consulta [PRIVACY.md](PRIVACY.md), [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md), [docs/STORE_SUBMISSION.md](docs/STORE_SUBMISSION.md) y [CHANGELOG.md](CHANGELOG.md).
+La traducción requiere configurar y autorizar un endpoint HTTPS compatible con LibreTranslate y confirmar cada envío. No hay un servidor externo predeterminado. Solo se envían el texto seleccionado y los parámetros de idioma, nunca el token de Twitch. Consulta [docs/PRIVACY.md](docs/PRIVACY.md), [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md), [docs/STORE_SUBMISSION.md](docs/STORE_SUBMISSION.md) y [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 Extensión Manifest V3 para Chromium y Firefox, para moderación de Twitch y lectura simultánea de hasta seis chats. Incluye ventanas independientes, cuadrícula responsive, filtros de spam y control del slow mode de Twitch. No requiere servidor propio ni compilación; Deno genera los paquetes específicos de cada navegador.
 
@@ -37,7 +41,7 @@ Extensión Manifest V3 para Chromium y Firefox, para moderación de Twitch y lec
 
 ## Instalación rápida
 
-1. Chromium: descomprime el ZIP Chromium y carga su carpeta desde `chrome://extensions` o `edge://extensions`, con el modo desarrollador activado. También puedes cargar directamente la raíz del repositorio.
+1. Chromium: descomprime el ZIP Chromium y carga su carpeta desde `chrome://extensions` o `edge://extensions`, con el modo desarrollador activado. También puedes cargar `src/` o la carpeta generada `dist/chromium`, no la raíz del repositorio.
 2. Firefox: descomprime el ZIP Firefox, abre `about:debugging#/runtime/this-firefox`, pulsa **Cargar complemento temporal** y selecciona su `manifest.json`. Esta carga dura hasta cerrar Firefox; la instalación permanente requiere un XPI firmado por Mozilla.
 3. En Ajustes del panel copia la URL OAuth y regístrala exactamente en tu aplicación de [Twitch Developers](https://dev.twitch.tv/console/apps). Registra la URL de cada navegador; no reutilices la de Chromium en Firefox.
 4. Guarda el Client ID, introduce el canal principal e inicia sesión. No uses ni publiques un client secret.
@@ -47,7 +51,7 @@ Requiere Chromium/Chrome/Edge de escritorio 116+ o Firefox de escritorio 140+. N
 
 ## Generar los dos entregables
 
-Para preparar la ficha de tienda, permisos, instrucciones de revisión y recursos gráficos, consulta [docs/STORE_LISTING.md](docs/STORE_LISTING.md), [docs/STORE_PERMISSIONS.md](docs/STORE_PERMISSIONS.md), [docs/STORE_TESTING.md](docs/STORE_TESTING.md) y [SUPPORT.md](SUPPORT.md). La URL de soporte pública es https://github.com/yeraysampedro/Twtich-Moderatr/issues .
+Para preparar la ficha de tienda, permisos, instrucciones de revisión y recursos gráficos, consulta [docs/STORE_LISTING.md](docs/STORE_LISTING.md), [docs/STORE_PERMISSIONS.md](docs/STORE_PERMISSIONS.md), [docs/STORE_TESTING.md](docs/STORE_TESTING.md) y [docs/SUPPORT.md](docs/SUPPORT.md). La URL de soporte pública es https://github.com/yeraysampedro/Twtich-Moderatr/issues .
 
 `deno task store:assets` crea cinco capturas 1280×800 por navegador con datos ficticios, iconos de tienda, promociones opcionales, metadatos y kits independientes en `dist`. El informe [docs/STORE_VALIDATION.md](docs/STORE_VALIDATION.md) registra el contenido real de los ZIP, hashes y bloqueos pendientes. Extrae cada kit: las capturas se suben a la ficha y solo el ZIP de `packages/` se entrega como extensión. El kit no contiene credenciales de prueba reales ni constituye aprobación de las tiendas.
 
@@ -55,25 +59,42 @@ Para preparar la ficha de tienda, permisos, instrucciones de revisión y recurso
 deno task build
 ```
 
-Genera `dist/chatter-watch-<versión>-chromium.zip` y `dist/chatter-watch-<versión>-firefox.zip`, además de las carpetas `dist/chromium` y `dist/firefox` para carga local. La versión procede de `manifest.json`. Los ZIP contienen solo archivos de ejecución, con el manifiesto en la raíz; no incluyen tokens, exportaciones, pruebas ni dependencias. `dist` no se versiona y las carpetas generadas se reemplazan en cada ejecución.
+Genera `dist/packages/chatter-watch-<versión>-chromium.zip` y `dist/packages/chatter-watch-<versión>-firefox.zip`, además de las carpetas `dist/chromium` y `dist/firefox` para carga local. La versión procede de [src/manifest.json](src/manifest.json). Los ZIP contienen solo archivos de ejecución, con el manifiesto en la raíz; no incluyen tokens, exportaciones, pruebas ni dependencias. `dist` no se versiona y las carpetas generadas se reemplazan en cada ejecución. Los kits están en `dist/store-kits/`, el ZIP de fuentes en `dist/source/` y las capturas/metadatos en `dist/store/`.
 
 El ZIP Chromium sirve para enviar a Chrome Web Store/Edge Add-ons o extraer y cargar localmente. El ZIP Firefox sirve para enviar a Mozilla Add-ons (AMO), con distribución pública o no listada. AMO devuelve el XPI firmado para instalación permanente. Generar los ZIP no firma ni publica la extensión; no se generan CRX ni XPI sin firmar presentados como instalables. Conserva el ID Firefox `twitch-chatter-watch@extensions.local` al actualizar una publicación existente.
 
 ## Estructura
 
+```text
+src/                Extensión: manifiesto, JS, HTML, CSS e iconos
+build/              Herramientas de empaquetado y materiales de tienda
+tests/              Pruebas automáticas
+docs/               Guías, privacidad, soporte, changelog y publicación
+dist/               Salidas generadas e ignoradas por Git
+	chromium/         Extensión Chromium sin empaquetar
+	firefox/          Extensión Firefox para carga temporal
+	packages/         ZIP instalables de la versión final
+	store/            Capturas, imágenes, metadatos e informes JSON
+	store-kits/       Kits de publicación de la versión final
+	source/           ZIP de fuentes reproducibles
+```
+
+La limpieza conserva únicamente los entregables finales 1.3.1; los ZIP antiguos y borradores v0.1 se han retirado. La documentación funcional vigente está en [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md). El archivo local de cuentas permanece privado e ignorado: no se lee ni se incluye en ninguna salida. Cambiar la carpeta de una instalación sin empaquetar puede cambiar su ID; si ya cargas `dist/chromium`, su ubicación se mantiene.
+
 | Archivo | Responsabilidad |
 | --- | --- |
-| [manifest.json](manifest.json) | Manifest V3, permisos y CSP local |
-| [build.js](build.js) | ZIP reproducibles, lista de archivos de ejecución y adaptación del manifiesto Firefox |
-| [view-tools.js](view-tools.js), [view-tools.css](view-tools.css) | Diálogos accesibles, idioma de controles nuevos, sonido y geometría compartidos |
-| [icons.js](icons.js), [LICENSE.lucide](LICENSE.lucide) | Seis iconos locales extraídos de Lucide 0.468.0 y su licencia |
-| [assets/icons/chatter-watch-128.png](assets/icons/chatter-watch-128.png), [assets/icons/chatter-watch-512.png](assets/icons/chatter-watch-512.png) | Icono original de la extensión: seis tamaños de ejecución y arte de 512 px para material de tienda |
-| [worker.js](worker.js) | OAuth validado, IRC compartido, JOIN/PART, ventanas, puertos, Helix, IndexedDB y contrapresión |
-| [core.js](core.js) | Parser IRC y reglas de revisión de cuentas |
-| [chat-flow.js](chat-flow.js) | Configuración validada, buffers circulares, filtros por canal, lotes y borrados |
-| [virtual-chat.js](virtual-chat.js) | Renderizado virtual, reciclaje DOM y estado de pausa por vista |
-| [chat.html](chat.html), [chat.css](chat.css), [chat.js](chat.js) | Cuadrícula y vista detached, controles, traducciones y sincronización |
-| [dashboard.html](dashboard.html), [dashboard.css](dashboard.css), [dashboard.js](dashboard.js) | Panel de moderación y acceso a Multichat |
+| [src/manifest.json](src/manifest.json) | Manifest V3, permisos y CSP local |
+| [build/build.js](build/build.js) | ZIP reproducibles, lista de archivos de ejecución y adaptación del manifiesto Firefox |
+| [build/store-assets.js](build/store-assets.js) | Capturas, metadatos, validación y kits de publicación |
+| [src/view-tools.js](src/view-tools.js), [src/view-tools.css](src/view-tools.css) | Diálogos accesibles, idioma de controles nuevos, sonido y geometría compartidos |
+| [src/icons.js](src/icons.js), [src/LICENSE.lucide](src/LICENSE.lucide) | Seis iconos locales extraídos de Lucide 0.468.0 y su licencia |
+| [src/assets/icons/chatter-watch-128.png](src/assets/icons/chatter-watch-128.png), [src/assets/icons/chatter-watch-512.png](src/assets/icons/chatter-watch-512.png) | Icono original de la extensión: seis tamaños de ejecución y arte de 512 px para material de tienda |
+| [src/worker.js](src/worker.js) | OAuth validado, IRC compartido, JOIN/PART, ventanas, puertos, Helix, IndexedDB y contrapresión |
+| [src/core.js](src/core.js) | Parser IRC y reglas de revisión de cuentas |
+| [src/chat-flow.js](src/chat-flow.js) | Configuración validada, buffers circulares, filtros por canal, lotes y borrados |
+| [src/virtual-chat.js](src/virtual-chat.js) | Renderizado virtual, reciclaje DOM y estado de pausa por vista |
+| [src/chat.html](src/chat.html), [src/chat.css](src/chat.css), [src/chat.js](src/chat.js) | Cuadrícula y vista detached, controles, traducciones y sincronización |
+| [src/dashboard.html](src/dashboard.html), [src/dashboard.css](src/dashboard.css), [src/dashboard.js](src/dashboard.js) | Panel de moderación y acceso a Multichat |
 | [tests/core_test.js](tests/core_test.js) | Reglas, filtros, aislamiento y ráfaga de 20.000 mensajes |
 | [tests/worker_test.js](tests/worker_test.js) | Worker con APIs Chromium/Firefox, red e IndexedDB simulados |
 | [tests/ui_test.js](tests/ui_test.js) | Motores Chromium/Firefox headless, APIs simuladas, panel y chat en tres tamaños e idiomas |

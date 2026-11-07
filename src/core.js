@@ -77,6 +77,7 @@
   }
 
   function getFlagReasons(account, settings) {
+    if (account.reviewExempt) return [];
     const criteria = [];
     if (settings.flagNewAccounts) criteria.push(["new-account", Number.isFinite(account.ageDays) && account.ageDays < settings.ageLimitDays]);
     const established = Number(account.messageCount || 0) >= settings.trustMessageThreshold;
@@ -120,12 +121,11 @@
     if (account.sessionId !== sessionId) {
       account.sessionId = sessionId;
       account.messageCount = 0;
-      account.recentMessages = [];
     }
     account.messageCount += 1;
     account.lastMessageAt = Number(message.tags["tmi-sent-ts"]) || Date.now();
     account.firstMessage ||= message.tags["first-msg"] === "1";
-    account.recentMessages = [{ text: message.trailing || "", sentAt: account.lastMessageAt }, ...account.recentMessages].slice(0, 50);
+    account.recentMessages = [{ id: message.tags.id || "", text: message.trailing || "", sentAt: account.lastMessageAt, sessionId }, ...(account.recentMessages || [])].slice(0, 50);
     return account;
   }
 

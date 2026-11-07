@@ -32,10 +32,20 @@ Deno.test({
             i18n: { getUILanguage: () => firefoxApi ? "de-AT" : "fr-FR" },
             runtime: {
               connect: () => ({ onDisconnect: { addListener() {} } }),
-              onMessage: { addListener: (listener) => { window.testStateUpdate = (accounts, approved = []) => listener({ type: "STATE", state: { ...state, settings: window.ModerationCore.normalizeSettings(state.settings), accounts, approved, flagged: accounts.length } }); } },
+              onMessage: { addListener: (listener) => { window.testStateUpdate = (accounts, approved = []) => {
+                Object.assign(state, { accounts, approved, flagged: accounts.length });
+                listener({ type: "STATE", state: { ...state, settings: window.ModerationCore.normalizeSettings(state.settings) } });
+              }; } },
               sendMessage: async (message) => {
                 window.testRequests.push(message);
                 if (message.type === "GET_STATE") return { state: { ...state, settings: window.ModerationCore.normalizeSettings(settings) } };
+                if (message.type === "GET_CHATTERS") {
+                  let accounts = message.filter === "approved" ? state.approved || [] : message.filter === "pending" ? state.accounts : [...state.accounts, ...(state.approved || [])];
+                  if (message.query) accounts = accounts.filter((account) => `${account.login} ${account.displayName}`.toLowerCase().includes(message.query.toLowerCase()));
+                  const page = Math.max(0, Math.min(message.page || 0, Math.max(0, Math.ceil(accounts.length / 25) - 1)));
+                  return { accounts: accounts.slice(page * 25, (page + 1) * 25), total: accounts.length, page, pageSize: 25, broadcasterId: "100" };
+                }
+                if (message.type === "GET_ACCOUNT_HISTORY") return { account: [...state.accounts, ...(state.approved || [])].find((account) => account.key === message.key) };
                 if (message.type === "SAVE_SETTINGS") {
                   if (window.testHoldSettingsSave) {
                     window.testHoldSettingsSave = false;
@@ -73,10 +83,33 @@ Deno.test({
           if (firefoxApi) window.browser = api;
           window.testRedirect = redirect;
         }, { firefoxApi });
-        await page.goto(new URL("../dashboard.html", import.meta.url).href);
+        await page.goto(new URL("../src/dashboard.html", import.meta.url).href);
         await page.waitForFunction(() => document.querySelector("#channel-input").value === "primary");
         assertEquals(await page.locator("html").getAttribute("lang"), firefoxApi ? "de" : "en");
         assertEquals(await page.locator("body").getAttribute("data-theme"), "dark");
+        for (const width of [1120, 1920, 2560, 320, 280]) {
+          await page.setViewportSize({ width, height: 800 });
+          const before = await page.evaluate(() => {
+            const shell = document.querySelector(".shell").getBoundingClientRect();
+            const tools = document.querySelector(".top-actions").getBoundingClientRect();
+            return { left: shell.left, right: shell.right, width: shell.width, viewport: document.documentElement.clientWidth,
+              overflow: document.documentElement.scrollWidth > innerWidth, toolsRight: tools.right };
+          });
+          assertEquals(before.overflow, false, JSON.stringify(before));
+          assert(Math.abs(before.left) <= 1 && Math.abs(before.width - before.viewport) <= 1, `Dashboard must fill the page, not a centered strip: ${JSON.stringify(before)}`);
+          assert(before.toolsRight <= before.viewport + 1, JSON.stringify(before));
+          await page.evaluate(() => setTheme("light", false));
+          const light = await page.locator(".shell").boundingBox();
+          await page.evaluate(() => setTheme("dark", false));
+          const dark = await page.locator(".shell").boundingBox();
+          assertEquals(light, dark);
+          await page.locator("#settings-toggle").click();
+          const settingsBounds = await page.locator("#settings-panel").boundingBox();
+          assert(Math.abs(settingsBounds.x) <= 1 && Math.abs(settingsBounds.width - before.viewport) <= 1, JSON.stringify(settingsBounds));
+          await page.locator("#settings-close").click();
+        }
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await page.screenshot({ path: `${screenshots}/${firefoxApi ? "firefox" : "chromium"}-wide-dark.png`, fullPage: true, animations: "disabled" });
         assertEquals(await page.locator("#redirect-uri").textContent(), await page.evaluate(() => window.testRedirect));
         await page.locator("#connect-button").click();
         await page.waitForFunction(() => window.testRequests.some((request) => request.type === "CONNECT"));
@@ -150,6 +183,35 @@ Deno.test({
         await page.locator(".dialog-confirm").click();
         await page.waitForFunction(() => window.testRequests.some((request) => request.type === "NOTE"));
         assertEquals(await page.evaluate(() => window.testRequests.findLast((request) => request.type === "NOTE").note), "Existing note\nRAID source_channel");
+        await page.evaluate(() => window.testStateUpdate(Array.from({ length: 60 }, (_, index) => ({
+          key: `100:${index}`, login: `record_${index}`, displayName: `Record ${index}`, ageDays: 2, messageCount: 1,
+          lastMessageAt: Date.now(), note: "Current <img src=x onerror=alert(1)> note",
+          recentMessages: [{ text: "Previous stream message", sentAt: Date.now() - 86400000 }],
+          activityHistory: [
+            { type: "note", at: Date.now(), source: "manual", actor: "testmod", previousNote: "First note", note: "Current note" },
+            { type: "timeout", at: Date.now() - 1000, source: "manual", actor: "testmod", duration: 300, reason: "Repeated messages" }
+          ]
+        }))));
+        await page.locator('[data-filter="all"]').click();
+        await page.waitForFunction(() => document.querySelectorAll(".chatter-card").length === 25 && document.querySelector("#directory-status").textContent.includes("60"));
+        await page.locator("#directory-next").click();
+        await page.waitForFunction(() => document.querySelector("#directory-status").textContent.includes("2/3"));
+        assert((await page.locator(".display-name").first().textContent()).includes("Record 25"));
+        await page.locator("#chatter-search").fill("record_59");
+        await page.waitForFunction(() => document.querySelectorAll(".chatter-card").length === 1 && document.querySelector(".display-name").textContent === "Record 59");
+        await page.locator(".action-row .action-button").nth(3).click();
+        await page.waitForFunction(() => document.querySelector("#history-dialog").open);
+        assert((await page.locator("#history-list").textContent()).includes("Previous stream message"));
+        await page.locator('[data-history-view="notes"]').click();
+        assert((await page.locator("#history-note").textContent()).includes("<img"));
+        assertEquals(await page.locator("#history-dialog img").count(), 0);
+        assert((await page.locator("#history-list").textContent()).includes("First note"));
+        await page.locator('[data-history-view="actions"]').click();
+        assert((await page.locator("#history-list").textContent()).includes("300 s"));
+        assert((await page.locator("#history-list").textContent()).includes("Repeated messages"));
+        await page.screenshot({ path: `${screenshots}/${firefoxApi ? "firefox" : "chromium"}-chatter-history.png`, fullPage: true, animations: "disabled" });
+        await page.locator("#history-close").click();
+        await page.locator("#chatter-search").fill("");
         await page.evaluate(() => window.testStateUpdate([], [{ key: "100:77", login: "viewer", displayName: "ApprovedViewer", isVetted: true, approvalSource: "automatic", approvalReason: "messages", messageCount: 20, lastMessageAt: Date.now() }]));
         await page.locator('[data-filter="approved"]').click();
         assert((await page.locator("#feed").textContent()).includes("ApprovedViewer"));
@@ -250,8 +312,12 @@ Deno.test({
             window.chrome = {};
           }
         }, { language, firefoxApi: browserName === "firefox" || language === "en" });
-        await page.goto(new URL("../chat.html", import.meta.url).href);
+        await page.goto(new URL("../src/chat.html", import.meta.url).href);
         await page.waitForFunction(() => document.querySelectorAll(".chat-row").length > 0);
+        await page.evaluate(() => {
+          for (let index = 0; index < 20; index += 1) document.querySelector("#open-grid").dispatchEvent(new Event("click"));
+        });
+        assertEquals(await page.evaluate(() => window.testRequests.filter((request) => request.type === "OPEN_CHAT_WINDOW").length), 1);
         assertEquals(await page.locator(".chat-panel").count(), 6);
         assert(await page.locator(".chat-row").count() < 200);
         assertEquals(await page.locator(".chat-row img").count(), 0);

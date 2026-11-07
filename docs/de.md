@@ -9,7 +9,7 @@
 - Chromium/Chrome/Edge 116+ oder Firefox 140+ auf einem Desktop-System. Unterstützung für mobile Browser wird nicht zugesichert.
 - Twitch-Konto und eine registrierte Anwendung in der [Twitch Developer Console](https://dev.twitch.tv/console/apps). Twitch kann für die Registrierung eine Zwei-Faktor-Authentifizierung verlangen.
 - Git für Versionsverwaltung und Veröffentlichung. Deno 2 wird nur zum Erstellen der Pakete und für Tests benötigt, nicht zur Installation oder Nutzung der Pakete.
-- Weder Node.js noch npm, Backend, Framework oder Kompilierung sind erforderlich. Chromium kann das Hauptverzeichnis direkt laden; Firefox benötigt sein erzeugtes Manifest. `fflate@0.8.2` wird nur zum Verpacken verwendet, nicht in der Erweiterung.
+- Weder Node.js noch npm, Backend, Framework oder Kompilierung sind erforderlich. Chromium kann `src/` direkt laden, nicht das Repository-Hauptverzeichnis; Firefox benötigt das erzeugte Manifest in `dist/firefox/`. Werkzeuge liegen in `build/`, Deno-Aufgaben laufen vom Projekt-Hauptverzeichnis. `fflate@0.8.2` wird nur zum Verpacken verwendet, nicht in der Erweiterung.
 - Tests laden `@std/assert@1`, `fake-indexeddb@6.2.2` und `playwright@1.56.1`. Diese Pakete gehören nicht zu den Laufzeitabhängigkeiten der Erweiterung; das Lockfile hält die aufgelösten Versionen fest.
 
 ### Entpackte Erweiterung in Chromium laden
@@ -28,7 +28,7 @@ Erweiterungs-ID und Weiterleitungs-URL können sich durch einen anderen Browser,
 ### Firefox
 
 1. Firefox-ZIP entpacken oder mit `deno task build` den Ordner `dist/firefox` erzeugen.
-2. `about:debugging#/runtime/this-firefox` öffnen, **Temporäres Add-on laden** wählen und die `manifest.json` dieses Ordners auswählen, nicht die im Repository-Hauptverzeichnis.
+2. `about:debugging#/runtime/this-firefox` öffnen, **Temporäres Add-on laden** wählen und `manifest.json` aus `dist/firefox/` oder dem entpackten Firefox-ZIP auswählen, nicht aus `src/`.
 3. In Einstellungen die von Firefox angezeigte OAuth-URL kopieren und ebenfalls bei Twitch registrieren. Die `chromiumapp.org`-URL von Chromium nicht wiederverwenden. Client ID speichern und wie oben verbinden.
 
 Popup, Seitenleiste und Multichat-Fenster sind in beiden Browsern verfügbar. Firefox verwendet Hintergrundskripte und `sidebarAction`, Chromium einen Service Worker und `sidePanel`. Verweise auf `chrome.storage` entsprechen in Firefox `browser.storage`.
@@ -48,7 +48,7 @@ Die temporäre Installation endet beim Schließen von Firefox. Für dauerhafte V
 
 Das Lesen zusätzlicher Kanäle erfordert keine Moderatorrolle. Für Helix-Moderationsaktionen sind der passende Scope und Moderator- beziehungsweise Broadcaster-Rechte im Zielkanal erforderlich. Die aktuelle Tokenprüfung verlangt `chat:read` und `moderator:manage:banned_users`; bei aktivierter Follower-Prüfung auch den entsprechenden Follower-Scope. Ältere Tokens können ohne den neuen Einstellungs-Scope weiterhin lesen. Vor einem Slow-Mode-Wechsel Twitch trennen und erneut anmelden, um die Berechtigung zu erteilen.
 
-Beide Varianten verwenden `storage`, `identity` und `alarms`; nur Chromium zusätzlich `sidePanel`. Erforderlicher Hostzugriff gilt Twitch; Übersetzung erlaubt optionalen HTTPS-Zugriff auf den ausgewählten Ursprung. Es werden weder Webseitenskripte noch entfernter Code geladen. Firefox deklariert erforderliche `authenticationInfo`/`personallyIdentifyingInfo` für Twitch und optionale `personalCommunications` für Übersetzung. Keine Telemetrie und kein eigenes Backend. Nachrichtentext wird nur nach Einrichtung/Freigabe des Servers und Bestätigung der Nachricht übertragen. Siehe [Datenschutz](../PRIVACY.md).
+Beide Varianten verwenden `storage`, `identity` und `alarms`; nur Chromium zusätzlich `sidePanel`. Erforderlicher Hostzugriff gilt Twitch; Übersetzung erlaubt optionalen HTTPS-Zugriff auf den ausgewählten Ursprung. Es werden weder Webseitenskripte noch entfernter Code geladen. Firefox deklariert erforderliche `authenticationInfo`/`personallyIdentifyingInfo` für Twitch und optionale `personalCommunications` für Übersetzung. Keine Telemetrie und kein eigenes Backend. Nachrichtentext wird nur nach Einrichtung/Freigabe des Servers und Bestätigung der Nachricht übertragen. Siehe [Datenschutz](PRIVACY.md).
 
 ### Entwicklung, Tests und Build
 
@@ -78,7 +78,7 @@ deno run -A npm:playwright@1.56.1 install firefox
 deno task test:ui:firefox
 ```
 
-`deno task build` erzeugt `dist/chatter-watch-<Version>-chromium.zip`, `dist/chatter-watch-<Version>-firefox.zip` und die Ordner `dist/chromium`/`dist/firefox`. Die erlaubten Dateien enthalten lokale Ressourcen, die Lizenz der Lucide-0.468.0-Icons und Marken-PNGs mit 16/32/48/64/96/128 Pixeln, keine Tests, Zugangsdaten oder Nutzerdaten. Die 512-Pixel-Grafik in `assets/icons` ist für Store-Material verfügbar und nicht in Laufzeit-ZIPs enthalten. Erzeugte Ordner werden ersetzt; nicht direkt bearbeiten. Store-Verteilung erfordert gesonderte Prüfung und Signierung.
+`deno task build` erzeugt `dist/packages/chatter-watch-<Version>-chromium.zip`, `dist/packages/chatter-watch-<Version>-firefox.zip` und die Ordner `dist/chromium`/`dist/firefox`. Die erlaubten Dateien enthalten lokale Ressourcen, die Lizenz der Lucide-0.468.0-Icons und Marken-PNGs mit 16/32/48/64/96/128 Pixeln, keine Tests, Zugangsdaten oder Nutzerdaten. Die 512-Pixel-Grafik in `src/assets/icons/` ist nicht in Laufzeit-ZIPs enthalten. Bilder/Metadaten liegen in `dist/store/`, Store-Kits in `dist/store-kits/` und Quellarchive in `dist/source/`. Erzeugte Dateien nicht direkt bearbeiten. Wurde bisher das Repository-Hauptverzeichnis geladen, jetzt `src/` wählen und die OAuth-URL prüfen; `dist/chromium` und `dist/firefox` behalten ihre Pfade. Store-Verteilung erfordert gesonderte Prüfung und Signierung.
 
 ## 2. Bedienungsanleitung
 
@@ -92,7 +92,7 @@ Gültige Änderungen gelten nach dem Speichern: Eine andere Client ID kann die A
 
 ### Verbesserungen in Version 1.3
 
-Der anfängliche Modus ist dunkel; eine gespeicherte helle Auswahl bleibt erhalten. Das Hauptpanel ist breiter und behält seine Größe beim Öffnen der Einstellungen. Nur die Zahl ausstehender Prüfungen wird hervorgehoben. **Freigegeben** zeigt Freigabegründe getrennt von ausstehenden Personen, ohne sie aus dem Live-Chat auszublenden. Listen zeigen bis zu 100 Personen; die Gesamtzahl ausstehender Prüfungen bleibt davon unabhängig.
+Der anfängliche Modus ist dunkel; eine gespeicherte helle Auswahl bleibt erhalten. Dashboard und Einstellungen nutzen die verfügbare Breite mit gleicher Geometrie in beiden Designs. Nur die Zahl ausstehender Prüfungen wird hervorgehoben; das Verzeichnis hat Seiten mit 25 Personen. **Freigegeben** zeigt Freigabegründe, ohne Nachrichten im Live-Chat auszublenden.
 
 Die Fenster-Anheften-Schaltfläche öffnet oder verwendet ein unabhängiges Dashboard, anfangs 820 x 820. Das native Popup schließt weiterhin bei Fokusverlust: Fenster, Seitenleiste oder interne Seite für Tabwechsel verwenden. OAuth aus dem Popup wechselt zuerst in ein dauerhaftes Fenster; dort die Anmeldung fortsetzen. Die Client ID ist verdeckt und kann angezeigt werden; sie ist kein Client Secret. **Alle Einstellungen** in Multichat öffnet die gemeinsame Konfiguration.
 
@@ -110,13 +110,27 @@ Für Übersetzung einen HTTPS-Endpunkt mit LibreTranslate-Kompatibilität (meist
 
 ### Multichat und Fenster
 
+Seit 1.3.1 verwenden **Multichat öffnen** und **Abtrennen** das passende Fenster erneut und fokussieren es, auch während des Ladens oder bei mehrfachen Klicks. Das Dashboard wird ebenfalls wiederverwendet. Höchstens zwölf unabhängige Erweiterungsfenster sind erlaubt, einschließlich Dashboard und Arbeitsbereich-Wiederherstellung. Fremde Fenster und alte Duplikate werden nicht geschlossen; Duplikate früherer Versionen manuell schließen. Reicht die Kapazität für einen Arbeitsbereich nicht, wird teilweise Wiederherstellung gemeldet.
+
+### Alle Chatter und lokaler Verlauf
+
+**Zur Prüfung** bleibt die Warteschlange. **Alle Chatter** durchsucht lokal erfasste Personen des Hauptkanals, einschließlich freigegebener, verworfener und von automatischen Sanktionen ausgenommener Nutzer. Filter für neue Konten, erste Nachrichten und Follower verwenden dieses vollständige lokale Verzeichnis. Nach Login/Anzeigename suchen und Seiten mit 25 Personen durchblättern. Dies ist keine vollständige Twitch-Zuschauerliste; nicht empfangene Nachrichten oder überlastete Prüfwarteschlangen können Lücken verursachen.
+
+Ein bestätigter Timeout verwirft die Person nicht mehr automatisch. Ein Ban löst den ausstehenden Eintrag auf; der Datensatz bleibt in Alle Chatter und passenden Filtern verfügbar. Bestehende Freigaben behalten ihre Bedeutung; Sanktionen löschen weder Notizen noch gespeicherte Nachrichten.
+
+**Verlauf** öffnet Nachrichten, Notizen und Moderation. Bis zu 50 aktuelle Nachrichten je Person/Kanal bleiben über Sitzungen erhalten, dazu höchstens 100 gemeinsame lokale Ereignisse: manuelle/automatische Timeouts und `/srs 1s`, Bans, Warnungen, Löschungen, manuelle Freigaben und Notizänderungen. Ereignisse enthalten Datum, Grund, Dauer, Herkunft und handelnde Person, soweit bekannt. Fehler gelten nicht als erfolgreiche Sanktionen. Die aktuelle Notiz bleibt auch nach Verdrängung älterer Ereignisse erhalten.
+
+Der Verlauf stammt ausschließlich aus lokalem Speicher; frühere, nie erfasste Twitch-Timeouts lassen sich nicht rekonstruieren. Alte Datensätze können nur den letzten Zustand ohne genaue Datumsangabe enthalten. Nach einmaligem Verbinden eines Kanals mit dieser Version bleiben lokale Daten nach dem Trennen lesbar. Deinstallation oder Löschen des Erweiterungsspeichers entfernt sie; keine automatische zeitbasierte Bereinigung. Siehe [Datenschutz](PRIVACY.md).
+
+### Kanalorganisation
+
 Follower-basierte Freigabe verwendet höchstens fünf Minuten alte Abfragen und erneuert sie bei späteren Nachrichten nach Bedarf. Änderungen desselben Kontos werden geordnet verarbeitet, damit eine verzögerte Aktualisierung keine manuelle Freigabe oder Notiz überschreibt.
 
 1. Den Hauptkanal im Moderationspanel verbinden.
 2. **Multichat** und dann **Einstellungen** öffnen. Zusätzliche Kanalnamen durch Kommas trennen, etwa `kanal_zwei, kanal_drei`; keine URLs eingeben.
 3. Speichern. Es sind höchstens sechs eindeutige Kanäle einschließlich Hauptkanal möglich. Namen dürfen Buchstaben, Ziffern und Unterstriche enthalten; ein führendes `#` oder `@` ist optional.
 4. Eine, zwei oder drei Spalten auswählen. Bei schmalen Fenstern wird die Spaltenanzahl automatisch reduziert.
-5. **Abtrennen** öffnet einen Kanal in einem eigenen nativen Fenster. **Neues Fenster** öffnet ein weiteres vollständiges Raster. Fenster mit den Mitteln des Betriebssystems verschieben oder vergrößern.
+5. **Abtrennen** öffnet oder fokussiert das unabhängige Kanalfenster. **Multichat öffnen** öffnet oder fokussiert das vorhandene Raster. Fenster mit dem Betriebssystem verschieben oder vergrößern.
 6. Einen zusätzlichen Kanal aus den Einstellungen entfernen, um ihn zu verlassen. Sein abgetrenntes Fenster wird leer. Den Hauptkanal im Moderationspanel ändern.
 
 Alle Ansichten teilen Verbindung, Einstellungen, Sprache und Farbschema. Änderungen an Layout oder Filtern wirken auf alle Raster; Ein-Kanal-Fenster behalten eine Spalte. Pause und Scrollposition gelten nur für die jeweilige Ansicht. Gleichzeitige Änderungen werden anhand einer Revision geprüft: Bei abgelehntem Speichern Einstellungen schließen und erneut öffnen.
@@ -183,7 +197,7 @@ Unter einem Chat **0** zum Deaktivieren oder eine ganze Zahl von **3 bis 120 Sek
 | Leertaste | Pause/Live für den Kanal unter dem Mauszeiger, mit Fokus oder den ersten Kanal umschalten |
 | Ende | Diesen Kanal auf Live setzen |
 | S | Einstellungen öffnen |
-| N | Ein weiteres Rasterfenster öffnen |
+| N | Multichat-Raster öffnen oder fokussieren |
 | Esc | Offenen Dialog schließen |
 | Tab, Enter | Steuerelemente auswählen/aktivieren; Enter heftet eine Nachrichtenzeile an |
 
