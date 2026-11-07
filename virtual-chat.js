@@ -4,15 +4,18 @@
   const OVERSCAN = 3;
 
   class VirtualChat {
-    constructor(viewport, { onPause, onInspect, pauseOnHover = true }) {
+    constructor(viewport, { onPause, onInspect, pauseOnHover = true, unified = false, highlights = [] }) {
       this.viewport = viewport;
       this.onPause = onPause;
       this.onInspect = onInspect;
       this.pauseOnHover = pauseOnHover;
+      this.unified = unified;
+      this.highlights = VirtualChat.compileHighlights(highlights);
       this.buffer = new ChatFlow.RingBuffer(ChatFlow.HISTORY_LIMIT);
       this.reasons = new Set();
       this.rows = [];
-      this.sequence = 0;
+      this.sequences = new Map();
+      this.lastScrollTop = 0;
       this.pending = 0;
       this.frame = null;
       this.content = document.createElement("div");
@@ -27,8 +30,12 @@
       }, options);
       viewport.addEventListener("scroll", () => {
         if (viewport.scrollTop === this.programmaticScrollTop && !this.userScrolling) return;
-        const atBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 8;
-        if (this.userScrolling || this.paused) this.setPaused("scroll", !atBottom);
+        const atBottom = typeof viewport.scrollTopMax === "number"
+          ? viewport.scrollTop >= viewport.scrollTopMax
+          : viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 0.5;
+        if (this.userScrolling && !atBottom && viewport.scrollTop < this.lastScrollTop) this.setPaused("scroll", true);
+        if (this.userScrolling && atBottom) this.setPaused("scroll", false);
+        this.lastScrollTop = viewport.scrollTop;
         if (atBottom) this.userScrolling = false;
         this.schedule();
       }, options);
@@ -84,35 +91,76 @@
       this.schedule();
     }
 
-    configure(pauseOnHover) {
+    configure(pauseOnHover, highlights = []) {
       this.pauseOnHover = pauseOnHover;
+      this.highlights = VirtualChat.compileHighlights(highlights);
       if (!pauseOnHover) this.setPaused("hover", false);
+      this.schedule();
     }
 
     replace(entries) {
       this.buffer.clear();
-      this.sequence = 0;
+      this.sequences.clear();
       this.append(entries);
     }
 
     append(entries) {
+      const accepted = [];
+      const previousSequences = new Map(this.sequences);
+      const seen = new Set();
       for (const entry of entries) {
-        if (entry.sequence <= this.sequence) continue;
-        this.sequence = entry.sequence;
-        this.buffer.push(entry);
+        const key = `${entry.channel}:${entry.sequence}`;
+        if (entry.sequence <= (previousSequences.get(entry.channel) || 0) || seen.has(key)) continue;
+        seen.add(key);
+        this.sequences.set(entry.channel, Math.max(entry.sequence, this.sequences.get(entry.channel) || 0));
+        accepted.push(entry);
         if (this.paused) this.pending += 1;
+      }
+      if (this.unified && accepted.length) {
+        const merged = ChatFlow.mergeTimeline(this.buffer.values(), accepted);
+        this.buffer.clear();
+        for (const entry of merged) this.buffer.push(entry);
+      } else {
+        for (const entry of accepted) this.buffer.push(entry);
       }
       this.onPause(this.paused, this.pending);
       if (!this.paused) this.schedule();
     }
 
-    purge({ id, userId }) {
-      const retain = (entry) => id ? entry.id !== id : userId ? entry.userId !== userId : false;
-      const entries = this.buffer.values().filter(retain);
-      this.buffer.clear();
-      for (const entry of entries) this.buffer.push(entry);
-      if (this.frozen) this.frozen = this.frozen.filter(retain);
+    purge(deletion) {
+      ChatFlow.markDeleted(this.buffer.values(), deletion);
+      if (this.frozen) ChatFlow.markDeleted(this.frozen, deletion);
       this.schedule();
+    }
+
+    static compileHighlights(rules) {
+      return rules.map((rule) => ({ ...rule, regex: new RegExp(ChatFlow.compilePattern(rule.pattern).source, "giu") }));
+    }
+
+    static highlight(node, content, rules) {
+      const colors = new Array(content.length);
+      for (const rule of rules) {
+        rule.regex.lastIndex = 0;
+        for (const match of content.matchAll(rule.regex)) {
+          for (let index = match.index; index < match.index + match[0].length; index += 1) colors[index] ||= rule.color;
+        }
+      }
+      node.replaceChildren();
+      let start = 0;
+      while (start < content.length) {
+        let end = start + 1;
+        while (end < content.length && colors[end] === colors[start]) end += 1;
+        const fragment = document.createElement(colors[start] ? "mark" : "span");
+        fragment.textContent = content.slice(start, end);
+        if (colors[start]) {
+          fragment.style.backgroundColor = colors[start];
+          const color = colors[start];
+          const brightness = parseInt(color.slice(1, 3), 16) * .299 + parseInt(color.slice(3, 5), 16) * .587 + parseInt(color.slice(5, 7), 16) * .114;
+          fragment.style.color = brightness > 150 ? "#20231f" : "#ffffff";
+        }
+        node.append(fragment);
+        start = end;
+      }
     }
 
     schedule() {
@@ -144,13 +192,22 @@
         row.setAttribute("aria-setsize", String(entries.length));
         const [time, author, text] = row.children;
         time.textContent = new Date(entry.sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        author.textContent = entry.displayName || entry.login;
-        text.textContent = entry.text;
+        author.replaceChildren();
+        if (this.unified) {
+          const tag = document.createElement("b");
+          tag.className = "channel-tag";
+          tag.textContent = `#${entry.channel}`;
+          author.append(tag);
+        }
+        author.append(document.createTextNode(entry.displayName || entry.login));
+        VirtualChat.highlight(text, entry.text, this.highlights);
+        row.dataset.deleted = String(Boolean(entry.deleted));
         row.title = `${entry.displayName || entry.login}: ${entry.text}`;
       });
       if (!this.paused) {
         this.viewport.scrollTop = this.viewport.scrollHeight;
         this.programmaticScrollTop = this.viewport.scrollTop;
+        this.lastScrollTop = this.viewport.scrollTop;
       }
     }
 

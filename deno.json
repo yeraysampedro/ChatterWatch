@@ -1,6 +1,9 @@
 {
   "tasks": {
+    "build": "deno run --allow-read --allow-write=dist build.js",
     "test": "deno test --allow-read tests/core_test.js tests/worker_test.js",
-    "test:ui": "deno test -A tests/ui_test.js"
+    "test:build": "deno test --allow-read --allow-write tests/build_test.js",
+    "test:ui": "deno test -A tests/ui_test.js",
+    "test:ui:firefox": "CHATTER_BROWSER=firefox deno test -A tests/ui_test.js"
   }
 }

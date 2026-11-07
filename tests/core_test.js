@@ -42,7 +42,7 @@ Deno.test("local slow mode and safe regex filtering are configurable", () => {
   }
 });
 
-Deno.test("multichat configuration validates channels and deletion removes retained messages", () => {
+Deno.test("multichat configuration validates channels and deletion preserves ghost messages", () => {
   assertEquals(normalizeConfig({ channels: ["@ONE", "#one", "two"] }).channels, ["one", "two"]);
   for (const channels of [["one\r\nJOIN #other"], Array.from({ length: 7 }, (_, index) => `channel${index}`)]) {
     let rejected = false;
@@ -53,9 +53,26 @@ Deno.test("multichat configuration validates channels and deletion removes retai
   flow.ingest({ channel: "one", id: "a", userId: "1", text: "first" });
   flow.ingest({ channel: "one", id: "b", userId: "2", text: "second" });
   flow.purge("one", { userId: "1" });
-  assertEquals(flow.snapshot("one").entries.map((entry) => entry.id), ["b"]);
+  assertEquals(flow.snapshot("one").entries.map((entry) => [entry.id, Boolean(entry.deleted)]), [["a", true], ["b", false]]);
   flow.purge("one");
-  assertEquals(flow.flush()[0].entries, []);
+  assert(flow.flush()[0].entries.every((entry) => entry.deleted));
+});
+
+Deno.test("highlight rules validate regex and colors; unified history deduplicates and sorts", () => {
+  const { normalizeHighlights, mergeTimeline, exportText } = globalThis.ChatFlow;
+  assertEquals(normalizeHighlights([{ pattern: "hello|\\bpromo\\b", color: "#ffcc00" }]).length, 1);
+  for (const rule of [{ pattern: ".*", color: "#ffcc00" }, { pattern: "hello", color: "red;display:none" }]) {
+    let rejected = false;
+    try { normalizeHighlights([rule]); } catch { rejected = true; }
+    assert(rejected);
+  }
+  const earlier = { id: "same", channel: "two", sequence: 1, sentAt: 1000, text: "hello\nworld", login: "viewer", deleted: true };
+  const later = { ...earlier, channel: "one", sentAt: 2000, deleted: false };
+  const merged = mergeTimeline([later, earlier], [{ ...earlier, deleted: false }]);
+  assertEquals(merged.map((entry) => entry.channel), ["two", "one"]);
+  assert(merged[0].deleted);
+  assert(exportText(merged).includes("#two viewer [deleted]: hello\\nworld"));
+  assertEquals(mergeTimeline(Array.from({ length: 2000 }, (_, index) => ({ ...earlier, id: String(index), sentAt: index }))).length, HISTORY_LIMIT);
 });
 
 Deno.test("parses IRC tags, prefix, command, channel, and trailing message", () => {

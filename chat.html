@@ -17,12 +17,17 @@
     <nav class="chat-tools">
       <a href="dashboard.html" target="_blank" rel="noopener" data-label="moderation">Moderation</a>
       <button id="open-grid" type="button" data-label="newWindow">New window</button>
+      <button id="open-workspaces" type="button" data-label="workspaces">Workspaces</button>
       <button id="chat-settings" type="button" data-label="settings">Settings</button>
     </nav>
   </header>
   <main class="chat-workspace">
     <div class="workspace-toolbar">
       <span id="connection-status" role="status"></span>
+      <div class="mode-control" role="group" aria-label="View">
+        <button type="button" data-mode="grid" data-label="grid" aria-pressed="true">Grid</button>
+        <button type="button" data-mode="unified" data-label="unified" aria-pressed="false">Unified</button>
+      </div>
       <div class="layout-control" role="group" aria-label="Columns">
         <span data-label="columns">Columns</span>
         <button type="button" data-columns="1" aria-pressed="false">1</button>
@@ -45,9 +50,24 @@
       <label><span data-label="window">Detection window (s)</span><input id="window-seconds" type="number" min="1" max="120" required></label>
       <label><span data-label="pattern">Spam pattern (restricted regex)</span><input id="spam-pattern" type="text" maxlength="240" spellcheck="false"></label>
       <label class="check-label"><input id="pause-hover" type="checkbox"><span data-label="hover">Pause on hover</span></label>
+      <fieldset class="highlight-settings">
+        <legend data-label="highlights">Keyword highlights</legend>
+        <div id="highlight-rules"></div>
+        <button id="add-highlight" type="button" data-label="addHighlight">Add highlight</button>
+      </fieldset>
       <p class="form-error" id="config-error" role="alert"></p>
       <button class="primary-command" type="submit" data-label="save">Save</button>
     </form>
+  </dialog>
+  <dialog id="workspaces-dialog" aria-labelledby="workspaces-title">
+    <header class="dialog-header"><h2 id="workspaces-title" data-label="workspaces">Workspaces</h2><button type="button" data-close="workspaces-dialog" data-label="close">Close</button></header>
+    <form id="workspace-form">
+      <label><span data-label="workspaceName">Workspace name</span><input id="workspace-name" type="text" maxlength="40" required></label>
+      <button type="submit" data-label="saveWorkspace">Save current windows</button>
+    </form>
+    <label class="workspace-select"><span data-label="savedWorkspaces">Saved workspaces</span><select id="workspace-select"></select></label>
+    <div class="workspace-actions"><button id="restore-workspace" type="button" data-label="restore">Restore</button><button id="delete-workspace" type="button" data-label="remove">Remove</button></div>
+    <p id="workspace-error" class="form-error" role="alert"></p>
   </dialog>
   <dialog id="message-dialog" aria-labelledby="message-author">
     <header class="dialog-header"><h2 id="message-author"></h2><button type="button" data-close="message-dialog" data-label="close">Close</button></header>

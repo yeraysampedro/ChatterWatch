@@ -48,7 +48,49 @@
   function normalizeConfig(value = {}) {
     const channels = [...new Set((Array.isArray(value.channels) ? value.channels : []).map(channelName))];
     if (channels.length > MAX_CHANNELS) throw new Error(`At most ${MAX_CHANNELS} channels are supported.`);
-    return { channels, columns: integer(value.columns, 2, 1, 3), flow: normalizeFlow(value.flow) };
+    return {
+      channels, columns: integer(value.columns, 2, 1, 3), flow: normalizeFlow(value.flow),
+      viewMode: value.viewMode === "unified" ? "unified" : "grid", highlights: normalizeHighlights(value.highlights)
+    };
+  }
+
+  function normalizeHighlights(value = []) {
+    if (!Array.isArray(value) || value.length > 12) throw new Error("At most 12 highlight rules are supported.");
+    return value.map((rule) => {
+      const pattern = String(rule.pattern || "").trim();
+      if (!compilePattern(pattern)) throw new Error("Highlight pattern must not be empty.");
+      const color = String(rule.color || "");
+      if (!/^#[a-f0-9]{6}$/i.test(color)) throw new Error("Use a six-digit hex highlight color.");
+      return { pattern, color };
+    });
+  }
+
+  function matchesDeletion(entry, { channel, id, userId }) {
+    return (!channel || entry.channel === channel) && (id ? entry.id === id : userId ? entry.userId === userId : true);
+  }
+
+  function markDeleted(entries, deletion) {
+    for (const entry of entries) if (matchesDeletion(entry, deletion)) entry.deleted = true;
+    return entries;
+  }
+
+  function mergeTimeline(...groups) {
+    const entries = new Map();
+    for (const group of groups) {
+      for (const entry of group) {
+        const key = `${entry.channel}:${entry.id}`;
+        const previous = entries.get(key);
+        entries.set(key, previous?.deleted ? { ...entry, deleted: true } : entry);
+      }
+    }
+    return [...entries.values()].sort((left, right) => left.sentAt - right.sentAt ||
+      left.channel.localeCompare(right.channel) || left.sequence - right.sequence || left.id.localeCompare(right.id)).slice(-HISTORY_LIMIT);
+  }
+
+  function exportText(entries) {
+    const clean = (value) => String(value || "").replace(/[\r\n\t\u0000-\u001f\u007f]/g, (character) =>
+      character === "\n" ? "\\n" : character === "\r" ? "\\r" : character === "\t" ? "\\t" : "");
+    return entries.map((entry) => `${new Date(entry.sentAt).toISOString()} #${clean(entry.channel)} ${clean(entry.displayName || entry.login)}${entry.deleted ? " [deleted]" : ""}: ${clean(entry.text)}`).join("\n") + "\n";
   }
 
   class RingBuffer {
@@ -153,14 +195,12 @@
       const state = this.channels.get(name);
       if (!state) return;
       for (const buffer of [state.history, state.pending]) {
-        const retained = buffer.values().filter((entry) => id ? entry.id !== id : userId ? entry.userId !== userId : false);
-        buffer.clear();
-        for (const entry of retained) buffer.push(entry);
+        markDeleted(buffer.values(), { id, userId });
       }
     }
   }
 
-  const api = { MAX_CHANNELS, HISTORY_LIMIT, BATCH_LIMIT, TRACKING_LIMIT, channelName, compilePattern, normalizeFlow, normalizeConfig, RingBuffer, FlowController };
+  const api = { MAX_CHANNELS, HISTORY_LIMIT, BATCH_LIMIT, TRACKING_LIMIT, channelName, compilePattern, normalizeFlow, normalizeConfig, normalizeHighlights, matchesDeletion, markDeleted, mergeTimeline, exportText, RingBuffer, FlowController };
   root.ChatFlow = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(globalThis);

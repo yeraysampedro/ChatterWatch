@@ -20,7 +20,7 @@ function storage(initial) {
   };
 }
 
-async function harness({ scopes = ["moderator:manage:chat_settings"], connected = false } = {}) {
+async function harness({ scopes = ["moderator:manage:chat_settings"], connected = false, firefox = false } = {}) {
   const sockets = [];
   const requests = [];
   const windows = [];
@@ -40,8 +40,15 @@ async function harness({ scopes = ["moderator:manage:chat_settings"], connected 
       local: storage({ settings: { channel: "primary", clientId: "client" } }),
       session: storage({ accessToken: "test-token", moderator: { user_id: "42", login: "mod", scopes }, chatConnected: connected })
     },
-    runtime: { onMessage: eventBus(), onConnect: eventBus(), sendMessage: () => Promise.resolve(), getURL: (path) => `chrome-extension://test/${path}` },
-    windows: { async create(options) { windows.push(options); return { id: windows.length }; } },
+    runtime: {
+      onMessage: eventBus(), onConnect: eventBus(), sendMessage: () => Promise.resolve(), getURL: (path) => `${firefox ? "moz" : "chrome"}-extension://test/${path}`,
+      getContexts: async () => windows.map((info) => ({ documentUrl: info.url, windowId: info.id }))
+    },
+    windows: {
+      async create(options) { const info = { id: windows.length + 1, left: 0, top: 0, state: "normal", ...options }; windows.push(info); return info; },
+      async getAll() { return windows; },
+      async update(id, values) { const info = windows.find((item) => item.id === id); Object.assign(info, values); return info; }
+    },
     alarms: { create() {}, onAlarm: eventBus() }
   };
   const context = vm.createContext({
@@ -60,7 +67,13 @@ async function harness({ scopes = ["moderator:manage:chat_settings"], connected 
       };
     }
   });
-  context.importScripts = (...names) => names.forEach((name) => vm.runInContext(sources[name], context));
+  if (firefox) {
+    context.browser = chrome;
+    context.chrome = {};
+    for (const name of ["core.js", "chat-flow.js"]) vm.runInContext(sources[name], context);
+  } else {
+    context.importScripts = (...names) => names.forEach((name) => vm.runInContext(sources[name], context));
+  }
   vm.runInContext(sources["worker.js"], context);
   await vm.runInContext("chatReady", context);
   return { context, chrome, sockets, requests, windows, call: (message) => context.handleMessage(message) };
@@ -119,7 +132,8 @@ Deno.test("worker batches once for all views, deduplicates messages and applies 
   assertEquals(state.channels[0].entries.length, 1);
   socket.receive("@target-msg-id=same :tmi CLEARMSG #primary :hello");
   state = await app.call({ type: "GET_CHAT_STATE" });
-  assertEquals(state.channels[0].entries.length, 0);
+  assertEquals(state.channels[0].entries.length, 1);
+  assertEquals(state.channels[0].entries[0].deleted, true);
   assertEquals(received.at(-1).type, "CHAT_PURGE");
   port.onDisconnect.emit();
   assertEquals(vm.runInContext("chatPorts.size", app.context), 0);
@@ -146,4 +160,53 @@ Deno.test("worker resumes only explicitly connected sessions", async () => {
   assertEquals(stopped.sockets.length, 0);
   const resumed = await harness({ connected: true });
   assertEquals(resumed.sockets.length, 1);
+});
+
+Deno.test("quick timeout targets a retained message author for exactly one second", async () => {
+  const app = await harness({ scopes: ["moderator:manage:banned_users"] });
+  vm.runInContext('chatFlow.ingest({ channel: "primary", id: "joke", userId: "77", text: "/srs" })', app.context);
+  await app.call({ type: "QUICK_TIMEOUT", channel: "primary", id: "joke", userId: "spoofed", duration: 999 });
+  const request = app.requests.at(-1);
+  assert(request.url.includes("/moderation/bans?broadcaster_id=100&moderator_id=42"));
+  assertEquals(JSON.parse(request.options.body), { data: { user_id: "77", duration: 1, reason: "/srs" } });
+  await assertRejects(() => app.call({ type: "QUICK_TIMEOUT", channel: "primary", id: "missing" }));
+  const forbidden = await harness({ scopes: [] });
+  vm.runInContext('chatFlow.ingest({ channel: "primary", id: "joke", userId: "77", text: "/srs" })', forbidden.context);
+  await assertRejects(() => forbidden.call({ type: "QUICK_TIMEOUT", channel: "primary", id: "joke" }));
+  assertEquals(forbidden.requests.length, 0);
+});
+
+for (const firefox of [false, true]) Deno.test(`workspaces persist geometry and reuse existing extension windows (${firefox ? "Firefox" : "Chromium"})`, async () => {
+  const app = await harness({ firefox });
+  await app.call({ type: "OPEN_CHAT_WINDOW" });
+  await app.call({ type: "OPEN_CHAT_WINDOW", channel: "primary" });
+  Object.assign(app.windows[0], { left: -1200, top: 90, width: 1100, height: 800 });
+  Object.assign(app.windows[1], { left: 120, top: 180, width: 440, height: 600, state: "maximized" });
+  app.windows.push({ id: 99, url: "https://example.com/", left: 1, top: 2, width: 800, height: 600 });
+  await app.call({ type: "SAVE_WORKSPACE", name: "Stream" });
+  assertEquals((await app.chrome.storage.local.get("chatWorkspaces")).chatWorkspaces[0].windows.length, 2);
+  app.windows[0].left = 100;
+  app.windows.splice(1, 1);
+  await app.call({ type: "RESTORE_WORKSPACE", name: "Stream" });
+  assertEquals(app.windows[0].left, -1200);
+  assertEquals(app.windows.at(-1).state, "maximized");
+  assertEquals(app.windows.at(-1).focused, false);
+  assertEquals(app.windows.find((info) => info.id === 99).left, 1);
+  await app.call({ type: "RESTORE_WORKSPACE", name: "Stream" });
+  assertEquals(app.windows.length, 3);
+  await app.call({ type: "DELETE_WORKSPACE", name: "Stream" });
+  assertEquals((await app.call({ type: "LIST_WORKSPACES" })).names.length, 0);
+});
+
+Deno.test("Firefox event background starts without importScripts and handles messages through browser APIs", async () => {
+  const app = await harness({ firefox: true });
+  const response = await new Promise((resolve) => app.chrome.runtime.onMessage.emit({ type: "CONNECT" }, {}, resolve));
+  assertEquals(response.error, undefined);
+  assertEquals(app.sockets.length, 1);
+  app.sockets[0].open();
+  app.sockets[0].receive(":tmi 001 mod :Welcome");
+  assert(app.sockets[0].sent.includes("JOIN #primary\r\n"));
+  await app.call({ type: "OPEN_CHAT_WINDOW" });
+  assertEquals(app.windows[0].url, "moz-extension://test/chat.html");
+  await app.call({ type: "DISCONNECT" });
 });

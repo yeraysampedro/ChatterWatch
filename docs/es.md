@@ -6,15 +6,15 @@
 
 ### Entorno y dependencias
 
-- Chrome o Edge de escritorio actualizado, con soporte de las APIs de Chrome 116+. Firefox y navegadores móviles no están soportados.
+- Chromium/Chrome/Edge de escritorio 116+ o Firefox de escritorio 140+. No se declara soporte para navegadores móviles.
 - Cuenta Twitch y una aplicación registrada en [Twitch Developers](https://dev.twitch.tv/console/apps). Twitch puede exigir 2FA para registrar aplicaciones.
-- Git para versionar/publicar. Deno 2 solo para desarrollo y pruebas; no es necesario para instalar o usar la extensión.
-- No se necesita Node.js, npm, servidor, framework, WebSocket propio ni build. El navegador ejecuta los archivos de la raíz directamente.
+- Git para versionar/publicar. Deno 2 solo para generar paquetes y ejecutar pruebas; no es necesario para instalar o usar los paquetes.
+- No se necesita Node.js, npm, servidor, framework ni compilación. Chromium puede ejecutar directamente la raíz; Firefox necesita el manifiesto generado para ese navegador. `fflate@0.8.2` solo se usa al empaquetar, nunca en la extensión.
 - Las pruebas descargan `@std/assert@1`, `fake-indexeddb@6.2.2` y `playwright@1.56.1`; no se incluyen en la extensión. El lockfile fija las resoluciones.
 
-### Carga sin empaquetar
+### Carga sin empaquetar en Chromium
 
-1. Descarga o clona el repositorio en una carpeta estable.
+1. Extrae el ZIP Chromium, usa `dist/chromium` después de ejecutar `deno task build`, o clona el repositorio en una carpeta estable.
 2. Abre `chrome://extensions` o `edge://extensions` y activa **Modo desarrollador**.
 3. Pulsa **Cargar descomprimida / Load unpacked** y elige la carpeta que contiene `manifest.json`, no `tests` ni `docs`.
 4. Fija Chatter Watch a la barra del navegador. Abre su panel y después **Ajustes**.
@@ -25,19 +25,29 @@
 
 El ID y la URL de redirección pueden cambiar al cambiar de navegador, equipo, ruta o método de instalación. Vuelve a copiar la URL desde Ajustes y actualiza la aplicación Twitch si la autenticación deja de funcionar. Los tokens de sesión no sobreviven al cierre completo del navegador; inicia sesión otra vez cuando sea necesario.
 
+### Firefox
+
+1. Extrae el ZIP Firefox o ejecuta `deno task build` para obtener `dist/firefox`.
+2. Abre `about:debugging#/runtime/this-firefox`, pulsa **Cargar complemento temporal** y selecciona el `manifest.json` de esa carpeta, no el de la raíz del repositorio.
+3. Abre Ajustes, copia la URL OAuth que muestra Firefox y regístrala también en Twitch. No uses la URL `chromiumapp.org` de Chromium. Guarda el Client ID y conecta como se indica arriba.
+
+El popup, panel lateral y Multichat están disponibles en ambos navegadores. Firefox usa scripts de fondo y `sidebarAction`, mientras Chromium usa service worker y `sidePanel`. Las menciones a `chrome.storage` en esta guía corresponden a `browser.storage` en Firefox.
+
+La carga temporal se elimina al cerrar Firefox. Para distribuir una instalación permanente, envía el ZIP Firefox a [Mozilla Add-ons](https://addons.mozilla.org/developers/) como listado o no listado y distribuye el XPI firmado que devuelva Mozilla. El empaquetador no firma ni publica. Mantén el ID `twitch-chatter-watch@extensions.local` en futuras actualizaciones; cambiarlo crea otra identidad y puede cambiar OAuth.
+
 ### Permisos
 
 | Permiso | Uso |
 | --- | --- |
 | `chat:read` | Lectura IRC de los canales |
-| `moderator:manage:banned_users` | Ban y timeout en el panel existente |
+| `moderator:manage:banned_users` | Ban/timeout del panel y botón `/srs 1s` de Multichat |
 | `moderator:manage:warnings` | Avisos a usuarios |
 | `moderator:read:followers` | Señal de seguidores recientes |
 | `moderator:manage:chat_settings` | Slow mode real de Twitch |
 
 Leer un canal adicional no exige moderarlo. Las acciones Helix sí requieren ser moderador o broadcaster del canal afectado, además del scope. La validación actual de la extensión exige `chat:read` y `moderator:manage:banned_users`; exige seguidores si esa señal está activada. Un token antiguo puede seguir leyendo chat sin el nuevo scope de ajustes: desconecta Twitch e inicia sesión de nuevo para concederlo antes de usar el slow mode real.
 
-La extensión solicita `storage`, `identity`, `sidePanel` y `alarms`. Solo declara hosts de API/autenticación Twitch y conexión IRC TLS en la CSP. No inyecta scripts en páginas web ni usa servidores de terceros para el chat.
+Ambas variantes solicitan `storage`, `identity` y `alarms`; solo Chromium añade `sidePanel`. Solo se declaran hosts de API/autenticación Twitch y conexión IRC TLS en la CSP. No se inyectan scripts en páginas web ni se usa un backend propio. Firefox declara `authenticationInfo` y `personallyIdentifyingInfo` por la autenticación y los identificadores enviados a Twitch, y usa el consentimiento integrado de Firefox 140+. No hay telemetría ni reenvío del texto de chat a terceros.
 
 ### Desarrollo, pruebas y build
 
@@ -45,10 +55,11 @@ Desde la raíz, con [Deno 2](https://docs.deno.com/runtime/getting_started/insta
 
 ```powershell
 deno task test
+deno task test:build
 deno task test:ui
 ```
 
-La primera tarea cubre reglas, ráfagas y worker simulado. La segunda necesita Chrome instalado y ejecuta un navegador headless, sin ventanas visibles. Usa API Chrome y mensajes simulados; no contacta con tu cuenta Twitch. Para Edge, define `$env:CHATTER_BROWSER = 'msedge'` antes de ejecutarla. Para usar Chromium descargado por Playwright:
+Las tareas cubren reglas y worker simulado, empaquetado y vistas. La UI necesita Chrome instalado y usa APIs de extensión y mensajes simulados, sin ventanas visibles ni acceso a tu cuenta Twitch. Para Edge, define `$env:CHATTER_BROWSER = 'msedge'` antes de ejecutarla. Para usar Chromium descargado por Playwright:
 
 ```powershell
 deno run -A npm:playwright@1.56.1 install chromium
@@ -59,13 +70,14 @@ Remove-Item Env:CHATTER_BROWSER
 
 `-A` concede permisos al proceso de pruebas, no a la extensión. Úsalo solo sobre código de confianza. Las capturas se guardan en la carpeta temporal que muestra la prueba. No se requiere compilación. Tras editar, pulsa **Recargar** en la página de extensiones y vuelve a abrir las vistas; el historial de chat en memoria se reinicia.
 
-Para preparar un ZIP de distribución desde PowerShell:
+Para ejecutar las mismas pruebas con Firefox headless:
 
 ```powershell
-Compress-Archive -Path manifest.json,core.js,worker.js,dashboard.html,dashboard.css,dashboard.js,chat.html,chat.css,chat.js,chat-flow.js,virtual-chat.js -DestinationPath chatter-watch.zip -Force
+deno run -A npm:playwright@1.56.1 install firefox
+deno task test:ui:firefox
 ```
 
-Ese ZIP contiene solo los archivos de ejecución. La instalación sin empaquetar usa la carpeta, no el ZIP. Subirlo a una tienda requiere su proceso de revisión y publicación independiente.
+Para generar ambos entregables, ejecuta `deno task build`. Crea `dist/chatter-watch-<versión>-chromium.zip`, `dist/chatter-watch-<versión>-firefox.zip` y las carpetas `dist/chromium` y `dist/firefox`. La versión procede del manifiesto. Los ZIP son reproducibles y solo incluyen los once archivos de ejecución, sin pruebas, dependencias, credenciales ni datos de usuario. Las carpetas generadas se reemplazan en cada ejecución; no las edites. La instalación local usa las carpetas, y la distribución por tienda requiere revisión y firma por separado.
 
 ## 2. Guía de uso
 
@@ -80,7 +92,31 @@ Ese ZIP contiene solo los archivos de ejecución. La instalación sin empaquetar
 
 Todas las vistas comparten conexión, configuración, idioma y tema. Cambiar columnas o filtros afecta a todas las cuadrículas; las ventanas de un solo canal conservan una columna. La pausa y el scroll son locales a cada vista. Si dos ventanas editan ajustes simultáneamente, se rechaza el guardado obsoleto: cierra y vuelve a abrir Ajustes antes de guardar de nuevo.
 
-Cerrar una ventana no desconecta IRC. **Desconectar** en el panel detiene todos los canales. No se restauran automáticamente las posiciones ni las ventanas después de cerrar el navegador. La revisión de cuentas, notas, aprobaciones y sanciones del panel siguen asociadas únicamente al canal principal; los chats adicionales son de lectura, salvo su control de slow mode.
+Cerrar una ventana no desconecta IRC. **Desconectar** en el panel detiene todos los canales. La restauración de ventanas es explícita desde **Espacios**, nunca automática al iniciar el navegador. La revisión de cuentas, notas, aprobaciones y sanciones automáticas del panel sigue asociada únicamente al canal principal. En canales adicionales puedes usar slow mode y el botón manual `/srs 1s` si tienes permisos allí.
+
+### Espacios guardados y feed unificado
+
+En **Espacios**, introduce un nombre y pulsa **Guardar ventanas actuales**. Se guardan los canales, columnas, filtros, resaltados y modo de vista, junto con posición, tamaño y estado normal/maximizado de las ventanas emergentes de Multichat. Puedes guardar 8 espacios, con nombres de 1-40 caracteres y entre 1 y 12 ventanas por espacio. Guardar un nombre existente pide confirmación para reemplazarlo; también puedes eliminarlo.
+
+Selecciona un espacio y pulsa **Restaurar**. Se reutilizan las ventanas que coincidan por canal o cuadrícula y se abren las que falten sin solicitar foco. No se cierran ni se mueven ventanas ajenas o sobrantes. El navegador o el sistema operativo pueden ajustar las coordenadas si cambió el monitor; se conservan coordenadas negativas para configuraciones multipantalla. Los tamaños admitidos son 320-7.680 por 300-4.320 píxeles. La geometría física multipantalla todavía requiere una prueba manual.
+
+Los espacios persisten en `chrome.storage.local` después de reiniciar el navegador, pero no guardan credenciales, mensajes, pines ni pausas. Restaurarlos no inicia sesión ni cambia el canal principal de moderación. Los canales guardados se combinan con el principal actual, siempre dentro del máximo de seis; si se supera, ajusta primero el canal principal o la configuración. Los errores parciales de restauración se muestran y puedes reintentarlo sin duplicar ventanas coincidentes.
+
+El selector **Cuadrícula / Unificado** cambia todas las cuadrículas compartidas. **Unificado** mezcla los últimos 1.000 mensajes disponibles ordenados por timestamp de Twitch, con desempate por canal y secuencia, y muestra etiquetas `#canal`. No espera indefinidamente mensajes retrasados: al llegar, se colocan según su hora mientras sigan dentro del historial retenido. Las ventanas separadas de un canal mantienen su vista individual. El slow mode permanece en las vistas individuales, evitando un control ambiguo para varios canales.
+
+### Resaltados, pines y timeout de un segundo
+
+En **Ajustes > Resaltado de palabras**, añade hasta 12 reglas. Cada regla combina texto o regex restringida con un selector de color; se colorea la coincidencia, no todo el mensaje. Rigen las mismas restricciones de seguridad del filtro de spam. Por ejemplo, `\balerta\b|necesito ayuda` identifica dos expresiones. La primera regla tiene prioridad si se solapan. Los resaltados son independientes del filtro de spam, se comparten entre vistas y se aplican también al historial cargado y a los pines.
+
+Haz clic o pulsa Enter en una fila para fijarla arriba. Hay hasta 3 pines por ventana; un cuarto reemplaza el más antiguo. La acción vuelve al directo para que el resto del chat continúe avanzando. Los pines son locales, sobreviven al cambio de cuadrícula/unificado dentro de esa ventana y se pierden al cerrarla o recargarla. **Leer completo** abre el texto y **Desfijar** lo libera. Un pin puede conservar contexto aunque el mensaje haya salido del buffer vivo.
+
+En cada pin, **`/srs 1s`** envía inmediatamente un timeout de exactamente un segundo con motivo `/srs`, sin otro diálogo. Es una acción real en Twitch sobre ese autor y ese canal: comprueba la identidad indicada antes de pulsarla. Requiere `moderator:manage:banned_users` y ser moderador/broadcaster allí. No se activa automáticamente al detectar `/srs` y no se añade un atajo global para evitar sanciones accidentales. El worker obtiene el usuario del mensaje retenido, no de un identificador arbitrario enviado por la vista. Si el mensaje ya salió de su historial, se rechaza la acción; errores de permisos o de Twitch se muestran sin fingir éxito.
+
+### Mensajes fantasma y exportación local
+
+`CLEARMSG` marca el mensaje y `CLEARCHAT` los mensajes afectados del usuario/canal como eliminados. Permanecen visibles con fondo rojo, tanto en el directo como en la copia pausada y los pines; no se restauran en Twitch. No puedes recuperar mensajes que nunca se recibieron o que ya salieron del buffer. La virtualización sigue reciclando filas fuera de pantalla y el historial sigue acotado: conservar un borrado no significa mantener cada nodo DOM para siempre.
+
+El botón de descarga de cada cabecera (**Exportar TXT**) descarga su buffer vivo actual, hasta 1.000 mensajes, incluso si estás leyendo una copia pausada. Incluye hora ISO, canal, autor, texto y `[deleted]` para mensajes fantasma. En Unificado exporta la cronología combinada; no incluye pines que ya salieron del buffer. Es texto UTF-8 sin tokens ni subida a servidores. El navegador decide el destino según sus ajustes de descarga. El archivo puede contener datos personales y contenido borrado: guárdalo localmente y revisa permisos antes de compartirlo.
 
 ### Ajustes de influx y spam
 
@@ -107,11 +143,11 @@ En la parte inferior de cada chat, indica **0** para desactivar o un entero de *
 
 ### Pausa, lectura y atajos
 
-- Hover, desplazamiento manual hacia arriba o foco dentro de la lista congelan la vista. Los mensajes siguen llegando al buffer acotado.
+- Hover, desplazamiento manual hacia arriba de al menos un píxel o foco dentro de la lista congelan la vista. Los mensajes siguen llegando al buffer acotado.
 - **Pausar** añade una pausa manual. **En directo** elimina las pausas y salta al final; si el puntero sigue dentro, el hover no vuelve a pausar hasta salir y entrar de nuevo.
-- Volver al fondo elimina la pausa por scroll, pero puede quedar otra pausa activa, como hover, foco o pausa manual.
+- La pausa por scroll no se libera al mover el puntero ni al recibir mensajes: debes llegar manualmente al fondo exacto o pulsar En directo/Fin. Llegar al fondo elimina la pausa por scroll, pero puede quedar otra pausa activa, como hover, foco o pausa manual.
 - El contador del botón indica entradas recibidas durante la pausa, no mensajes recuperables ilimitadamente. Al reanudar se muestran los más recientes retenidos; el historial antiguo puede haberse descartado.
-- Cada fila muestra hasta dos líneas. Haz clic o pulsa Enter sobre una fila para leer el texto completo recibido. Los mensajes se insertan como texto, sin ejecutar HTML.
+- Cada fila muestra hasta dos líneas. Haz clic o pulsa Enter para fijarla y usa Leer completo en el pin para inspeccionarla. Los mensajes se insertan como texto, sin ejecutar HTML.
 
 | Atajo en Multichat | Acción |
 | --- | --- |
@@ -120,7 +156,7 @@ En la parte inferior de cada chat, indica **0** para desactivar o un entero de *
 | S | Abrir Ajustes |
 | N | Abrir otra cuadrícula |
 | Esc | Cerrar el diálogo abierto |
-| Tab, Enter | Navegación y activación de controles; Enter abre una fila |
+| Tab, Enter | Navegación y activación de controles; Enter fija una fila |
 
 Los atajos globales de página no se interceptan al escribir en campos, sobre botones/enlaces, con Ctrl/Alt/Meta ni con un diálogo abierto. Son atajos de la vista, no globales del sistema operativo.
 
@@ -130,7 +166,7 @@ Cada canal conserva como máximo 1.000 mensajes y 250 pendientes por lote. Si en
 
 La revisión de cuentas permite 256 trabajos y 4 concurrentes. **Sin revisar** cuenta mensajes descartados por saturación de esa cola: no presupongas que se examinaron todos los usuarios. El panel publica estado agrupado, como máximo una vez cada 500 ms mientras está abierto. El sistema no es un registro de auditoría ni garantiza FPS para cualquier carga/hardware.
 
-Los borrados `CLEARMSG` y `CLEARCHAT` se aplican al historial vivo y a la copia pausada de Multichat. No borran el historial de cuentas ya guardado en el panel de moderación. Los mensajes y estadísticas de Multichat viven en memoria y se pierden si el worker termina; Twitch IRC no reenvía lo ocurrido durante una desconexión. Hay reconexión con espera progresiva y heartbeat, pero no garantía de continuidad durante suspensión del equipo.
+Los borrados `CLEARMSG` y `CLEARCHAT` marcan mensajes fantasma en el historial vivo, copia pausada y pines. No borran el historial de cuentas ya guardado en el panel de moderación. El historial y estadísticas del worker viven en memoria y se pierden si termina; una vista abierta puede conservar su copia local hasta reconectarse, y sus pines hasta cerrarse. Twitch IRC no reenvía lo ocurrido durante una desconexión. Hay reconexión con espera progresiva y heartbeat, pero no garantía de continuidad durante suspensión del equipo.
 
 Los ajustes se guardan en `chrome.storage.local`; la sesión OAuth, en `chrome.storage.session`. IndexedDB guarda perfiles, notas y cuentas del panel sin caducidad automática. **Desconectar Twitch** elimina la sesión, no esos datos. Para borrar todo, elimina la extensión o limpia su almacenamiento desde las herramientas de desarrollo de la extensión. No exportes ni publiques datos personales o tokens.
 
@@ -142,6 +178,6 @@ Los ajustes se guardan en `chrome.storage.local`; la sesión OAuth, en `chrome.s
 - Servicio no disponible después de recargar: cierra y vuelve a abrir las vistas antiguas.
 - Pruebas UI sin navegador: instala Chrome/Edge o usa el comando de instalación Chromium indicado arriba.
 
-Las pruebas automáticas usan tráfico simulado. OAuth real, cambios reales de slow mode y permisos por canal requieren validación manual con una cuenta autorizada. Prueba primero en un canal propio y restaura el valor previo de slow mode al terminar.
+Las pruebas automáticas usan tráfico simulado. OAuth real, cambios reales de slow mode, timeout de un segundo, permisos por canal y restauración en monitores físicos requieren validación manual. Prueba primero con una cuenta autorizada en un canal propio y restaura el valor previo de slow mode al terminar.
 
 Los comandos exactos `git init`, `git add`, `git commit`, `git remote` y `git push` están en [Publicar en GitHub](../README.md#publicar-en-github). Publicar el repositorio no publica la extensión en las tiendas.

@@ -1,4 +1,6 @@
-importScripts("core.js", "chat-flow.js");
+if (typeof importScripts === "function") importScripts("core.js", "chat-flow.js");
+
+const extensionApi = globalThis.browser ?? globalThis.chrome;
 
 const { parseIrcLine, accountAgeDays, normalizeSettings, getFlagReasons, recordMessage } = ModerationCore;
 const DB_NAME = "chatter-watch";
@@ -27,6 +29,8 @@ let primaryChannel = "";
 let connectionGeneration = 0;
 let chatConfigRevision = 0;
 let configWrites = Promise.resolve();
+let workspaceWrites = Promise.resolve();
+const quickTimeouts = new Set();
 
 let databasePromise;
 let socket = null;
@@ -107,8 +111,8 @@ async function saveCachedProfile(profile) {
 }
 
 async function getSessionData() {
-  const values = await chrome.storage.local.get("settings");
-  const sessionValues = await chrome.storage.session.get(["accessToken", "moderator"]);
+  const values = await extensionApi.storage.local.get("settings");
+  const sessionValues = await extensionApi.storage.session.get(["accessToken", "moderator"]);
   return {
     settings: normalizeSettings(values.settings),
     accessToken: sessionValues.accessToken || "",
@@ -134,7 +138,7 @@ async function apiRequest(path, { method = "GET", body, token, clientId, query }
   if (!response.ok) {
     let detail = "";
     try { detail = (await response.json()).message || ""; } catch { /* Response may be empty. */ }
-    if (response.status === 401) await chrome.storage.session.remove(["accessToken", "moderator"]);
+    if (response.status === 401) await extensionApi.storage.session.remove(["accessToken", "moderator"]);
     throw new Error(detail || `Twitch API returned ${response.status}.`);
   }
   return response.status === 204 ? null : response.json();
@@ -161,12 +165,12 @@ async function loadChannel() {
 }
 
 function broadcast(type, payload = {}) {
-  chrome.runtime.sendMessage({ type, ...payload }).catch(() => {});
+  extensionApi.runtime.sendMessage({ type, ...payload }).catch(() => {});
 }
 
 async function snapshot() {
   const { settings, moderator } = await getSessionData();
-  const broadcasterId = (await chrome.storage.session.get("broadcasterId")).broadcasterId;
+  const broadcasterId = (await extensionApi.storage.session.get("broadcasterId")).broadcasterId;
   const accounts = broadcasterId ? await getChannelAccounts(broadcasterId) : [];
   const flagged = accounts
     .filter((account) => !account.isVetted && !account.dismissed && (account.reasons?.length || account.lookupPending))
@@ -268,7 +272,7 @@ async function saveChatConfig(message) {
   if (message.revision !== chatConfigRevision) throw new Error("Chat settings changed in another window. Reload settings and try again.");
   const next = ChatFlow.normalizeConfig(message.config);
   if (allChannels(next).length > ChatFlow.MAX_CHANNELS) throw new Error("At most 6 channels, including the primary channel, are supported.");
-  await chrome.storage.local.set({ chatConfig: next });
+  await extensionApi.storage.local.set({ chatConfig: next });
   chatConfig = next;
   chatConfigRevision += 1;
   chatFlow.configure(next.flow);
@@ -301,6 +305,121 @@ async function setTwitchSlowMode(message) {
   if (settings) roomStates.set(channel, { ...roomStates.get(channel), slow: settings.slow_mode ? settings.slow_mode_wait_time : 0 });
   postChat({ type: "CHAT_STATUS", status, statusMessage, rooms: Object.fromEntries(roomStates) });
   return { ok: true };
+}
+
+async function quickTimeout(message) {
+  const channel = ChatFlow.channelName(message.channel);
+  if (!allChannels().includes(channel)) throw new Error("This channel is no longer configured.");
+  const entry = chatFlow.channels.get(channel)?.history.values().find((item) => item.id === message.id);
+  if (!entry || !/^\d+$/.test(entry.userId)) throw new Error("This message is no longer available for a timeout.");
+  const { moderator } = await getSessionData();
+  if (!moderator?.scopes?.includes("moderator:manage:banned_users")) throw new Error("Sign in again and grant moderator:manage:banned_users.");
+  const key = `${channel}:${entry.userId}`;
+  if (quickTimeouts.has(key)) throw new Error("A timeout for this user is already in progress.");
+  quickTimeouts.add(key);
+  try {
+    const result = await apiRequest("/users", { query: { login: channel } });
+    const broadcaster = result.data?.[0];
+    if (!broadcaster) throw new Error("Twitch channel was not found.");
+    await apiRequest("/moderation/bans", {
+      method: "POST", query: { broadcaster_id: broadcaster.id, moderator_id: moderator.user_id },
+      body: { data: { user_id: entry.userId, duration: 1, reason: "/srs" } }
+    });
+    return { ok: true };
+  } finally { quickTimeouts.delete(key); }
+}
+
+function chatWindowUrl(channel = "") {
+  const url = new URL(extensionApi.runtime.getURL("chat.html"));
+  if (channel) url.searchParams.set("channel", ChatFlow.channelName(channel));
+  return url.href;
+}
+
+async function currentChatWindows() {
+  const contexts = await extensionApi.runtime.getContexts({ contextTypes: ["TAB"] });
+  const windows = await extensionApi.windows.getAll({ windowTypes: ["popup"] });
+  const base = new URL(chatWindowUrl());
+  const found = new Map();
+  for (const context of contexts) {
+    if (!context.documentUrl) continue;
+    const url = new URL(context.documentUrl);
+    if (url.protocol !== base.protocol || url.host !== base.host || url.pathname !== base.pathname) continue;
+    const windowInfo = windows.find((item) => item.id === context.windowId);
+    if (windowInfo) found.set(windowInfo.id, { ...windowInfo, channel: url.searchParams.get("channel") || "" });
+  }
+  return [...found.values()];
+}
+
+function workspaceName(value) {
+  const name = String(value || "").trim();
+  if (!name || name.length > 40) throw new Error("Workspace name must contain 1 to 40 characters.");
+  return name;
+}
+
+function windowBounds(value) {
+  const bounds = {};
+  for (const [key, min, max] of [["left", -100000, 100000], ["top", -100000, 100000], ["width", 320, 7680], ["height", 300, 4320]]) {
+    if (!Number.isInteger(value[key])) throw new Error("Invalid saved window bounds.");
+    bounds[key] = Math.max(min, Math.min(max, value[key]));
+  }
+  return bounds;
+}
+
+async function workspaces() {
+  const stored = await extensionApi.storage.local.get("chatWorkspaces");
+  return Array.isArray(stored.chatWorkspaces) ? stored.chatWorkspaces.slice(0, 8) : [];
+}
+
+async function manageWorkspace(message) {
+  const name = workspaceName(message.name);
+  const saved = await workspaces();
+  const index = saved.findIndex((entry) => entry.name === name);
+  if (message.type === "DELETE_WORKSPACE") {
+    if (index >= 0) saved.splice(index, 1);
+  } else if (message.type === "SAVE_WORKSPACE") {
+    if (index < 0 && saved.length >= 8) throw new Error("At most 8 workspaces are supported.");
+    const open = await currentChatWindows();
+    if (!open.length || open.length > 12) throw new Error("Open 1 to 12 Multichat popup windows before saving.");
+    const workspace = {
+      name, config: ChatFlow.normalizeConfig({ ...chatConfig, channels: allChannels() }),
+      windows: open.map((info) => ({ channel: info.channel ? ChatFlow.channelName(info.channel) : "", ...windowBounds(info), state: info.state === "maximized" ? "maximized" : "normal" }))
+    };
+    if (index < 0) saved.push(workspace);
+    else saved[index] = workspace;
+  } else {
+    if (index < 0) throw new Error("Workspace was not found.");
+    const workspace = saved[index];
+    const config = ChatFlow.normalizeConfig(workspace.config);
+    if (!Array.isArray(workspace.windows) || !workspace.windows.length || workspace.windows.length > 12) throw new Error("Invalid workspace windows.");
+    const descriptors = workspace.windows.map((info) => {
+      const channel = info.channel ? ChatFlow.channelName(info.channel) : "";
+      if (channel && !allChannels(config).includes(channel)) throw new Error("Workspace channel is not configured.");
+      return { channel, ...windowBounds(info), state: info.state === "maximized" ? "maximized" : "normal" };
+    });
+    const configTask = configWrites.then(() => saveChatConfig({ config, revision: chatConfigRevision }));
+    configWrites = configTask.catch(() => {});
+    await configTask;
+    const available = await currentChatWindows();
+    const failures = [];
+    for (const descriptor of descriptors) {
+      try {
+        const existingIndex = available.findIndex((info) => info.channel === descriptor.channel);
+        let windowInfo;
+        if (existingIndex >= 0) {
+          windowInfo = available.splice(existingIndex, 1)[0];
+          await extensionApi.windows.update(windowInfo.id, { state: "normal" });
+          await extensionApi.windows.update(windowInfo.id, windowBounds(descriptor));
+        } else {
+          windowInfo = await extensionApi.windows.create({ url: chatWindowUrl(descriptor.channel), type: "popup", focused: false, ...windowBounds(descriptor) });
+        }
+        if (descriptor.state === "maximized") await extensionApi.windows.update(windowInfo.id, { state: "maximized" });
+      } catch (error) { failures.push(error.message); }
+    }
+    if (failures.length) throw new Error(`Workspace partially restored: ${failures.join("; ")}`);
+    return { ok: true };
+  }
+  await extensionApi.storage.local.set({ chatWorkspaces: saved });
+  return { names: saved.map((entry) => entry.name) };
 }
 
 function markMessageId(id) {
@@ -389,7 +508,7 @@ async function lookupSignals(account) {
 async function processChatMessage(message) {
   if (message.command !== "PRIVMSG" || !message.prefix || hasPrivilegedBadge(message.tags)) return;
   const userId = message.tags["user-id"];
-  const broadcasterId = message.tags["room-id"] || (await chrome.storage.session.get("broadcasterId")).broadcasterId;
+  const broadcasterId = message.tags["room-id"] || (await extensionApi.storage.session.get("broadcasterId")).broadcasterId;
   if (!userId || !broadcasterId) return;
   const login = getLogin(message.prefix);
   if (!login || login === "tmi.twitch.tv") return;
@@ -512,11 +631,11 @@ async function startChat({ reconnect = false, resume = false } = {}) {
     sessionChatters = new Set();
     sessionNewAccounts = new Set();
     activeSessionId = crypto.randomUUID();
-    await chrome.storage.session.set({ activeSessionId });
+    await extensionApi.storage.session.set({ activeSessionId });
   } else if (!activeSessionId) {
-    const storedSession = await chrome.storage.session.get("activeSessionId");
+    const storedSession = await extensionApi.storage.session.get("activeSessionId");
     activeSessionId = storedSession.activeSessionId || crypto.randomUUID();
-    await chrome.storage.session.set({ activeSessionId });
+    await extensionApi.storage.session.set({ activeSessionId });
   }
   const { settings, accessToken, moderator } = await getSessionData();
   activeSettings = settings;
@@ -527,8 +646,8 @@ async function startChat({ reconnect = false, resume = false } = {}) {
   if (generation !== connectionGeneration) return;
   primaryChannel = nextPrimary;
   manualDisconnect = false;
-  await chrome.storage.session.set({ chatConnected: true });
-  await chrome.storage.session.set({ broadcasterId: broadcaster.id, broadcasterLogin: broadcaster.login });
+  await extensionApi.storage.session.set({ chatConnected: true });
+  await extensionApi.storage.session.set({ broadcasterId: broadcaster.id, broadcasterLogin: broadcaster.login });
   if (generation !== connectionGeneration) return;
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = null;
@@ -575,7 +694,7 @@ async function startChat({ reconnect = false, resume = false } = {}) {
       } else if (message.command === "NOTICE") {
         const notice = message.tags["msg-id"] || message.trailing || "Twitch chat notice";
         if (/authentication|improperly formatted auth/i.test(message.trailing || "")) {
-          void chrome.storage.session.remove(["accessToken", "moderator"]);
+          void extensionApi.storage.session.remove(["accessToken", "moderator"]);
           void setStatus("error", "Chat authentication failed. Sign in again.");
           manualDisconnect = true;
         } else {
@@ -606,7 +725,7 @@ async function startChat({ reconnect = false, resume = false } = {}) {
 async function stopChat() {
   connectionGeneration += 1;
   manualDisconnect = true;
-  await chrome.storage.session.set({ chatConnected: false });
+  await extensionApi.storage.session.set({ chatConnected: false });
   if (reconnectTimer) clearTimeout(reconnectTimer);
   reconnectTimer = null;
   if (heartbeatTimer) clearInterval(heartbeatTimer);
@@ -616,7 +735,7 @@ async function stopChat() {
   joined = false;
   joinedChannels.clear();
   roomStates.clear();
-  await chrome.storage.session.remove("broadcasterId");
+  await extensionApi.storage.session.remove("broadcasterId");
   await setStatus("disconnected", "Chat disconnected");
 }
 
@@ -629,12 +748,19 @@ async function handleMessage(message) {
     return task;
   }
   if (message.type === "SET_SLOW_MODE") return setTwitchSlowMode(message);
+  if (message.type === "QUICK_TIMEOUT") return quickTimeout(message);
+  if (message.type === "LIST_WORKSPACES") return { names: (await workspaces()).map((entry) => entry.name) };
+  if (["SAVE_WORKSPACE", "RESTORE_WORKSPACE", "DELETE_WORKSPACE"].includes(message.type)) {
+    const task = workspaceWrites.then(() => manageWorkspace(message));
+    workspaceWrites = task.catch(() => {});
+    return task;
+  }
   if (message.type === "OPEN_CHAT_WINDOW") {
     const channel = message.channel ? ChatFlow.channelName(message.channel) : "";
     if (channel && !allChannels().includes(channel)) throw new Error("Add this channel before detaching it.");
-    const url = new URL(chrome.runtime.getURL("chat.html"));
+    const url = new URL(extensionApi.runtime.getURL("chat.html"));
     if (channel) url.searchParams.set("channel", channel);
-    const windowInfo = await chrome.windows.create({ url: url.href, type: "popup", width: channel ? 460 : 1180, height: 760 });
+    const windowInfo = await extensionApi.windows.create({ url: url.href, type: "popup", width: channel ? 460 : 1180, height: 760 });
     return { windowId: windowInfo.id };
   }
   if (message.type === "GET_STATE") return { state: await snapshot() };
@@ -642,23 +768,23 @@ async function handleMessage(message) {
     const { settings } = await getSessionData();
     if (!settings.clientId) throw new Error("Save your Twitch application client ID first.");
     const moderator = await validateToken(String(message.accessToken || ""), settings.clientId);
-    await chrome.storage.session.set({ accessToken: String(message.accessToken), moderator });
+    await extensionApi.storage.session.set({ accessToken: String(message.accessToken), moderator });
     await publishSnapshot();
     return { state: await snapshot() };
   }
   if (message.type === "SAVE_SETTINGS") {
-    const stored = await chrome.storage.local.get("settings");
+    const stored = await extensionApi.storage.local.get("settings");
     const previousSettings = normalizeSettings(stored.settings);
     const nextSettings = normalizeSettings(message.settings);
     const nextPrimary = nextSettings.channel ? ChatFlow.channelName(nextSettings.channel) : "";
     if (new Set([nextPrimary, ...chatConfig.channels].filter(Boolean)).size > ChatFlow.MAX_CHANNELS) throw new Error("At most 6 channels, including the primary channel, are supported.");
     activeSettings = nextSettings;
-    await chrome.storage.local.set({ settings: activeSettings });
+    await extensionApi.storage.local.set({ settings: activeSettings });
     primaryChannel = nextPrimary;
     const clientChanged = previousSettings.clientId !== activeSettings.clientId;
     const channelChanged = previousSettings.channel !== activeSettings.channel;
     if (clientChanged) {
-      await chrome.storage.session.remove(["accessToken", "moderator"]);
+      await extensionApi.storage.session.remove(["accessToken", "moderator"]);
       if (socket) await stopChat();
     } else if (channelChanged && socket) {
       await stopChat();
@@ -707,7 +833,7 @@ async function handleMessage(message) {
 }
 
 async function refreshAllReasons() {
-  const broadcasterId = (await chrome.storage.session.get("broadcasterId")).broadcasterId;
+  const broadcasterId = (await extensionApi.storage.session.get("broadcasterId")).broadcasterId;
   if (!broadcasterId) return;
   const accounts = await getChannelAccounts(broadcasterId);
   for (const account of accounts) {
@@ -717,13 +843,13 @@ async function refreshAllReasons() {
   }
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+extensionApi.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (["STATE", "ERROR", "NOTICE"].includes(message.type)) return false;
   handleMessage(message).then(sendResponse).catch((error) => sendResponse({ error: error.message || "Something went wrong." }));
   return true;
 });
 
-chrome.runtime.onConnect.addListener((port) => {
+extensionApi.runtime.onConnect.addListener((port) => {
   if (port.name === "dashboard") {
     dashboardPorts.add(port);
     port.onDisconnect.addListener(() => dashboardPorts.delete(port));
@@ -736,17 +862,17 @@ chrome.runtime.onConnect.addListener((port) => {
   }
 });
 
-chrome.alarms.create("token-validation", { periodInMinutes: 60 });
-chrome.alarms.onAlarm.addListener((alarm) => {
+extensionApi.alarms.create("token-validation", { periodInMinutes: 60 });
+extensionApi.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name !== "token-validation") return;
   void (async () => {
     const { settings, accessToken, moderator } = await getSessionData();
     if (!accessToken) return;
     try {
       const validated = await validateToken(accessToken, settings.clientId, settings);
-      await chrome.storage.session.set({ moderator: validated });
+      await extensionApi.storage.session.set({ moderator: validated });
     } catch (error) {
-      await chrome.storage.session.remove(["accessToken", "moderator"]);
+      await extensionApi.storage.session.remove(["accessToken", "moderator"]);
       manualDisconnect = true;
       if (socket) socket.close();
       await setStatus("error", error.message);
@@ -756,11 +882,11 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 const chatReady = (async () => {
   try {
-    const saved = await chrome.storage.local.get("chatConfig");
+    const saved = await extensionApi.storage.local.get("chatConfig");
     chatConfig = ChatFlow.normalizeConfig(saved.chatConfig);
     chatFlow.configure(chatConfig.flow);
     const { settings, accessToken } = await getSessionData();
-    const storedSession = await chrome.storage.session.get(["activeSessionId", "chatConnected"]);
+    const storedSession = await extensionApi.storage.session.get(["activeSessionId", "chatConnected"]);
     activeSettings = settings;
     primaryChannel = settings.channel ? ChatFlow.channelName(settings.channel) : "";
     if (allChannels().length > ChatFlow.MAX_CHANNELS) chatConfig.channels = chatConfig.channels.slice(0, 5);

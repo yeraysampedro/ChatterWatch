@@ -26,6 +26,30 @@ body.multichat { min-width: 280px; background: var(--paper); font-size: 13px; le
 .virtual-content { position: relative; width: 100%; }
 .chat-row { position: absolute; inset: 0 0 auto; display: grid; grid-template-columns: 42px minmax(0, 1fr); grid-template-rows: 18px 34px; gap: 0 8px; height: 64px; padding: 6px 12px; border-bottom: 1px solid var(--line); cursor: pointer; contain: layout paint style; }
 .chat-row:hover { background: var(--green-soft); }
+.chat-row[data-deleted="true"], .pinned-message[data-deleted="true"] { position: relative; background: var(--coral-soft); }
+.chat-row[data-deleted="true"] { position: absolute; }
+.chat-row[data-deleted="true"]::after, .pinned-message[data-deleted="true"]::after { content: ''; position: absolute; inset: 0; background: rgb(210 35 40 / 18%); pointer-events: none; border-left: 3px solid var(--coral); }
+.channel-tag { display: inline-block; max-width: 55%; margin-right: 8px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; color: var(--blue); background: var(--blue-soft); padding: 0 4px; border-radius: 3px; }
+.chat-row mark, .pinned-message mark { padding: 0 1px; border-radius: 2px; }
+.mode-control { display: flex; flex-wrap: wrap; gap: 4px; }
+.mode-control [aria-pressed="true"] { color: var(--surface); background: var(--green); border-color: var(--green); }
+.pinned-messages { flex: 0 1 auto; max-height: 180px; overflow: auto; border-bottom: 2px solid var(--blue); background: var(--blue-soft); }
+.pinned-message { padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 11px; }
+.pinned-message > strong { display: block; overflow-wrap: anywhere; color: var(--blue); }
+.pinned-message > p { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; margin: 5px 0; line-height: 1.4; }
+.pin-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.pin-actions button { min-height: 28px; font-size: 11px; }
+.pin-actions .quick-timeout { color: var(--coral); border-color: var(--coral); }
+.pin-actions .unpin-message { margin-left: auto; width: 30px; padding: 0; font-size: 18px; }
+.highlight-settings { min-width: 0; border: 1px solid var(--line); padding: 12px; border-radius: 4px; }
+.highlight-rule { display: grid; grid-template-columns: minmax(0, 1fr) 44px 34px; align-items: center; gap: 8px; margin-bottom: 8px; }
+#chat-settings-form .highlight-rule input[type="color"] { width: 44px; height: 36px; padding: 2px; }
+.highlight-rule button { width: 34px; padding: 0; font-size: 20px; }
+#workspace-form { display: grid; gap: 12px; }
+#workspace-form label, .workspace-select { display: grid; gap: 6px; }
+#workspace-form input, .workspace-select select { width: 100%; min-width: 0; min-height: 36px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
+.workspace-select { margin: 20px 0 12px; }
+.workspace-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .chat-row time { color: var(--muted); font: 10px var(--mono); padding-top: 2px; }
 .chat-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--green); font-size: 12px; }
 .chat-row > span { grid-column: 2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: 12px; line-height: 17px; }
@@ -52,7 +76,7 @@ body.multichat { min-width: 280px; background: var(--paper); font-size: 13px; le
 @media (max-width: 600px) {
   .chat-topbar { padding: 14px 12px; gap: 12px; }
   .chat-tools { width: 100%; margin: 0; }
-  .chat-tools > * { flex: 1; text-align: center; font-size: 12px; }
+  .chat-tools > * { flex: 1 1 40%; text-align: center; font-size: 12px; }
   .chat-workspace { padding: 0 12px 16px; }
   .chat-grid, .chat-grid[data-columns="3"] { grid-template-columns: minmax(0, 1fr); }
   .chat-panel { height: 480px; }

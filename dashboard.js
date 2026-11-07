@@ -1,3 +1,4 @@
+const extensionApi = globalThis.browser ?? globalThis.chrome;
 const byId = (id) => document.getElementById(id);
 const filters = [...document.querySelectorAll(".filter")];
 const feed = byId("feed");
@@ -134,7 +135,7 @@ function showToast(message, isError = false) {
 }
 
 async function request(type, payload = {}) {
-  const response = await chrome.runtime.sendMessage({ type, ...payload });
+  const response = await extensionApi.runtime.sendMessage({ type, ...payload });
   if (!response) throw new Error("The extension service is unavailable. Reload the extension and try again.");
   if (response.error) throw new Error(response.error);
   return response;
@@ -166,7 +167,7 @@ async function setTheme(theme) {
   const key = nextTheme === "dark" ? "theme.dark" : "theme.light";
   button.title = t(key);
   button.setAttribute("aria-label", t(key));
-  await chrome.storage.local.set({ appearance: resolvedTheme });
+  await extensionApi.storage.local.set({ appearance: resolvedTheme });
 }
 
 function makeTag(label, className) {
@@ -493,7 +494,7 @@ async function signIn() {
     return false;
   }
   await saveSettings();
-  const redirectUri = chrome.identity.getRedirectURL("twitch");
+  const redirectUri = extensionApi.identity.getRedirectURL("twitch");
   const state = crypto.randomUUID();
   const url = new URL("https://id.twitch.tv/oauth2/authorize");
   url.searchParams.set("response_type", "token");
@@ -502,7 +503,7 @@ async function signIn() {
   url.searchParams.set("scope", "chat:read moderator:manage:banned_users moderator:manage:warnings moderator:read:followers moderator:manage:chat_settings");
   url.searchParams.set("state", state);
   url.searchParams.set("force_verify", "false");
-  const callbackUrl = await chrome.identity.launchWebAuthFlow({ url: url.toString(), interactive: true });
+  const callbackUrl = await extensionApi.identity.launchWebAuthFlow({ url: url.toString(), interactive: true });
   if (!callbackUrl) throw new Error(t("error.signInCancelled"));
   const callback = new URL(callbackUrl);
   const parameters = new URLSearchParams(callback.hash.slice(1));
@@ -572,37 +573,41 @@ byId("connect-button").addEventListener("click", async () => {
 byId("disconnect-button").addEventListener("click", async () => {
   try {
     await request("DISCONNECT");
-    await chrome.storage.session.remove(["accessToken", "moderator"]);
+    await extensionApi.storage.session.remove(["accessToken", "moderator"]);
     byId("settings-panel").hidden = true;
     showToast(t("twitch.disconnectedToast"));
   } catch (error) { showToast(error.message, true); }
 });
 byId("open-side-panel").addEventListener("click", async () => {
   try {
-    const windowInfo = await chrome.windows.getCurrent();
-    await chrome.sidePanel.open({ windowId: windowInfo.id });
+    if (extensionApi.sidebarAction?.open) {
+      await extensionApi.sidebarAction.open();
+    } else {
+      const windowInfo = await extensionApi.windows.getCurrent();
+      await extensionApi.sidePanel.open({ windowId: windowInfo.id });
+    }
     window.close();
   } catch (error) { showToast(error.message, true); }
 });
 
-if (chrome.sidePanel?.open) byId("open-side-panel").hidden = false;
+if (extensionApi.sidePanel?.open || extensionApi.sidebarAction?.open) byId("open-side-panel").hidden = false;
 byId("open-multichat").addEventListener("click", () => {
   request("OPEN_CHAT_WINDOW").catch((error) => showToast(error.message, true));
 });
 let dashboardPort;
 function connectDashboardPort() {
   try {
-    dashboardPort = chrome.runtime.connect({ name: "dashboard" });
+    dashboardPort = extensionApi.runtime.connect({ name: "dashboard" });
     dashboardPort.onDisconnect.addListener(() => {
-      void chrome.runtime.lastError;
+      void extensionApi.runtime.lastError;
       setTimeout(connectDashboardPort, 1000);
     });
   } catch { showToast(t("error.extension"), true); }
 }
 connectDashboardPort();
-byId("redirect-uri").textContent = chrome.identity.getRedirectURL("twitch");
-chrome.storage.local.get("appearance").then(({ appearance }) => setTheme(appearance || "light"));
-chrome.runtime.onMessage.addListener((message) => {
+byId("redirect-uri").textContent = extensionApi.identity.getRedirectURL("twitch");
+extensionApi.storage.local.get("appearance").then(({ appearance }) => setTheme(appearance || "light"));
+extensionApi.runtime.onMessage.addListener((message) => {
   if (message.type === "STATE") render(message.state);
   if (message.type === "ERROR" || message.type === "NOTICE") showToast(message.message, message.type === "ERROR");
 });
