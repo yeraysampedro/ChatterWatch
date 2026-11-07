@@ -1,4 +1,11 @@
 const extensionApi = globalThis.browser ?? globalThis.chrome;
+const preferenceFields = [
+  ["approval", "autoApproveMessages", "checkbox"], ["approval", "approvalThreshold", "number", 1, 10000],
+  ["approval", "autoApproveFollowers", "checkbox"], ["approval", "autoApproveSubscribers", "checkbox"],
+  ["approval", "autoApproveFormerSubscribers", "checkbox"], ["approval", "reviewIdleMinutes", "number", 1, 1440],
+  ["alerts", "alertSound", "checkbox"], ["alerts", "alertAttention", "checkbox"], ["alerts", "alertVolume", "range", 0, 100],
+  ["translation", "translationUrl", "url"], ["translation", "translationTarget", "text"]
+];
 const byId = (id) => document.getElementById(id);
 const filters = [...document.querySelectorAll(".filter")];
 const feed = byId("feed");
@@ -12,6 +19,8 @@ const iconPaths = {
 
 const messages = {
   en: {
+    "filter.approved": "Approved", "approval.manual": "Manually approved", "approval.messages": "Approved: message count", "approval.follower": "Approved: follower", "approval.subscriber": "Approved: subscriber", "approval.previous-subscriber": "Approved: locally observed former subscriber",
+    "error.invalidSettings": "Complete the numeric settings with valid values.",
     "brand.home": "Chatter Watch home", "theme.dark": "Switch to dark mode", "theme.light": "Switch to light mode", "sidePanel.open": "Open side panel", "settings.title": "Settings", "close": "Close",
     "channel.connection": "Channel connection", "channel.placeholder": "channel", "channel.name": "Twitch channel", "connect": "Connect", "connect.connect": "Connect", "connect.disconnect": "Disconnect", "connect.signIn": "Sign in",
     "status.ready": "Ready to monitor", "status.monitoring": "Monitoring {channel}", "status.connecting": "Connecting to {channel}…", "status.signingIn": "Signing in to Twitch chat…", "status.reconnecting": "Chat disconnected; reconnecting…", "status.disconnected": "Chat disconnected", "status.interrupted": "Chat connection interrupted", "status.authFailed": "Chat authentication failed. Sign in again.",
@@ -28,6 +37,8 @@ const messages = {
     "error.extension": "The extension service is unavailable. Reload the extension and try again.", "error.approval": "That chatter is no longer available.", "error.oauth": "Save your Twitch application client ID first.", "error.login": "Sign in with Twitch before connecting chat.", "error.helixLogin": "Sign in with Twitch before using Helix.", "error.moderateLogin": "Sign in and connect to a channel first.", "error.unsupported": "Unsupported request.", "error.warningScope": "Warning needs moderator:manage:warnings. Disconnect Twitch and sign in again to grant it.", "error.timeoutBounds": "Timeout must be between 1 second and 14 days.", "error.channelRequired": "Enter a channel name first.", "error.channelNotFound": "Twitch channel {channel} was not found.", "error.authExpired": "Twitch sign-in expired. Sign in again to continue.", "error.clientMismatch": "The Twitch token does not match this app or is not a user token.", "error.chatScope": "Grant the chat:read permission to connect to Twitch chat.", "error.banScope": "Grant the moderator:manage:banned_users permission to moderate chatters.", "error.followerScope": "Grant the moderator:read:followers permission or turn off recent-follower checks.", "error.signInCancelled": "Twitch sign-in was cancelled.", "error.authorization": "Twitch did not authorize this app.", "error.stateMismatch": "The Twitch sign-in state did not match. Please try again.", "error.noToken": "Twitch did not return an access token."
   },
   de: {
+    "filter.approved": "Freigegeben", "approval.manual": "Manuell freigegeben", "approval.messages": "Freigegeben: Nachrichtenanzahl", "approval.follower": "Freigegeben: Follower", "approval.subscriber": "Freigegeben: Abonnent", "approval.previous-subscriber": "Freigegeben: lokal beobachteter fr\u00fcherer Abonnent",
+    "error.invalidSettings": "Bitte g\u00fcltige Werte in die Zahlenfelder eintragen.",
     "brand.home": "Chatter Watch Startseite", "theme.dark": "Dunkelmodus aktivieren", "theme.light": "Hellmodus aktivieren", "sidePanel.open": "Seitenleiste öffnen", "settings.title": "Einstellungen", "close": "Schließen",
     "channel.connection": "Kanalverbindung", "channel.placeholder": "Kanal", "channel.name": "Twitch-Kanal", "connect": "Verbinden", "connect.connect": "Verbinden", "connect.disconnect": "Trennen", "connect.signIn": "Anmelden",
     "status.ready": "Bereit zur Überwachung", "status.monitoring": "Überwache {channel}", "status.connecting": "Verbinde mit {channel}…", "status.signingIn": "Anmeldung im Twitch-Chat…", "status.reconnecting": "Chat getrennt; Verbindung wird wiederhergestellt…", "status.disconnected": "Chat getrennt", "status.interrupted": "Chatverbindung unterbrochen", "status.authFailed": "Chat-Anmeldung fehlgeschlagen. Bitte erneut anmelden.",
@@ -44,6 +55,8 @@ const messages = {
     "error.extension": "Der Erweiterungsdienst ist nicht verfügbar. Lade die Erweiterung neu und versuche es erneut.", "error.approval": "Dieser Chatter ist nicht mehr verfügbar.", "error.oauth": "Speichere zuerst deine Twitch-Client-ID.", "error.login": "Melde dich bei Twitch an, bevor du den Chat verbindest.", "error.helixLogin": "Melde dich bei Twitch an, bevor du Helix verwendest.", "error.moderateLogin": "Melde dich an und verbinde zuerst einen Kanal.", "error.unsupported": "Nicht unterstützte Anfrage.", "error.warningScope": "Für Warnungen wird moderator:manage:warnings benötigt. Trenne Twitch und melde dich erneut an, um die Berechtigung zu erteilen.", "error.timeoutBounds": "Der Timeout muss zwischen 1 Sekunde und 14 Tagen liegen.", "error.channelRequired": "Gib zuerst einen Kanalnamen ein.", "error.channelNotFound": "Der Twitch-Kanal {channel} wurde nicht gefunden.", "error.authExpired": "Die Twitch-Anmeldung ist abgelaufen. Bitte erneut anmelden.", "error.clientMismatch": "Das Twitch-Token gehört nicht zu dieser App oder ist kein Benutzer-Token.", "error.chatScope": "Erteile chat:read, um den Twitch-Chat zu verbinden.", "error.banScope": "Erteile moderator:manage:banned_users, um Chatter moderieren zu können.", "error.followerScope": "Erteile moderator:read:followers oder deaktiviere die Prüfung neuer Follower.", "error.signInCancelled": "Die Twitch-Anmeldung wurde abgebrochen.", "error.authorization": "Twitch hat diese App nicht autorisiert.", "error.stateMismatch": "Der Twitch-Anmeldestatus stimmt nicht überein. Bitte erneut versuchen.", "error.noToken": "Twitch hat kein Zugriffstoken zurückgegeben."
   },
   es: {
+    "filter.approved": "Aprobados", "approval.manual": "Aprobado manualmente", "approval.messages": "Aprobado: cantidad de mensajes", "approval.follower": "Aprobado: seguidor", "approval.subscriber": "Aprobado: suscriptor", "approval.previous-subscriber": "Aprobado: antiguo suscriptor observado localmente",
+    "error.invalidSettings": "Completa los ajustes num\u00e9ricos con valores v\u00e1lidos.",
     "brand.home": "Inicio de Chatter Watch", "theme.dark": "Activar modo nocturno", "theme.light": "Activar modo diurno", "sidePanel.open": "Abrir panel lateral", "settings.title": "Ajustes", "close": "Cerrar",
     "channel.connection": "Conexión del canal", "channel.placeholder": "canal", "channel.name": "Canal de Twitch", "connect": "Conectar", "connect.connect": "Conectar", "connect.disconnect": "Desconectar", "connect.signIn": "Iniciar sesión",
     "status.ready": "Listo para monitorizar", "status.monitoring": "Monitorizando {channel}", "status.connecting": "Conectando con {channel}…", "status.signingIn": "Iniciando sesión en el chat de Twitch…", "status.reconnecting": "Chat desconectado; reconectando…", "status.disconnected": "Chat desconectado", "status.interrupted": "Conexión del chat interrumpida", "status.authFailed": "Falló la autenticación del chat. Inicia sesión otra vez.",
@@ -64,8 +77,13 @@ const messages = {
 let currentState = null;
 let selectedFilter = "all";
 let toastTimer;
-let currentLanguage = "en";
+let currentLanguage = ModerationCore.resolveLanguage();
 let languageDirty = false;
+let settingsDirty = false;
+let settingsRevision = 0;
+let settingsSaveTimer;
+let savingSettingsRevision = -1;
+let settingsSavePromise;
 const errorMessageKeys = new Map([
   ["The extension service is unavailable. Reload the extension and try again.", "error.extension"],
   ["That chatter is no longer available.", "error.approval"],
@@ -95,8 +113,9 @@ function t(key, values = {}) {
 }
 
 function applyLanguage(language) {
-  currentLanguage = ["en", "de", "es"].includes(language) ? language : "en";
+  currentLanguage = ModerationCore.resolveLanguage(language);
   document.documentElement.lang = currentLanguage;
+  ExtensionView.localize();
   document.querySelectorAll("[data-i18n]").forEach((element) => {
     element.textContent = t(element.dataset.i18n);
   });
@@ -142,6 +161,11 @@ async function request(type, payload = {}) {
 }
 
 function updateSettingsForm(settings) {
+  const resolved = ModerationCore.normalizeSettings(settings);
+  for (const [, key, type] of preferenceFields) {
+    const input = byId(key);
+    if (input) input[type === "checkbox" ? "checked" : "value"] = resolved[key];
+  }
   byId("channel-input").value = settings.channel || "";
   byId("client-id-input").value = settings.clientId || "";
   if (!languageDirty) byId("language-input").value = settings.language || "en";
@@ -159,15 +183,15 @@ function updateSettingsForm(settings) {
   byId("timeout-duration-wrap").hidden = !settings.autoTimeout;
 }
 
-async function setTheme(theme) {
-  const resolvedTheme = theme === "dark" ? "dark" : "light";
-  document.body.dataset.theme = resolvedTheme;
+async function setTheme(theme, persist = true) {
+  const resolvedTheme = theme === "light" ? "light" : "dark";
+  ExtensionView.appearance(resolvedTheme);
   const nextTheme = resolvedTheme === "dark" ? "light" : "dark";
   const button = byId("theme-toggle");
   const key = nextTheme === "dark" ? "theme.dark" : "theme.light";
   button.title = t(key);
   button.setAttribute("aria-label", t(key));
-  await extensionApi.storage.local.set({ appearance: resolvedTheme });
+  if (persist) await extensionApi.storage.local.set({ appearance: resolvedTheme });
 }
 
 function makeTag(label, className) {
@@ -303,6 +327,12 @@ function renderCard(account, index) {
   age.className = "account-age";
   age.textContent = formatAge(account.ageDays);
   card.append(age);
+  if (account.isVetted) {
+    const approval = document.createElement("p");
+    approval.className = "account-age";
+    approval.textContent = t(`approval.${account.approvalReason || "manual"}`);
+    card.append(approval);
+  }
 
   const messageCount = document.createElement("p");
   messageCount.className = "account-age";
@@ -384,21 +414,18 @@ function showHistory(account) {
 function render(state) {
   currentState = state;
   applyLanguage(languageDirty ? currentLanguage : state.settings.language);
-  if (byId("settings-panel").hidden && document.activeElement !== byId("channel-input")) updateSettingsForm(state.settings);
+  if (!settingsDirty && byId("settings-panel").hidden && document.activeElement !== byId("channel-input")) updateSettingsForm(state.settings);
   const statusBar = document.querySelector(".stream-status");
   statusBar.dataset.status = state.status;
   byId("status-text").textContent = localizedStatus(state);
   byId("flagged-count").textContent = t("counter.flagged", { count: state.flagged });
-  byId("metric-chatters").textContent = state.chatters;
-  byId("metric-flagged").textContent = state.flagged;
-  byId("metric-new").textContent = state.newAccounts;
   byId("filter-all-count").textContent = state.flagged;
   byId("auth-label").textContent = state.moderator?.login ? `@${state.moderator.login}` : t("auth.signedOut");
   byId("connect-button").classList.toggle("connected", state.status === "connected");
   byId("connect-button").disabled = ["connecting", "reconnecting"].includes(state.status);
   byId("connect-button").querySelector("span:last-child").textContent = state.status === "connected" ? t("connect.disconnect") : state.moderator ? t("connect.connect") : t("connect.signIn");
 
-  const accounts = visibleAccounts(state.accounts || []);
+  const accounts = visibleAccounts((selectedFilter === "approved" ? state.approved : state.accounts) || []);
   feed.replaceChildren();
   if (accounts.length === 0) {
     const empty = document.createElement("div");
@@ -427,8 +454,16 @@ async function runAction(action, account, button) {
       await request("VET", { key: account.key });
       showToast(t("approval.done", { name: account.displayName }));
     } else if (action === "note") {
-      const note = window.prompt(t("note.prompt", { name: account.displayName }), account.note || "");
-      if (note === null) return;
+      const values = await ExtensionView.dialog({ title: t("note.prompt", { name: account.displayName }), accept: "save", fields: [
+        { name: "template", label: ExtensionView.label("quickNotes"), options: [["", ExtensionView.label("freeNote")], ["RAID", "RAID"], ["FRONT PAGE", "FRONT PAGE"]] },
+        { name: "source", label: ExtensionView.label("raid"), pattern: "[A-Za-z0-9_]{1,25}", maxLength: 25 },
+        { name: "note", label: ExtensionView.label("note"), multiline: true, value: account.note || "", maxLength: 500 }
+      ] });
+      if (!values) return;
+      if (values.template === "RAID" && !values.source) throw new Error(ExtensionView.label("raid"));
+      const addition = values.template === "RAID" ? `RAID ${values.source}` : values.template;
+      const note = [values.note.trim(), addition].filter(Boolean).join("\n");
+      if (note.length > 500) throw new Error("Note exceeds 500 characters.");
       await request("NOTE", { key: account.key, note });
       showToast(t("note.saved"));
     } else if (action === "history") {
@@ -444,16 +479,13 @@ async function runAction(action, account, button) {
       await request("WARN", { key: account.key, reason });
       showToast(t("warning.sent", { name: account.displayName }));
     } else if (action === "ban" || action === "timeout") {
-      const minutes = action === "timeout" ? Number(window.prompt(t("timeout.duration"), String(currentState.settings.timeoutMinutes))) : null;
-      if (action === "timeout" && (!Number.isInteger(minutes) || minutes < 1 || minutes > 20_160)) {
-        if (minutes !== null) showToast(t("timeout.invalid"), true);
-        return;
-      }
-      const reason = window.prompt(t("ban.reason"), "");
-      if (reason === null) return;
-      const confirmation = action === "ban" ? t("ban.confirm", { name: account.displayName }) : t("timeout.confirm", { name: account.displayName, count: minutes });
-      if (!window.confirm(confirmation)) return;
-      await request("MODERATE", { key: account.key, action, duration: action === "timeout" ? minutes * 60 : null, reason });
+      const values = await ExtensionView.dialog({ title: t(`action.${action}`), danger: true,
+        body: `#${currentState.settings.channel} / ${account.displayName || account.login}${action === "ban" ? `\n${ExtensionView.label("permanent")}` : ""}`,
+        fields: [...(action === "timeout" ? [{ name: "duration", label: ExtensionView.label("seconds"), type: "number", min: 1, max: 1209600, required: true, value: currentState.settings.timeoutMinutes * 60, presets: [1, 60, 300, 600, 1800, 3600, 86400] }] : []),
+          { name: "reason", label: ExtensionView.label("reason"), maxLength: 500 }]
+      });
+      if (!values) return;
+      await request("MODERATE", { key: account.key, action, duration: action === "timeout" ? Number(values.duration) : null, reason: values.reason, confirmed: true });
       showToast(action === "ban" ? t("ban.done", { name: account.displayName }) : t("timeout.done", { name: account.displayName }));
     }
   } catch (error) {
@@ -463,8 +495,35 @@ async function runAction(action, account, button) {
   }
 }
 
-async function saveSettings({ connectAfterSave = false } = {}) {
+function validSettingsForm() {
+  return byId("settings-form").checkValidity()
+    && [...byId("settings-form").querySelectorAll('input[type="number"]')].every((input) => input.value !== "");
+}
+
+function flushSettingsSave() {
+  clearTimeout(settingsSaveTimer);
+  settingsSaveTimer = null;
+  if (settingsDirty && validSettingsForm()) void saveSettings().catch((error) => showToast(error.message, true));
+  else if (settingsDirty) ExtensionView.saveState("invalid");
+}
+
+function scheduleSettingsSave(immediate = false) {
+  settingsDirty = true;
+  ExtensionView.saveState("pending");
+  settingsRevision += 1;
+  clearTimeout(settingsSaveTimer);
+  if (immediate) flushSettingsSave();
+  else settingsSaveTimer = setTimeout(flushSettingsSave, 350);
+}
+
+async function saveSettings() {
+  clearTimeout(settingsSaveTimer);
+  settingsSaveTimer = null;
+  if (!validSettingsForm()) throw new Error(t("error.invalidSettings"));
+  const revision = settingsRevision;
+  if (savingSettingsRevision === revision) return settingsSavePromise;
   const settings = {
+    ...Object.fromEntries(preferenceFields.map(([, key, type]) => [key, type === "checkbox" ? byId(key).checked : ["number", "range"].includes(type) ? Number(byId(key).value) : byId(key).value])),
     clientId: byId("client-id-input").value,
     channel: byId("channel-input").value,
     language: byId("language-input").value,
@@ -479,14 +538,32 @@ async function saveSettings({ connectAfterSave = false } = {}) {
     autoTimeout: byId("auto-timeout-input").checked,
     timeoutMinutes: Number(byId("timeout-duration-input").value)
   };
-  const response = await request("SAVE_SETTINGS", { settings });
-  languageDirty = false;
-  applyLanguage(response.settings.language);
-  updateSettingsForm(response.settings);
-  if (connectAfterSave) await connectOrDisconnect();
+  savingSettingsRevision = revision;
+  ExtensionView.saveState("saving");
+  settingsSavePromise = request("SAVE_SETTINGS", { settings }).then((response) => {
+    if (revision === settingsRevision) {
+      settingsDirty = false;
+      languageDirty = false;
+      if (currentState) currentState.settings = response.settings;
+      applyLanguage(response.settings.language);
+      updateSettingsForm(response.settings);
+      ExtensionView.saveState("saved");
+    }
+    return response;
+  }).catch((error) => {
+    if (savingSettingsRevision === revision) savingSettingsRevision = -1;
+    ExtensionView.saveState("error");
+    throw error;
+  });
+  return settingsSavePromise;
 }
 
 async function signIn() {
+  if (document.documentElement.dataset.popup === "true") {
+    await request("OPEN_DASHBOARD");
+    window.close();
+    return false;
+  }
   const clientId = byId("client-id-input").value.trim();
   if (!clientId) {
     byId("settings-panel").hidden = false;
@@ -500,7 +577,7 @@ async function signIn() {
   url.searchParams.set("response_type", "token");
   url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", redirectUri);
-  url.searchParams.set("scope", "chat:read moderator:manage:banned_users moderator:manage:warnings moderator:read:followers moderator:manage:chat_settings");
+  url.searchParams.set("scope", "chat:read moderator:manage:banned_users moderator:manage:warnings moderator:read:followers moderator:manage:chat_settings moderator:manage:chat_messages");
   url.searchParams.set("state", state);
   url.searchParams.set("force_verify", "false");
   const callbackUrl = await extensionApi.identity.launchWebAuthFlow({ url: url.toString(), interactive: true });
@@ -523,7 +600,7 @@ async function connectOrDisconnect() {
     return;
   }
   await saveSettings();
-  if (!currentState?.moderator) await signIn();
+  if (!currentState?.moderator && !await signIn()) return;
   await request("CONNECT");
   showToast(t("channel.connecting", { channel: byId("channel-input").value.trim() }));
 }
@@ -539,14 +616,16 @@ filters.forEach((button) => {
 byId("match-any").addEventListener("click", () => {
   byId("match-any").setAttribute("aria-pressed", "true");
   byId("match-all").setAttribute("aria-pressed", "false");
+  scheduleSettingsSave(true);
 });
 byId("match-all").addEventListener("click", () => {
   byId("match-any").setAttribute("aria-pressed", "false");
   byId("match-all").setAttribute("aria-pressed", "true");
+  scheduleSettingsSave(true);
 });
 
 byId("settings-toggle").addEventListener("click", () => { byId("settings-panel").hidden = false; });
-byId("settings-close").addEventListener("click", () => { byId("settings-panel").hidden = true; });
+byId("settings-close").addEventListener("click", () => { flushSettingsSave(); byId("settings-panel").hidden = true; });
 byId("language-input").addEventListener("change", (event) => {
   languageDirty = true;
   applyLanguage(event.target.value);
@@ -555,6 +634,11 @@ byId("language-input").addEventListener("change", (event) => {
 byId("history-close").addEventListener("click", () => byId("history-dialog").close());
 byId("theme-toggle").addEventListener("click", () => void setTheme(document.body.dataset.theme === "dark" ? "light" : "dark"));
 byId("auto-timeout-input").addEventListener("change", (event) => { byId("timeout-duration-wrap").hidden = !event.target.checked; });
+for (const target of [byId("settings-form"), byId("channel-input")]) {
+  target.addEventListener("input", () => scheduleSettingsSave());
+  target.addEventListener("change", () => scheduleSettingsSave(true));
+}
+window.addEventListener("pagehide", flushSettingsSave);
 byId("settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
@@ -594,10 +678,68 @@ if (extensionApi.sidePanel?.open || extensionApi.sidebarAction?.open) byId("open
 byId("open-multichat").addEventListener("click", () => {
   request("OPEN_CHAT_WINDOW").catch((error) => showToast(error.message, true));
 });
+byId("pin-window").addEventListener("click", () => request("OPEN_DASHBOARD").catch((error) => showToast(error.message, true)));
+byId("open-page").addEventListener("click", () => request("OPEN_DASHBOARD", { page: true }).catch((error) => showToast(error.message, true)));
+byId("show-client-id").addEventListener("click", () => {
+  const input = byId("client-id-input");
+  input.type = input.type === "password" ? "text" : "password";
+  byId("show-client-id").setAttribute("aria-pressed", String(input.type === "text"));
+});
+byId("show-client-id").replaceChildren(ExtensionView.icon("Eye"));
+function buildPreferences() {
+  const groups = new Map();
+  for (const [group, key, type, min, max] of preferenceFields) {
+    if (!groups.has(group)) {
+      const fieldset = document.createElement("fieldset");
+      fieldset.className = "preference-group";
+      const legend = document.createElement("legend");
+      legend.dataset.viewLabel = group;
+      fieldset.append(legend);
+      groups.set(group, fieldset);
+      byId("shared-preferences").append(fieldset);
+    }
+    const wrapper = document.createElement("label");
+    wrapper.className = "preference-field";
+    const caption = document.createElement("span");
+    caption.dataset.viewLabel = key;
+    const input = document.createElement("input");
+    input.id = key;
+    input.type = type;
+    if (min !== undefined) { input.min = min; input.max = max; input.required = true; }
+    if (key === "translationTarget") { input.pattern = "[a-z]{2}"; input.maxLength = 2; input.required = true; }
+    wrapper.append(caption, input);
+    if (type === "checkbox") wrapper.append(caption);
+    groups.get(group).append(wrapper);
+  }
+  const sound = document.createElement("button");
+  sound.type = "button";
+  sound.className = "preference-command";
+  sound.dataset.viewLabel = "testSound";
+  sound.addEventListener("click", async () => { if (!await ExtensionView.playSound(Number(byId("alertVolume").value))) showToast(ExtensionView.label("audioError"), true); });
+  groups.get("alerts").append(sound);
+  const permission = document.createElement("button");
+  permission.type = "button";
+  permission.className = "preference-command";
+  permission.dataset.viewLabel = "allowServer";
+  permission.addEventListener("click", async () => {
+    try {
+      const url = new URL(byId("translationUrl").value);
+      if (url.protocol !== "https:" || url.username || url.password) throw new Error("Use an HTTPS endpoint without credentials.");
+      const granted = await extensionApi.permissions.request({ origins: [`${url.origin}/*`], ...(globalThis.browser ? { data_collection: ["personalCommunications"] } : {}) });
+      if (!granted) throw new Error(ExtensionView.label("allowError"));
+      await saveSettings();
+      showToast(t("settings.saved"));
+    } catch (error) { showToast(error.message, true); }
+  });
+  groups.get("translation").append(permission);
+}
+buildPreferences();
+void ExtensionView.rememberWindow("dashboard").catch(() => {});
 let dashboardPort;
 function connectDashboardPort() {
   try {
     dashboardPort = extensionApi.runtime.connect({ name: "dashboard" });
+    dashboardPort.onMessage?.addListener((message) => { if (message.type === "REVIEW_ALERT") void ExtensionView.playSound(message.volume); });
     dashboardPort.onDisconnect.addListener(() => {
       void extensionApi.runtime.lastError;
       setTimeout(connectDashboardPort, 1000);
@@ -606,10 +748,27 @@ function connectDashboardPort() {
 }
 connectDashboardPort();
 byId("redirect-uri").textContent = extensionApi.identity.getRedirectURL("twitch");
-extensionApi.storage.local.get("appearance").then(({ appearance }) => setTheme(appearance || "light"));
+extensionApi.storage.local.get("appearance").then(({ appearance }) => setTheme(appearance, false));
+extensionApi.storage.onChanged?.addListener((changes, area) => {
+  if (area !== "local") return;
+  if (changes.appearance) void setTheme(changes.appearance.newValue, false);
+  if (changes.settings && currentState && !settingsDirty) {
+    currentState.settings = ModerationCore.normalizeSettings(changes.settings.newValue);
+    updateSettingsForm(currentState.settings);
+    render(currentState);
+  }
+});
 extensionApi.runtime.onMessage.addListener((message) => {
+  if (message.type === "OPEN_SETTINGS") byId("settings-panel").hidden = false;
   if (message.type === "STATE") render(message.state);
   if (message.type === "ERROR" || message.type === "NOTICE") showToast(message.message, message.type === "ERROR");
 });
 
-request("GET_STATE").then((response) => render(response.state)).catch((error) => showToast(error.message, true));
+applyLanguage(currentLanguage);
+request("GET_STATE").then((response) => {
+  render(response.state);
+  if (new URLSearchParams(location.search).get("settings") === "1") {
+    updateSettingsForm(response.state.settings);
+    byId("settings-panel").hidden = false;
+  }
+}).catch((error) => showToast(error.message, true));

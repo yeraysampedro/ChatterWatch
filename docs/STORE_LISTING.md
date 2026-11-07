@@ -1,0 +1,122 @@
+# Store Listing Copy and Assets
+
+Twitch Chatter Watch 1.3.0. Prepared 7 November 2026 for Chrome Web Store and Mozilla Add-ons. Copy the text under the relevant field, not the editorial notes. This kit is not a store approval or a claim that live Twitch testing is complete.
+
+## Shared Fields
+
+| Field | Value / action |
+| --- | --- |
+| Product name / Name | Twitch Chatter Watch |
+| Default listing language | English |
+| Support URL / Support-URL | https://github.com/yeraysampedro/Twtich-Moderatr/issues |
+| Homepage URL | https://github.com/yeraysampedro/Twtich-Moderatr |
+| Privacy policy URL | After publishing the current PRIVACY.md: https://github.com/yeraysampedro/Twtich-Moderatr/blob/main/PRIVACY.md . Do not submit until this URL is publicly accessible and displays the current policy. |
+| Support email / publisher contact | The owner must supply a real monitored address if requested. No email has been invented. |
+| Distribution / price / license | Owner decision. LICENSE.lucide covers third-party UI icons only, not the application's distribution license. |
+| Platforms | Desktop only. Package minimums: Chromium 116+, Firefox 140+. Automated checks ran on Windows; select other OS platforms only after validating them. |
+| Suggested category | Select the closest chat/moderation/productivity category available in the live dashboard; do not assume the two stores share category names. |
+
+The support and homepage URLs were publicly reachable on 7 November 2026. A GitHub homepage is not a verified-publisher domain claim. The public repository may still show an older release until the owner publishes the local changes. GitHub Issues requires a GitHub account to submit an issue; the support page itself is public.
+
+## English
+
+### Short Summary
+
+Read and moderate Twitch chat with multichat windows, review queues, optional auto-approval and confirmed moderation actions.
+
+### Detailed Description / Beschreibung
+
+Twitch Chatter Watch gives streamers and moderators a dedicated workspace for reading Twitch chat and reviewing chatters without losing their place.
+
+Keep up to six channels in a responsive grid, detach individual channels into separate windows, or combine messages in a chronological feed with channel labels. Pause the view to read, pin important messages, highlight keywords and export the retained live buffer as a local TXT file.
+
+Review new-account, first-message and recent-follower signals for your primary channel. See the number of people awaiting review, add notes such as RAID or FRONT PAGE, and keep approved chatters separate from the pending queue without hiding their messages from live chat. Optional automatic approval supports more than N messages, confirmed followers, current subscribers and previously subscribed users observed locally. Rules are off until enabled; locally observed history is not a complete Twitch subscription record.
+
+Manual bans, timeouts, specific-message deletion and the one-second timeout action require confirmation. Choose a timeout duration explicitly and see the target before submitting. Local spam filters and local slow mode are separate from sanctions and from actual Twitch slow-mode settings. Any automatic-timeout rule remains a separate opt-in setting.
+
+Use the popup, sidebar, extension page or a persistent window. Settings autosave and remain shared between views, while pause, scroll and message pins stay local to each window. The interface starts in dark mode, remembers independent-window geometry and supports English, Spanish and German. Optional review alerts can play a sound or request native window attention, subject to browser and operating-system restrictions.
+
+Translation is optional and requires your own compatible HTTPS LibreTranslate endpoint, permission for that origin and confirmation for each message sent. No translation provider or API key is supplied. The selected text goes to that provider; Twitch tokens and author/channel metadata are not forwarded. Check the provider's privacy policy and any charges before enabling it.
+
+Setup requires a Twitch account and a Twitch developer application Client ID with the displayed browser-specific redirect URL registered. A Client Secret is not needed. Real moderation requires the relevant Twitch OAuth scopes and moderator or broadcaster rights in the target channel.
+
+The extension has no publisher-operated analytics or backend. Settings, notes and review history are stored locally; Twitch authentication and chat/moderation operations communicate with Twitch. Deleted messages can remain locally marked in bounded buffers, and exports may contain personal data. Chat history is limited and is not a complete audit archive. Read the privacy policy before use.
+
+This is an independent project, not an official Twitch product and not affiliated with or endorsed by Twitch, Google or Mozilla.
+
+## Deutsch
+
+### Kurzbeschreibung
+
+Twitch-Chats in mehreren Fenstern lesen und moderieren, Personen prüfen und Moderationsaktionen bewusst bestätigen.
+
+### Ausführliche Beschreibung / Beschreibung
+
+Twitch Chatter Watch bietet Streamern und Moderatoren einen eigenen Arbeitsbereich zum Lesen von Twitch-Chats und Prüfen von Chatteilnehmern.
+
+Bis zu sechs Kanäle als anpassbares Raster anzeigen, einzelne Kanäle in eigene Fenster abtrennen oder Nachrichten chronologisch mit Kanalmarkierungen zusammenführen. Zum Lesen pausieren, wichtige Nachrichten anheften, Schlüsselwörter hervorheben und den behaltenen Live-Puffer als lokale TXT-Datei exportieren.
+
+Im Hauptkanal neue Konten, erste Nachrichten und kürzlich gefolgte Nutzer prüfen. Eine Warteschlange zeigt ausstehende Personen; Notizen unterstützen RAID und FRONT PAGE. Freigegebene Personen bleiben im Live-Chat sichtbar. Optionale automatische Freigabe unterstützt mehr als N Nachrichten, bestätigte Follower, aktuelle Abonnenten und lokal beobachtete frühere Abonnenten. Regeln sind anfangs ausgeschaltet; lokale Beobachtungen sind keine vollständige Twitch-Abonnementhistorie.
+
+Manuelle Bans, Timeouts, das Löschen einzelner Nachrichten und die Ein-Sekunden-Timeout-Aktion verlangen eine Bestätigung. Dauer und Ziel werden vor der Ausführung festgelegt. Lokale Spamfilter und lokaler Slow Mode sind von Sanktionen und dem tatsächlichen Twitch Slow Mode getrennt. Automatische Timeouts bleiben eine separate ausdrücklich aktivierte Option.
+
+Popup, Seitenleiste, Erweiterungsseite oder dauerhaftes Fenster verwenden. Einstellungen werden automatisch gespeichert und zwischen Ansichten geteilt; Pause, Scrollposition und angeheftete Nachrichten bleiben fensterbezogen. Dunkler Startmodus, gespeicherte Fensterpositionen sowie Englisch, Spanisch und Deutsch sind verfügbar. Optionale Prüfhinweise können Ton oder native Fensteraufmerksamkeit nutzen, soweit Browser und Betriebssystem dies erlauben.
+
+Übersetzung benötigt einen selbst gewählten HTTPS-Endpunkt mit LibreTranslate-Kompatibilität, die Freigabe dieses Ursprungs und Bestätigung jeder übertragenen Nachricht. Kein Anbieter und kein API-Schlüssel werden bereitgestellt. Ausgewählter Text geht an diesen Anbieter, nicht die Twitch-Tokens oder Autoren-/Kanalmetadaten. Datenschutz und mögliche Kosten des Anbieters vor Aktivierung prüfen.
+
+Erforderlich sind ein Twitch-Konto und die Client ID einer Twitch-Entwickleranwendung mit der angezeigten browserabhängigen Weiterleitungs-URL. Ein Client Secret wird nicht benötigt. Echte Moderation erfordert passende OAuth-Berechtigungen und Moderator-/Broadcaster-Rechte im Zielkanal.
+
+Keine betreibereigene Analyse oder Backend-Infrastruktur. Einstellungen, Notizen und Prüfverlauf werden lokal gespeichert; Anmeldung, Chat und Moderation kommunizieren mit Twitch. Gelöschte Nachrichten können lokal markiert in begrenzten Puffern verbleiben; Exporte können personenbezogene Daten enthalten. Kein vollständiges Auditarchiv. Vor Nutzung die Datenschutzerklärung lesen.
+
+Unabhängiges Projekt, kein offizielles Twitch-Produkt und nicht mit Twitch, Google oder Mozilla verbunden oder von ihnen empfohlen.
+
+## Español
+
+### Descripción Breve
+
+Lee y modera Twitch con ventanas multichat, revisión de usuarios, aprobación opcional y acciones de moderación confirmadas.
+
+### Descripción Completa
+
+Twitch Chatter Watch ofrece a streamers y moderadores un espacio dedicado para leer el chat de Twitch y revisar participantes sin perder el contexto.
+
+Organiza hasta seis canales en una cuadrícula adaptable, separa canales en ventanas independientes o reúne sus mensajes en un feed cronológico con etiquetas. Pausa para leer, fija mensajes, resalta palabras y exporta el buffer vivo retenido como TXT local.
+
+Revisa señales de cuentas nuevas, primeros mensajes y seguidores recientes del canal principal. Consulta personas pendientes, añade notas RAID o FRONT PAGE y separa los aprobados de la cola sin ocultar sus mensajes del directo. La autoaprobación opcional admite más de N mensajes, seguidores confirmados, suscriptores actuales y antiguos suscriptores observados localmente. Las reglas empiezan desactivadas; las observaciones locales no son un historial completo de suscripciones de Twitch.
+
+Los bans, timeouts, borrados individuales y el timeout de un segundo manuales requieren confirmación. Elige la duración y comprueba el objetivo antes de ejecutar. Los filtros y el slow mode locales son independientes de las sanciones y del slow mode real de Twitch. El timeout automático continúa siendo una opción separada que debes activar expresamente.
+
+Usa el popup, panel lateral, página interna o una ventana persistente. Los ajustes se autoguardan y comparten; las pausas, el scroll y los pines son locales a cada ventana. Modo oscuro inicial, geometría recordada e interfaz en inglés, español y alemán. Las alertas opcionales ofrecen sonido y atención de ventana según las restricciones del navegador y sistema operativo.
+
+La traducción requiere tu propio endpoint HTTPS compatible con LibreTranslate, permiso para ese origen y confirmación de cada envío. No se proporciona proveedor ni clave API. El texto seleccionado se envía al proveedor, nunca el token de Twitch ni los metadatos de autor/canal. Revisa su privacidad y posibles costes antes de activarlo.
+
+Necesitas una cuenta Twitch y el Client ID de una aplicación de Twitch Developers con la URL de redirección indicada para tu navegador. No hace falta Client Secret. La moderación real exige scopes OAuth y permisos de moderador o broadcaster en el canal afectado.
+
+Sin analítica ni backend del desarrollador. Ajustes, notas e historial de revisión se almacenan localmente; autenticación, chat y moderación se comunican con Twitch. Los borrados pueden conservarse localmente marcados en buffers limitados, y los TXT pueden contener datos personales. No es un archivo completo de auditoría. Consulta la política de privacidad.
+
+Proyecto independiente, no oficial de Twitch ni afiliado o avalado por Twitch, Google o Mozilla.
+
+## Images and Captions
+
+Use the `chromium/` image set for Chrome Web Store and the `firefox/` set for AMO. Each set contains exactly five full-bleed 1280x800 PNG screenshots, captured at device scale 1 from the actual local UI. All names, messages, channels and review states are fictional demonstration fixtures; these images are not evidence of live Twitch authorization or delivery. Screenshots are in English. AMO supports localized captions; Chrome locale-specific listing choices depend on the package's `_locales` metadata, not merely its in-app language selector. The current package uses an English manifest without `_locales` directories.
+
+| Order | Filename in each set | English caption | Deutsche Bildbeschreibung | Pie en español |
+| --- | --- | --- | --- | --- |
+| 1 | `01-review-dashboard.png` | Review pending chatters, signals and notes. Demonstration data. | Ausstehende Personen, Hinweise und Notizen prüfen. Beispieldaten. | Revisa participantes, señales y notas. Datos de demostración. |
+| 2 | `02-multichat-grid.png` | Read multiple channels with per-message tools and keyword highlights. | Mehrere Kanäle mit Nachrichtenaktionen und Hervorhebungen lesen. | Lee varios canales con acciones por mensaje y resaltados. |
+| 3 | `03-unified-feed.png` | Combine channels chronologically and keep an important message pinned. | Kanäle chronologisch zusammenführen und wichtige Nachrichten anheften. | Combina canales cronológicamente y mantén un mensaje fijado. |
+| 4 | `04-timeout-confirmation.png` | Check the target, duration and reason before confirming a timeout. No action was sent for this image. | Ziel, Dauer und Grund vor einem Timeout prüfen. Für dieses Bild wurde keine Aktion gesendet. | Comprueba objetivo, duración y motivo antes de confirmar. La captura no ejecutó la acción. |
+| 5 | `05-autoapproval-settings.png` | Configure optional auto-approval, inactivity reevaluation and review alerts. | Optionale automatische Freigabe, Inaktivität und Prüfhinweise konfigurieren. | Configura autoaprobación opcional, inactividad y alertas. |
+
+- Store icon: `assets/store/icon-128.png`, RGBA PNG with square artwork within a 96px region and transparent padding. Firefox derivatives: `icon-32.png` and `icon-64.png`; confirm the current AMO uploader's accepted size.
+- Optional Chrome promotions: `assets/store/promo-440x280.png` and `assets/store/marquee-1400x560.png`. They are brand graphics, not screenshots and not extra screenshot slots. No promotional video is supplied or required by the cited guides.
+- `assets/store/inventory.json` records dimensions, byte sizes and SHA-256 for every generated asset.
+
+## Store-Only Notes: Do Not Paste Into the Description
+
+- Use [STORE_PERMISSIONS.md](STORE_PERMISSIONS.md) for the single-purpose, storage, identity, sidePanel, alarms, host-permission and remote-code fields.
+- Use [STORE_SUBMISSION.md](STORE_SUBMISSION.md) for reviewer test instructions and the final checklist.
+- Publish the policy and approve publisher identity/contact, license, distribution, platform choices and privacy certifications personally. This document does not select them for you.
+- Resolve the documented local at-rest-encryption policy question before declaring security compliance. No application-level encryption claim is made.
+- The store kit ZIP contains documents, artwork and nested browser packages. Extract it first; upload only the appropriate ZIP inside `packages/` as the extension, not the whole kit.
+- Each browser has its own kit with exactly five screenshots. A matching source ZIP is included under `source/` for source-review requests; reconstruct the runtime packages with `deno task build` from that source directory.

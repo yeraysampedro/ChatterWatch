@@ -2,7 +2,7 @@ import { assertEquals, assertFalse, assert } from "jsr:@std/assert@1";
 import "../core.js";
 import "../chat-flow.js";
 
-const { parseIrcLine, accountAgeDays, normalizeSettings, getFlagReasons, recordMessage } = globalThis.ModerationCore;
+const { parseIrcLine, accountAgeDays, resolveLanguage, normalizeSettings, getFlagReasons, recordMessage } = globalThis.ModerationCore;
 const { FlowController, normalizeConfig, compilePattern, HISTORY_LIMIT, BATCH_LIMIT, TRACKING_LIMIT } = globalThis.ChatFlow;
 
 Deno.test("chat flow bounds history, pending batches, and frequency tracking during a burst", () => {
@@ -98,13 +98,24 @@ Deno.test("calculates account age in whole days and handles invalid dates", () =
 });
 
 Deno.test("normalizes settings and keeps automatic timeout opt-in", () => {
-  assertEquals(normalizeSettings({ channel: "@MyChannel", ageLimitDays: -1, messageThreshold: 500 }), {
-    clientId: "", channel: "mychannel", language: "es", ageLimitDays: 1, recentFollowerDays: 1, trustMessageThreshold: 10,
+  assertEquals(normalizeSettings({ channel: "@MyChannel", language: "en", ageLimitDays: -1, messageThreshold: 500 }), {
+    clientId: "", channel: "mychannel", language: "en", ageLimitDays: 1, recentFollowerDays: 1, trustMessageThreshold: 10,
     messageThreshold: 100, flagNewAccounts: true, flagFirstMessage: true, flagNewFollower: true,
-    matchMode: "any", autoTimeout: false, timeoutMinutes: 10
+    matchMode: "any", autoTimeout: false, timeoutMinutes: 10,
+    autoApproveMessages: false, autoApproveFollowers: false, autoApproveSubscribers: false, autoApproveFormerSubscribers: false,
+    approvalThreshold: 10, reviewIdleMinutes: 15, alertSound: false, alertAttention: false, alertVolume: 30,
+    translationUrl: "", translationTarget: "en"
   });
   assertEquals(normalizeSettings({ language: "de" }).language, "de");
-  assertEquals(normalizeSettings({ language: "xx" }).language, "es");
+  assertEquals(normalizeSettings({ language: "xx" }).language, "en");
+});
+
+Deno.test("language resolution handles regional locales, saved choices and English fallback", () => {
+  for (const [locale, expected] of [["es-MX", "es"], ["de-DE", "de"], ["EN_us", "en"], ["fr-FR", "en"], ["", "en"], [null, "en"]]) {
+    assertEquals(resolveLanguage(locale), expected);
+  }
+  assertEquals(normalizeSettings({ language: "es" }).language, "es");
+  assertEquals(normalizeSettings({ language: "de-AT" }).language, "de");
 });
 
 Deno.test("flags only enabled, known risk signals", () => {
@@ -156,4 +167,35 @@ Deno.test("local slow mode survives a shorter spam window", () => {
   assert(flow.ingest(message, 0));
   assertFalse(flow.ingest(message, 2000));
   assert(flow.ingest(message, 30_000));
+});
+
+Deno.test("approval uses strict N plus one and verified OR conditions without changing manual decisions", () => {
+  const settings = normalizeSettings({ autoApproveMessages: true, autoApproveFollowers: true, autoApproveSubscribers: true, autoApproveFormerSubscribers: true });
+  for (const [fields, expected] of [
+    [{ messageCount: 10 }, undefined], [{ messageCount: 11 }, "messages"],
+    [{ followedAt: "2026-01-01", followerCheckedAt: 1000 }, "follower"], [{ followedAt: "2026-01-01", followerError: "denied" }, undefined],
+    [{ followedAt: "2026-01-01" }, undefined],
+    [{ isSubscriber: true }, "subscriber"], [{ isSubscriber: false, wasSubscriber: true }, "previous-subscriber"],
+    [{ isSubscriber: false }, undefined], [{ dismissed: true, messageCount: 20 }, undefined]
+  ]) {
+    const account = { ...fields };
+    ModerationCore.applyApproval(account, settings, 1000);
+    assertEquals(account.approvalReason, expected);
+  }
+});
+
+Deno.test("review expires at fifteen minutes or a new stream but keeps manual approvals and observed subscription history", () => {
+  const settings = normalizeSettings();
+  const account = { sessionId: "stream", lastActivityAt: 1000, isVetted: true, approvalSource: "automatic", messageCount: 20, note: "RAID example" };
+  ModerationCore.prepareReview(account, { tags: { subscriber: "1" } }, "stream", settings, 900999);
+  assert(account.isVetted);
+  ModerationCore.prepareReview(account, { tags: { subscriber: "0", badges: "founder/1" } }, "stream", settings, 1800999);
+  assertFalse(account.isVetted);
+  assertFalse(account.isSubscriber);
+  assert(account.wasSubscriber);
+  assertEquals(account.note, "RAID example");
+  Object.assign(account, { isVetted: true, approvalSource: "manual" });
+  ModerationCore.prepareReview(account, { tags: {} }, "next-stream", settings, 1801000);
+  assert(account.isVetted);
+  assertEquals(account.messageCount, 0);
 });

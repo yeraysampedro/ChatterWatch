@@ -44,10 +44,11 @@ Die temporäre Installation endet beim Schließen von Firefox. Für dauerhafte V
 | `moderator:manage:warnings` | Nutzer verwarnen |
 | `moderator:read:followers` | Signal für kürzlich gefolgte Nutzer |
 | `moderator:manage:chat_settings` | Tatsächlichen Twitch Slow Mode ändern |
+| `moderator:manage:chat_messages` | Einzelne Nachricht aus Multichat löschen |
 
 Das Lesen zusätzlicher Kanäle erfordert keine Moderatorrolle. Für Helix-Moderationsaktionen sind der passende Scope und Moderator- beziehungsweise Broadcaster-Rechte im Zielkanal erforderlich. Die aktuelle Tokenprüfung verlangt `chat:read` und `moderator:manage:banned_users`; bei aktivierter Follower-Prüfung auch den entsprechenden Follower-Scope. Ältere Tokens können ohne den neuen Einstellungs-Scope weiterhin lesen. Vor einem Slow-Mode-Wechsel Twitch trennen und erneut anmelden, um die Berechtigung zu erteilen.
 
-Beide Varianten verwenden `storage`, `identity` und `alarms`; nur Chromium benötigt zusätzlich `sidePanel`. Hostzugriffe sind auf Twitch-API und Anmeldung begrenzt; TLS-IRC ist in der CSP erlaubt. Es werden keine Skripte in Webseiten injiziert und kein eigenes Backend verwendet. Firefox deklariert `authenticationInfo` und `personallyIdentifyingInfo` für Anmeldung und an Twitch gesendete Kennungen, mit der integrierten Einwilligung ab Firefox 140. Es gibt keine Telemetrie und keine Weiterleitung von Chattext an Dritte.
+Beide Varianten verwenden `storage`, `identity` und `alarms`; nur Chromium zusätzlich `sidePanel`. Erforderlicher Hostzugriff gilt Twitch; Übersetzung erlaubt optionalen HTTPS-Zugriff auf den ausgewählten Ursprung. Es werden weder Webseitenskripte noch entfernter Code geladen. Firefox deklariert erforderliche `authenticationInfo`/`personallyIdentifyingInfo` für Twitch und optionale `personalCommunications` für Übersetzung. Keine Telemetrie und kein eigenes Backend. Nachrichtentext wird nur nach Einrichtung/Freigabe des Servers und Bestätigung der Nachricht übertragen. Siehe [Datenschutz](../PRIVACY.md).
 
 ### Entwicklung, Tests und Build
 
@@ -77,11 +78,39 @@ deno run -A npm:playwright@1.56.1 install firefox
 deno task test:ui:firefox
 ```
 
-`deno task build` erzeugt beide Pakete: `dist/chatter-watch-<Version>-chromium.zip`, `dist/chatter-watch-<Version>-firefox.zip` sowie die Ordner `dist/chromium` und `dist/firefox`. Die Version stammt aus dem Manifest. Die ZIP-Dateien sind reproduzierbar und enthalten nur die elf Laufzeitdateien, keine Tests, Abhängigkeiten, Zugangsdaten oder Nutzerdaten. Erzeugte Ordner werden bei jedem Lauf ersetzt; nicht direkt bearbeiten. Lokale Installation verwendet die Ordner; Store-Verteilung erfordert gesonderte Prüfung und Signierung.
+`deno task build` erzeugt `dist/chatter-watch-<Version>-chromium.zip`, `dist/chatter-watch-<Version>-firefox.zip` und die Ordner `dist/chromium`/`dist/firefox`. Die erlaubten Dateien enthalten lokale Ressourcen, die Lizenz der Lucide-0.468.0-Icons und Marken-PNGs mit 16/32/48/64/96/128 Pixeln, keine Tests, Zugangsdaten oder Nutzerdaten. Die 512-Pixel-Grafik in `assets/icons` ist für Store-Material verfügbar und nicht in Laufzeit-ZIPs enthalten. Erzeugte Ordner werden ersetzt; nicht direkt bearbeiten. Store-Verteilung erfordert gesonderte Prüfung und Signierung.
 
 ## 2. Bedienungsanleitung
 
+### Sprache und automatisches Speichern
+
+Ohne gespeicherte Sprachwahl verwendet die Erweiterung die Sprache der Browseroberfläche. Regionale Varianten werden einer unterstützten Sprache zugeordnet: `es-MX` verwendet Spanisch, `de-AT` Deutsch. Für nicht unterstützte Sprachen wird Englisch verwendet. Unter **Einstellungen > Sprache** kann die Auswahl geändert werden; sie wird automatisch gespeichert und hat bei späteren Aufrufen Vorrang, auch in Multichat. Das Twitch-Profil wird zur Spracherkennung nicht abgefragt.
+
+Paneleinstellungen, Hauptkanal und Multichat-Einstellungen werden beim Bestätigen eines Feldes oder 350 ms nach der letzten Eingabe automatisch gespeichert. **Speichern** bleibt verfügbar; beim Schließen der Einstellungen wird versucht, ausstehende Änderungen zu speichern. Unvollständige oder ungültige Felder ersetzen die gespeicherte Konfiguration nicht. Werte und angezeigte Fehler korrigieren. Hat ein anderes Fenster Multichat geändert, Einstellungen schließen und vor weiteren Änderungen erneut öffnen. Benannte Arbeitsbereiche und echte Twitch-Aktionen benötigen weiterhin ihre Schaltflächen; der tatsächliche Slow Mode behält seine Bestätigung.
+
+Gültige Änderungen gelten nach dem Speichern: Eine andere Client ID kann die Anmeldung aufheben, ein geänderter verbundener Hauptkanal kann eine Wiederverbindung auslösen, und das Aktivieren automatischer Timeouts schaltet deren Moderationsregeln ein. Bei abruptem Beenden des Browsers oder Computers vor Abschluss des Schreibvorgangs ist das Speichern nicht garantiert.
+
+### Verbesserungen in Version 1.3
+
+Der anfängliche Modus ist dunkel; eine gespeicherte helle Auswahl bleibt erhalten. Das Hauptpanel ist breiter und behält seine Größe beim Öffnen der Einstellungen. Nur die Zahl ausstehender Prüfungen wird hervorgehoben. **Freigegeben** zeigt Freigabegründe getrennt von ausstehenden Personen, ohne sie aus dem Live-Chat auszublenden. Listen zeigen bis zu 100 Personen; die Gesamtzahl ausstehender Prüfungen bleibt davon unabhängig.
+
+Die Fenster-Anheften-Schaltfläche öffnet oder verwendet ein unabhängiges Dashboard, anfangs 820 x 820. Das native Popup schließt weiterhin bei Fokusverlust: Fenster, Seitenleiste oder interne Seite für Tabwechsel verwenden. OAuth aus dem Popup wechselt zuerst in ein dauerhaftes Fenster; dort die Anmeldung fortsetzen. Die Client ID ist verdeckt und kann angezeigt werden; sie ist kein Client Secret. **Alle Einstellungen** in Multichat öffnet die gemeinsame Konfiguration.
+
+Unabhängige Fenster speichern geänderte Position/Größe alle zwei Sekunden, bei Fokusverlust und beim Schließen. Erneutes Öffnen verwendet gespeicherte Werte; ein Ein-Kanal-Fenster beginnt ohne frühere Geometrie bei 520 x 760. Beim Browserstart werden keine Fenster automatisch geöffnet. Arbeitsbereiche behalten die ausdrückliche Wiederherstellung. Das Betriebssystem kann Koordinaten fehlender Monitore anpassen; physische Positionierung muss manuell geprüft werden.
+
+Unter **Automatische Freigabe** OR-Regeln einzeln aktivieren: mehr als N Nachrichten, bestätigter Follower, aktueller Abonnent oder lokal beobachteter früherer Abonnent. Anfangs sind alle aus; N beträgt 10 und erlaubt 1-10.000. Bei N=10 reichen zehn Nachrichten nicht, elf dagegen schon. Frühere Abonnements umfassen nur Beobachtungen dieser Installation, nicht die vollständige Twitch-Historie. Unbekannte Daten und Abfragefehler führen nicht zur Freigabe.
+
+Inaktivität beträgt standardmäßig 15 Minuten, einstellbar von 1-1.440. Bei der nächsten Nachricht werden Zähler, Verwerfungen und automatische Freigabe nach Ablauf oder bestätigtem Streamwechsel zurückgesetzt. Der Streamstatus wird minütlich abgefragt; Netzwerkfehler sind kein Streamende. Manuelle Freigaben und Notizen bleiben erhalten. Eine weiterhin gültige OR-Bedingung kann sofort erneut freigeben. Automatischer Timeout bleibt unabhängig und anfangs aus: Bei kleinerem Schwellenwert als N kann er vor der automatischen Freigabe wirken.
+
+Prüfhinweise bieten Ton, Lautstärke 0-100 und Fenster-/Taskleistenaufmerksamkeit, anfangs deaktiviert. **Ton testen** in einer geöffneten Ansicht nach Interaktion verwenden. Eine Prüfung ertönt nicht in allen Fenstern; höchstens ein Hinweis alle zehn Sekunden. Blinken hängt von Browser/Betriebssystem ab; der Fokus wird nicht erzwungen. Ohne audiofähige offene Ansicht ist Ton nicht garantiert; die Erweiterungsmarkierung zeigt den Zustand visuell.
+
+Jede Zeile bietet **Nachricht löschen**, **Übersetzen** und **Nachricht anheften**. Löschen erfordert Bestätigung, Kanalrechte und `moderator:manage:chat_messages`; Twitch dafür erneut autorisieren. Manuelle Sanktionen zeigen das Ziel und benötigen Bestätigung, auch `/srs 1s`. Timeout erlaubt 1-1.209.600 Sekunden mit Vorschlägen; Ban bleibt dauerhaft. Schnellnotizen hängen `RAID quellkanal` oder `FRONT PAGE` an bestehenden Text an, innerhalb von 500 Zeichen.
+
+Für Übersetzung einen HTTPS-Endpunkt mit LibreTranslate-Kompatibilität (meist `/translate`) und einen zweistelligen Zielsprachencode konfigurieren, dann **Übersetzungsserver erlauben** wählen. Kein Server/API-Schlüssel ist voreingestellt; der Endpunkt muss JSON-Anfragen ohne einen in der Erweiterung gespeicherten Schlüssel akzeptieren. Jede Übersetzung verlangt Einwilligung mit Ursprung und Text; Original und Ergebnis erscheinen in der Erweiterung. Twitch-Tokens, Cookies und Autoren-/Kanalmetadaten werden nicht weitergeleitet. Datenschutz des Anbieters prüfen: Er erhält Verbindung/Text und kann sie speichern. Berechtigung entziehen oder URL leeren verhindert weitere Übersetzungen.
+
 ### Multichat und Fenster
+
+Follower-basierte Freigabe verwendet höchstens fünf Minuten alte Abfragen und erneuert sie bei späteren Nachrichten nach Bedarf. Änderungen desselben Kontos werden geordnet verarbeitet, damit eine verzögerte Aktualisierung keine manuelle Freigabe oder Notiz überschreibt.
 
 1. Den Hauptkanal im Moderationspanel verbinden.
 2. **Multichat** und dann **Einstellungen** öffnen. Zusätzliche Kanalnamen durch Kommas trennen, etwa `kanal_zwei, kanal_drei`; keine URLs eingeben.
@@ -110,7 +139,7 @@ Unter **Einstellungen > Schlüsselwörter hervorheben** bis zu 12 Regeln hinzuf�
 
 Eine Zeile anklicken oder mit Enter oben anheften. Pro Fenster sind 3 Pins möglich; ein vierter ersetzt den ältesten. Anheften schaltet die Liste auf Live, damit der restliche Chat weiterläuft. Pins sind lokal, überstehen den Wechsel zwischen Raster und zusammengeführter Ansicht im selben Fenster und verschwinden beim Schließen oder Neuladen. **Vollständig lesen** öffnet den ganzen Text; **Lösen** entfernt den Pin. Ein Pin kann Kontext erhalten, nachdem die Nachricht aus dem Live-Puffer gefallen ist.
 
-Die Schaltfläche **`/srs 1s`** an jedem Pin fordert sofort einen Timeout von genau einer Sekunde mit dem Grund `/srs` an, ohne weitere Bestätigung. Dies ist eine echte Twitch-Aktion für den angezeigten Autor und Kanal: Identität vorher prüfen. Benötigt werden `moderator:manage:banned_users` und Moderator-/Broadcaster-Rechte. Empfangener Text `/srs` löst nichts automatisch aus; ein globales Tastenkürzel wird wegen versehentlicher Sanktionen nicht hinzugefügt. Der Worker bestimmt den Nutzer anhand einer behaltenen Nachricht, nicht anhand einer beliebigen Nutzer-ID aus der Ansicht. Ist sie bereits aus seinem Verlauf gefallen, wird die Anfrage abgelehnt. Twitch- und Berechtigungsfehler werden angezeigt, ohne Erfolg vorzutäuschen.
+Die Schaltfläche **`/srs 1s`** an jedem Pin verlangt Bestätigung für genau eine Sekunde Timeout mit Grund `/srs` und zeigt Autor und Kanal. Abbrechen sendet keine Sanktion. Benötigt werden `moderator:manage:banned_users` und Moderator-/Broadcaster-Rechte. Empfangener Text `/srs` löst nichts automatisch aus. Der Worker bestimmt den Nutzer aus einer behaltenen Nachricht, nicht aus einer beliebigen ID der Ansicht. Ist die Nachricht bereits verworfen, wird die Anfrage abgelehnt; Fehler werden nicht als Erfolg dargestellt.
 
 ### Ghost-Nachrichten und lokaler Export
 

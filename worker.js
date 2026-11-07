@@ -2,7 +2,7 @@ if (typeof importScripts === "function") importScripts("core.js", "chat-flow.js"
 
 const extensionApi = globalThis.browser ?? globalThis.chrome;
 
-const { parseIrcLine, accountAgeDays, normalizeSettings, getFlagReasons, recordMessage } = ModerationCore;
+const { parseIrcLine, accountAgeDays, normalizeSettings, getFlagReasons, applyApproval, prepareReview, recordMessage } = ModerationCore;
 const DB_NAME = "chatter-watch";
 const DB_VERSION = 2;
 const STORE = "accounts";
@@ -13,6 +13,7 @@ const messageIds = new Set();
 const messageIdOrder = [];
 const lookupsInFlight = new Map();
 const messageQueues = new Map();
+const accountTasks = new Map();
 const chatPorts = new Set();
 const dashboardPorts = new Set();
 const joinedChannels = new Set();
@@ -29,13 +30,19 @@ let primaryChannel = "";
 let connectionGeneration = 0;
 let chatConfigRevision = 0;
 let configWrites = Promise.resolve();
+let settingsWrites = Promise.resolve();
 let workspaceWrites = Promise.resolve();
+let geometryWrites = Promise.resolve();
+let streamPolling = false;
+let lastReviewAlertAt = 0;
 const quickTimeouts = new Set();
 
 let databasePromise;
 let socket = null;
 let reconnectTimer = null;
 let heartbeatTimer = null;
+let connectionWatchdog = null;
+let lastIrcAt = 0;
 let reconnectAttempt = 0;
 let manualDisconnect = false;
 let joined = false;
@@ -63,6 +70,14 @@ function openDatabase() {
     request.onerror = () => reject(request.error);
   });
   return databasePromise;
+}
+
+function withAccount(key, operation) {
+  const task = (accountTasks.get(key) || Promise.resolve()).catch(() => {}).then(operation);
+  accountTasks.set(key, task);
+  const release = () => { if (accountTasks.get(key) === task) accountTasks.delete(key); };
+  task.then(release, release);
+  return task;
 }
 
 async function getAccount(key) {
@@ -138,7 +153,10 @@ async function apiRequest(path, { method = "GET", body, token, clientId, query }
   if (!response.ok) {
     let detail = "";
     try { detail = (await response.json()).message || ""; } catch { /* Response may be empty. */ }
-    if (response.status === 401) await extensionApi.storage.session.remove(["accessToken", "moderator"]);
+    if (response.status === 401) {
+      await extensionApi.storage.session.remove(["accessToken", "moderator"]);
+      await stopChat();
+    }
     throw new Error(detail || `Twitch API returned ${response.status}.`);
   }
   return response.status === 204 ? null : response.json();
@@ -146,7 +164,11 @@ async function apiRequest(path, { method = "GET", body, token, clientId, query }
 
 async function validateToken(token, clientId, settings = activeSettings) {
   const response = await fetch(OAUTH_VALIDATE, { headers: { Authorization: `OAuth ${token}` } });
-  if (!response.ok) throw new Error("Twitch sign-in expired. Sign in again to continue.");
+  if (!response.ok) {
+    const error = new Error(response.status === 401 ? "Twitch sign-in expired. Sign in again to continue." : "Twitch validation is temporarily unavailable.");
+    error.authFailure = response.status === 401;
+    throw error;
+  }
   const user = await response.json();
   if (user.client_id !== clientId || !user.user_id) throw new Error("The Twitch token does not match this app or is not a user token.");
   if (!user.scopes.includes("chat:read")) throw new Error("Grant the chat:read permission to connect to Twitch chat.");
@@ -175,6 +197,7 @@ async function snapshot() {
   const flagged = accounts
     .filter((account) => !account.isVetted && !account.dismissed && (account.reasons?.length || account.lookupPending))
     .sort((left, right) => (right.lastMessageAt || 0) - (left.lastMessageAt || 0));
+  await extensionApi.action?.setBadgeText({ text: settings.alertAttention && flagged.length ? (flagged.length > 999 ? "999+" : String(flagged.length)) : "" });
   return {
     settings,
     moderator,
@@ -184,12 +207,13 @@ async function snapshot() {
     chatters: sessionChatters.size,
     newAccounts: sessionNewAccounts.size,
     flagged: flagged.length,
-    accounts: flagged.slice(0, 100)
+    accounts: flagged.slice(0, 100),
+    approved: accounts.filter((account) => account.isVetted).sort((left, right) => (right.lastMessageAt || 0) - (left.lastMessageAt || 0)).slice(0, 100)
   };
 }
 
 async function publishSnapshot() {
-  if (snapshotTimer || snapshotRunning || !dashboardPorts.size) return;
+  if (snapshotTimer || snapshotRunning || (!dashboardPorts.size && !activeSettings.alertAttention)) return;
   snapshotTimer = setTimeout(async () => {
     snapshotTimer = null;
     snapshotRunning = true;
@@ -308,6 +332,7 @@ async function setTwitchSlowMode(message) {
 }
 
 async function quickTimeout(message) {
+  if (message.confirmed !== true) throw new Error("Confirm this moderation action first.");
   const channel = ChatFlow.channelName(message.channel);
   if (!allChannels().includes(channel)) throw new Error("This channel is no longer configured.");
   const entry = chatFlow.channels.get(channel)?.history.values().find((item) => item.id === message.id);
@@ -333,6 +358,125 @@ function chatWindowUrl(channel = "") {
   const url = new URL(extensionApi.runtime.getURL("chat.html"));
   if (channel) url.searchParams.set("channel", ChatFlow.channelName(channel));
   return url.href;
+}
+
+function geometryKey(message) {
+  if (message.view === "dashboard") return "dashboard";
+  const channel = message.channel ? ChatFlow.channelName(message.channel) : "";
+  if (channel && !allChannels().includes(channel)) throw new Error("This channel is no longer configured.");
+  return channel ? `chat-${channel}` : "chat-grid";
+}
+
+async function saveWindowGeometry(message) {
+  const key = geometryKey(message);
+  const stored = (await extensionApi.storage.local.get("windowGeometry")).windowGeometry || {};
+  const entries = Object.entries(stored).filter(([name]) => name !== key).slice(-15);
+  const next = Object.fromEntries([...entries, [key, windowBounds(message.bounds)]]);
+  await extensionApi.storage.local.set({ windowGeometry: next });
+  return { ok: true };
+}
+
+async function openDashboard(page = false, settings = false) {
+  const target = new URL(extensionApi.runtime.getURL("dashboard.html"));
+  if (settings) target.searchParams.set("settings", "1");
+  const contexts = await extensionApi.runtime.getContexts({ contextTypes: ["TAB"] });
+  const windows = await extensionApi.windows.getAll();
+  const existing = contexts.find((context) => {
+    if (!context.documentUrl) return false;
+    const url = new URL(context.documentUrl);
+    const windowInfo = windows.find((info) => info.id === context.windowId);
+    return windowInfo && (page ? windowInfo.type !== "popup" : windowInfo.type === "popup") && url.protocol === target.protocol && url.host === target.host && url.pathname === target.pathname;
+  });
+  if (existing) {
+    if (settings) broadcast("OPEN_SETTINGS");
+    if (existing.tabId >= 0) await extensionApi.tabs.update(existing.tabId, { active: true });
+    await extensionApi.windows.update(existing.windowId, { focused: true });
+    return { windowId: existing.windowId };
+  }
+  if (page) return { tabId: (await extensionApi.tabs.create({ url: target.href })).id };
+  const bounds = (await extensionApi.storage.local.get("windowGeometry")).windowGeometry?.dashboard;
+  const info = await extensionApi.windows.create({ url: target.href, type: "popup", width: 820, height: 820, ...(bounds ? windowBounds(bounds) : {}) });
+  return { windowId: info.id };
+}
+
+function retainedEntry(message) {
+  const channel = ChatFlow.channelName(message.channel);
+  if (!allChannels().includes(channel)) throw new Error("This channel is no longer configured.");
+  const entry = chatFlow.channels.get(channel)?.history.values().find((item) => item.id === message.id);
+  if (!entry) throw new Error("This message is no longer available.");
+  return { channel, entry };
+}
+
+async function deleteChatMessage(message) {
+  if (message.confirmed !== true) throw new Error("Confirm this moderation action first.");
+  const { channel, entry } = retainedEntry(message);
+  if (entry.deleted) throw new Error("This message was already deleted.");
+  const { moderator } = await getSessionData();
+  if (!moderator?.scopes?.includes("moderator:manage:chat_messages")) throw new Error("Sign in again and grant moderator:manage:chat_messages.");
+  const broadcaster = (await apiRequest("/users", { query: { login: channel } })).data?.[0];
+  if (!broadcaster) throw new Error("Twitch channel was not found.");
+  await apiRequest("/moderation/chat", { method: "DELETE", query: { broadcaster_id: broadcaster.id, moderator_id: moderator.user_id, message_id: entry.id } });
+  chatFlow.purge(channel, { id: entry.id });
+  postChat({ type: "CHAT_PURGE", channel, id: entry.id });
+  return { ok: true };
+}
+
+async function translateChatMessage(message) {
+  if (message.confirmed !== true) throw new Error("Confirm sending this message to your translation server.");
+  const { entry } = retainedEntry(message);
+  const { settings } = await getSessionData();
+  if (!settings.translationUrl) throw new Error("Configure a LibreTranslate HTTPS endpoint in Settings first.");
+  const url = new URL(settings.translationUrl);
+  if (url.protocol !== "https:" || url.username || url.password || url.hash) throw new Error("Use an HTTPS translation URL without credentials or fragment.");
+  if (!await extensionApi.permissions.contains({ origins: [`${url.origin}/*`], ...(globalThis.browser ? { data_collection: ["personalCommunications"] } : {}) })) throw new Error("Allow this translation server in Settings first.");
+  const response = await fetch(url.href, {
+    method: "POST", credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(15_000),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ q: entry.text, source: "auto", target: settings.translationTarget, format: "text" })
+  });
+  if (!response.ok) throw new Error(`Translation server returned ${response.status}.`);
+  const data = await response.json();
+  if (typeof data.translatedText !== "string") throw new Error("Translation server did not return translatedText.");
+  return { text: data.translatedText.slice(0, 8000), target: settings.translationTarget };
+}
+
+async function notifyReview(account) {
+  if (account.reviewNotified || account.isVetted || account.dismissed || (!account.reasons?.length && !account.lookupPending)) return;
+  account.reviewNotified = true;
+  if (Date.now() - lastReviewAlertAt < 10_000) return;
+  lastReviewAlertAt = Date.now();
+  if (activeSettings.alertSound) {
+    const port = [...dashboardPorts, ...chatPorts][0];
+    try { port?.postMessage({ type: "REVIEW_ALERT", volume: activeSettings.alertVolume }); } catch {}
+  }
+  if (activeSettings.alertAttention) {
+    await extensionApi.action?.setBadgeText({ text: "!" });
+    const contexts = await extensionApi.runtime.getContexts({ contextTypes: ["TAB"] });
+    const windowIds = [...new Set(contexts.map((context) => context.windowId).filter((id) => id >= 0))].slice(0, 12);
+    for (const windowId of windowIds) {
+      try { await extensionApi.windows.update(windowId, { drawAttention: true }); } catch {}
+    }
+  }
+}
+
+async function pollStream() {
+  if (streamPolling || manualDisconnect || !primaryChannel) return;
+  streamPolling = true;
+  const channel = primaryChannel;
+  const generation = connectionGeneration;
+  try {
+    const { broadcasterId } = await extensionApi.storage.session.get("broadcasterId");
+    if (!broadcasterId) return;
+    const result = await apiRequest("/streams", { query: { user_id: broadcasterId } });
+    if (generation !== connectionGeneration) return;
+    const stored = (await extensionApi.storage.local.get("reviewSession")).reviewSession || {};
+    const streamId = result.data?.[0]?.id || null;
+    if (stored.channel === channel && Object.hasOwn(stored, "streamId") && stored.streamId !== streamId) {
+      activeSessionId = crypto.randomUUID();
+      await extensionApi.storage.session.set({ activeSessionId });
+    }
+    await extensionApi.storage.local.set({ reviewSession: { channel, epoch: activeSessionId, streamId } });
+  } finally { streamPolling = false; }
 }
 
 async function currentChatWindows() {
@@ -489,14 +633,16 @@ async function lookupSignals(account) {
     } catch (error) {
       updates.profileError = error.message || "Account lookup failed";
     }
-    if (activeSettings.flagNewFollower) {
-      try { updates.followedAt = await checkFollower(account.broadcasterId, account.userId); }
+    if (activeSettings.flagNewFollower || activeSettings.autoApproveFollowers) {
+      try { updates.followedAt = await checkFollower(account.broadcasterId, account.userId); updates.followerError = ""; updates.followerCheckedAt = Date.now(); }
       catch (error) { updates.followerError = error.message || "Follower lookup failed"; }
     }
     const current = await getAccount(account.key);
     if (!current) return;
     Object.assign(current, updates, { lookupPending: false });
     current.reasons = getFlagReasons(current, activeSettings);
+    applyApproval(current, activeSettings);
+    await notifyReview(current);
     await saveAccount(current);
     await applyAutomaticTimeout(current);
     await publishSnapshot();
@@ -514,17 +660,21 @@ async function processChatMessage(message) {
   if (!login || login === "tmi.twitch.tv") return;
   const displayName = message.tags["display-name"] || login;
   sessionChatters.add(userId);
-  const account = await getAccountOrCreate({ broadcasterId, userId, login, displayName, tags: message.tags });
-  account.login = login;
-  account.displayName = displayName;
-  account.ageDays = account.createdAt ? accountAgeDays(account.createdAt) : null;
-  recordMessage(account, message, activeSessionId);
-  account.reasons = getFlagReasons(account, activeSettings);
-  await saveAccount(account);
-  await publishSnapshot();
-
-  if (account.lookupPending && !account.isVetted && !account.dismissed) await lookupSignals(account);
-  else await applyAutomaticTimeout(account);
+  return withAccount(`${broadcasterId}:${userId}`, async () => {
+    const account = await getAccountOrCreate({ broadcasterId, userId, login, displayName, tags: message.tags });
+    account.login = login;
+    account.displayName = displayName;
+    account.ageDays = account.createdAt ? accountAgeDays(account.createdAt) : null;
+    prepareReview(account, message, activeSessionId, activeSettings);
+    recordMessage(account, message, activeSessionId);
+    account.reasons = getFlagReasons(account, activeSettings);
+    applyApproval(account, activeSettings);
+    await notifyReview(account);
+    await saveAccount(account);
+    await publishSnapshot();
+    if (account.lookupPending && !account.isVetted && !account.dismissed) await lookupSignals(account);
+    else await applyAutomaticTimeout(account);
+  });
 }
 
 function handleChatMessage(message) {
@@ -565,6 +715,7 @@ async function moderateUser(account, { duration, reason }) {
   const { moderator } = await getSessionData();
   const broadcasterId = account.broadcasterId;
   if (!moderator?.user_id || !broadcasterId) throw new Error("Sign in and connect to a channel first.");
+  if (!moderator.scopes?.includes("moderator:manage:banned_users")) throw new Error("Sign in again and grant moderator:manage:banned_users.");
   const body = { data: { user_id: account.userId, reason: String(reason || "").slice(0, 500) } };
   if (duration != null) body.data.duration = duration;
   await apiRequest(`/moderation/bans?broadcaster_id=${encodeURIComponent(broadcasterId)}&moderator_id=${encodeURIComponent(moderator.user_id)}`, { method: "POST", body });
@@ -625,19 +776,23 @@ function scheduleReconnect() {
 
 async function startChat({ reconnect = false, resume = false } = {}) {
   const generation = ++connectionGeneration;
+  clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+  const { settings, accessToken, moderator } = await getSessionData();
   if (!reconnect && !resume) {
     manualDisconnect = false;
     reconnectAttempt = 0;
     sessionChatters = new Set();
     sessionNewAccounts = new Set();
-    activeSessionId = crypto.randomUUID();
+    const stored = (await extensionApi.storage.local.get("reviewSession")).reviewSession;
+    activeSessionId = stored?.channel === settings.channel ? stored.epoch : crypto.randomUUID();
+    await extensionApi.storage.local.set({ reviewSession: { ...((stored?.channel === settings.channel && stored) || {}), channel: settings.channel, epoch: activeSessionId } });
     await extensionApi.storage.session.set({ activeSessionId });
   } else if (!activeSessionId) {
     const storedSession = await extensionApi.storage.session.get("activeSessionId");
     activeSessionId = storedSession.activeSessionId || crypto.randomUUID();
     await extensionApi.storage.session.set({ activeSessionId });
   }
-  const { settings, accessToken, moderator } = await getSessionData();
   activeSettings = settings;
   if (!accessToken || !moderator?.user_id) throw new Error("Sign in with Twitch before connecting chat.");
   const nextPrimary = ChatFlow.channelName(settings.channel);
@@ -651,7 +806,10 @@ async function startChat({ reconnect = false, resume = false } = {}) {
   if (generation !== connectionGeneration) return;
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = null;
-  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) socket.close();
+  clearTimeout(connectionWatchdog);
+  const previousSocket = socket;
+  socket = null;
+  if (previousSocket && (previousSocket.readyState === WebSocket.OPEN || previousSocket.readyState === WebSocket.CONNECTING)) previousSocket.close();
   joined = false;
   joinedChannels.clear();
   roomStates.clear();
@@ -659,6 +817,8 @@ async function startChat({ reconnect = false, resume = false } = {}) {
   await setStatus("connecting", `Connecting to ${broadcaster.login}…`);
   const connection = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
   socket = connection;
+  lastIrcAt = Date.now();
+  connectionWatchdog = setTimeout(() => { if (socket === connection && !joined) connection.close(); }, 30_000);
   connection.onopen = () => {
     if (socket !== connection) return;
     const nickname = moderator.login || "moderator";
@@ -666,17 +826,23 @@ async function startChat({ reconnect = false, resume = false } = {}) {
     connection.send(`NICK ${nickname}\r\n`);
     connection.send("CAP REQ :twitch.tv/tags twitch.tv/commands\r\n");
     if (heartbeatTimer) clearInterval(heartbeatTimer);
-    heartbeatTimer = setInterval(() => sendIrc("PING :chatter-watch"), 20_000);
+    heartbeatTimer = setInterval(() => {
+      if (socket !== connection) return;
+      if (Date.now() - lastIrcAt > 75_000) connection.close();
+      else sendIrc("PING :chatter-watch");
+    }, 20_000);
     void setStatus("connecting", "Signing in to Twitch chat…");
   };
   connection.onmessage = (event) => {
     if (socket !== connection) return;
+    lastIrcAt = Date.now();
     for (const line of String(event.data).split("\r\n").filter(Boolean)) {
       const message = parseIrcLine(line);
       if (!message) continue;
       if (message.command === "PING") {
         sendIrc(`PONG :${message.trailing || message.params[0] || "tmi.twitch.tv"}`);
       } else if (message.command === "001" && !joined) {
+        clearTimeout(connectionWatchdog);
         joined = true;
         reconnectAttempt = 0;
         syncChannels();
@@ -697,6 +863,8 @@ async function startChat({ reconnect = false, resume = false } = {}) {
           void extensionApi.storage.session.remove(["accessToken", "moderator"]);
           void setStatus("error", "Chat authentication failed. Sign in again.");
           manualDisconnect = true;
+          void extensionApi.storage.session.set({ chatConnected: false });
+          connection.close();
         } else {
           broadcast("NOTICE", { message: `${notice}: ${message.trailing || ""}` });
         }
@@ -708,6 +876,7 @@ async function startChat({ reconnect = false, resume = false } = {}) {
   };
   connection.onclose = () => {
     if (socket !== connection) return;
+    clearTimeout(connectionWatchdog);
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     heartbeatTimer = null;
     socket = null;
@@ -728,6 +897,7 @@ async function stopChat() {
   await extensionApi.storage.session.set({ chatConnected: false });
   if (reconnectTimer) clearTimeout(reconnectTimer);
   reconnectTimer = null;
+  clearTimeout(connectionWatchdog);
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = null;
   if (socket) socket.close(1000, "Disconnected by moderator");
@@ -739,8 +909,45 @@ async function stopChat() {
   await setStatus("disconnected", "Chat disconnected");
 }
 
+async function saveModeratorSettings(settings) {
+  const stored = await extensionApi.storage.local.get("settings");
+  const previousSettings = normalizeSettings(stored.settings);
+  const nextSettings = normalizeSettings(settings);
+  if (nextSettings.translationUrl) {
+    const url = new URL(nextSettings.translationUrl);
+    if (url.protocol !== "https:" || url.username || url.password || url.hash) throw new Error("Use an HTTPS translation URL without credentials or fragment.");
+  }
+  const nextPrimary = nextSettings.channel ? ChatFlow.channelName(nextSettings.channel) : "";
+  if (new Set([nextPrimary, ...chatConfig.channels].filter(Boolean)).size > ChatFlow.MAX_CHANNELS) throw new Error("At most 6 channels, including the primary channel, are supported.");
+  await extensionApi.storage.local.set({ settings: nextSettings });
+  activeSettings = nextSettings;
+  primaryChannel = nextPrimary;
+  const clientChanged = previousSettings.clientId !== activeSettings.clientId;
+  const channelChanged = previousSettings.channel !== activeSettings.channel;
+  if (clientChanged) {
+    await extensionApi.storage.session.remove(["accessToken", "moderator"]);
+    if (socket) await stopChat();
+  } else if (channelChanged && socket) {
+    await stopChat();
+    if (activeSettings.channel) await startChat();
+  }
+  syncChannels();
+  postChat(chatState());
+  await refreshAllReasons();
+  await publishSnapshot();
+  return { settings: activeSettings };
+}
+
 async function handleMessage(message) {
   await chatReady;
+  if (message.type === "OPEN_DASHBOARD") return openDashboard(message.page === true, message.settings === true);
+  if (message.type === "DELETE_MESSAGE") return deleteChatMessage(message);
+  if (message.type === "TRANSLATE_MESSAGE") return translateChatMessage(message);
+  if (message.type === "SAVE_WINDOW_GEOMETRY") {
+    const task = geometryWrites.then(() => saveWindowGeometry(message));
+    geometryWrites = task.catch(() => {});
+    return task;
+  }
   if (message.type === "GET_CHAT_STATE") return chatState();
   if (message.type === "SAVE_CHAT_CONFIG") {
     const task = configWrites.then(() => saveChatConfig(message));
@@ -760,7 +967,8 @@ async function handleMessage(message) {
     if (channel && !allChannels().includes(channel)) throw new Error("Add this channel before detaching it.");
     const url = new URL(extensionApi.runtime.getURL("chat.html"));
     if (channel) url.searchParams.set("channel", channel);
-    const windowInfo = await extensionApi.windows.create({ url: url.href, type: "popup", width: channel ? 460 : 1180, height: 760 });
+    const bounds = (await extensionApi.storage.local.get("windowGeometry")).windowGeometry?.[geometryKey(message)];
+    const windowInfo = await extensionApi.windows.create({ url: url.href, type: "popup", width: channel ? 520 : 1180, height: 760, ...(bounds ? windowBounds(bounds) : {}) });
     return { windowId: windowInfo.id };
   }
   if (message.type === "GET_STATE") return { state: await snapshot() };
@@ -773,28 +981,9 @@ async function handleMessage(message) {
     return { state: await snapshot() };
   }
   if (message.type === "SAVE_SETTINGS") {
-    const stored = await extensionApi.storage.local.get("settings");
-    const previousSettings = normalizeSettings(stored.settings);
-    const nextSettings = normalizeSettings(message.settings);
-    const nextPrimary = nextSettings.channel ? ChatFlow.channelName(nextSettings.channel) : "";
-    if (new Set([nextPrimary, ...chatConfig.channels].filter(Boolean)).size > ChatFlow.MAX_CHANNELS) throw new Error("At most 6 channels, including the primary channel, are supported.");
-    activeSettings = nextSettings;
-    await extensionApi.storage.local.set({ settings: activeSettings });
-    primaryChannel = nextPrimary;
-    const clientChanged = previousSettings.clientId !== activeSettings.clientId;
-    const channelChanged = previousSettings.channel !== activeSettings.channel;
-    if (clientChanged) {
-      await extensionApi.storage.session.remove(["accessToken", "moderator"]);
-      if (socket) await stopChat();
-    } else if (channelChanged && socket) {
-      await stopChat();
-      if (activeSettings.channel) await startChat();
-    }
-    syncChannels();
-    postChat(chatState());
-    await refreshAllReasons();
-    await publishSnapshot();
-    return { settings: activeSettings };
+    const task = settingsWrites.then(() => saveModeratorSettings(message.settings));
+    settingsWrites = task.catch(() => {});
+    return task;
   }
   if (message.type === "CONNECT") {
     await startChat();
@@ -805,10 +994,15 @@ async function handleMessage(message) {
     return { state: await snapshot() };
   }
   if (message.type === "VET" || message.type === "DISMISS" || message.type === "NOTE" || message.type === "MODERATE" || message.type === "WARN") {
+    return withAccount(String(message.key || ""), async () => {
     const account = await getAccount(String(message.key || ""));
     if (!account) throw new Error("That chatter is no longer available.");
     if (message.type === "VET") {
       account.isVetted = true;
+      account.approvalSource = "manual";
+      account.approvalReason = "manual";
+      account.approvedAt = Date.now();
+      account.lookupPending = false;
       account.dismissed = false;
       account.reasons = [];
       account.latestAction = "Approved";
@@ -821,6 +1015,8 @@ async function handleMessage(message) {
       if (!reason) throw new Error("Enter a reason for the warning.");
       await warnUser(account, reason);
     } else {
+      if (message.confirmed !== true) throw new Error("Confirm this moderation action first.");
+      if (!["ban", "timeout"].includes(message.action)) throw new Error("Unsupported moderation action.");
       const duration = message.action === "ban" ? null : Number(message.duration);
       if (duration !== null && (!Number.isInteger(duration) || duration < 1 || duration > 1_209_600)) throw new Error("Timeout must be between 1 second and 14 days.");
       await moderateUser(account, { duration, reason: message.reason });
@@ -828,6 +1024,7 @@ async function handleMessage(message) {
     await saveAccount(account);
     await publishSnapshot();
     return { state: await snapshot() };
+    });
   }
   throw new Error("Unsupported request.");
 }
@@ -836,15 +1033,20 @@ async function refreshAllReasons() {
   const broadcasterId = (await extensionApi.storage.session.get("broadcasterId")).broadcasterId;
   if (!broadcasterId) return;
   const accounts = await getChannelAccounts(broadcasterId);
-  for (const account of accounts) {
-    account.ageDays = account.createdAt ? accountAgeDays(account.createdAt) : null;
-    account.reasons = getFlagReasons(account, activeSettings);
-    await saveAccount(account);
+  for (const previous of accounts) {
+    await withAccount(previous.key, async () => {
+      const account = await getAccount(previous.key);
+      if (!account) return;
+      account.ageDays = account.createdAt ? accountAgeDays(account.createdAt) : null;
+      account.reasons = getFlagReasons(account, activeSettings);
+      applyApproval(account, activeSettings);
+      await saveAccount(account);
+    });
   }
 }
 
 extensionApi.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (["STATE", "ERROR", "NOTICE"].includes(message.type)) return false;
+  if (["STATE", "ERROR", "NOTICE", "OPEN_SETTINGS"].includes(message.type)) return false;
   handleMessage(message).then(sendResponse).catch((error) => sendResponse({ error: error.message || "Something went wrong." }));
   return true;
 });
@@ -863,7 +1065,12 @@ extensionApi.runtime.onConnect.addListener((port) => {
 });
 
 extensionApi.alarms.create("token-validation", { periodInMinutes: 60 });
+extensionApi.alarms.create("stream-status", { periodInMinutes: 1 });
 extensionApi.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "stream-status") {
+    void pollStream().catch((error) => broadcast("NOTICE", { message: error.message }));
+    return;
+  }
   if (alarm.name !== "token-validation") return;
   void (async () => {
     const { settings, accessToken, moderator } = await getSessionData();
@@ -872,9 +1079,9 @@ extensionApi.alarms.onAlarm.addListener((alarm) => {
       const validated = await validateToken(accessToken, settings.clientId, settings);
       await extensionApi.storage.session.set({ moderator: validated });
     } catch (error) {
+      if (!error.authFailure) { broadcast("NOTICE", { message: error.message }); return; }
       await extensionApi.storage.session.remove(["accessToken", "moderator"]);
-      manualDisconnect = true;
-      if (socket) socket.close();
+      await stopChat();
       await setStatus("error", error.message);
     }
   })();

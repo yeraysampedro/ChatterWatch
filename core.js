@@ -38,6 +38,11 @@
     return Math.max(0, Math.floor((now - timestamp) / 86_400_000));
   }
 
+  function resolveLanguage(language = root.browser?.i18n?.getUILanguage?.() || root.chrome?.i18n?.getUILanguage?.() || root.navigator?.language || "en") {
+    const base = String(language).toLowerCase().split(/[-_]/)[0];
+    return ["en", "de", "es"].includes(base) ? base : "en";
+  }
+
   function normalizeSettings(value = {}) {
     const boundedInteger = (input, fallback, min, max) => {
       const number = Number(input);
@@ -46,7 +51,7 @@
     return {
       clientId: String(value.clientId || "").trim(),
       channel: String(value.channel || "").trim().replace(/^@/, "").toLowerCase(),
-      language: ["en", "de", "es"].includes(value.language) ? value.language : "es",
+      language: resolveLanguage(value.language || undefined),
       ageLimitDays: boundedInteger(value.ageLimitDays, 60, 1, 3650),
       recentFollowerDays: boundedInteger(value.recentFollowerDays, 1, 1, 365),
       trustMessageThreshold: boundedInteger(value.trustMessageThreshold, 10, 1, 1000),
@@ -56,7 +61,18 @@
       flagNewFollower: value.flagNewFollower !== false,
       matchMode: value.matchMode === "all" ? "all" : "any",
       autoTimeout: value.autoTimeout === true,
-      timeoutMinutes: boundedInteger(value.timeoutMinutes, 10, 1, 20160)
+      timeoutMinutes: boundedInteger(value.timeoutMinutes, 10, 1, 20160),
+      autoApproveMessages: value.autoApproveMessages === true,
+      autoApproveFollowers: value.autoApproveFollowers === true,
+      autoApproveSubscribers: value.autoApproveSubscribers === true,
+      autoApproveFormerSubscribers: value.autoApproveFormerSubscribers === true,
+      approvalThreshold: boundedInteger(value.approvalThreshold, 10, 1, 10000),
+      reviewIdleMinutes: boundedInteger(value.reviewIdleMinutes, 15, 1, 1440),
+      alertSound: value.alertSound === true,
+      alertAttention: value.alertAttention === true,
+      alertVolume: boundedInteger(value.alertVolume, 30, 0, 100),
+      translationUrl: String(value.translationUrl || "").trim().slice(0, 500),
+      translationTarget: /^[a-z]{2}$/.test(value.translationTarget || "") ? value.translationTarget : "en"
     };
   }
 
@@ -75,6 +91,31 @@
     return matches;
   }
 
+  function applyApproval(account, settings, now = Date.now()) {
+    if (account.isVetted || account.dismissed) return;
+    const reason = settings.autoApproveMessages && account.messageCount > settings.approvalThreshold ? "messages"
+      : settings.autoApproveFollowers && account.followedAt && !account.followerError && account.followerCheckedAt && now - account.followerCheckedAt <= 300_000 ? "follower"
+      : settings.autoApproveSubscribers && account.isSubscriber === true ? "subscriber"
+      : settings.autoApproveFormerSubscribers && account.wasSubscriber === true && account.isSubscriber === false ? "previous-subscriber" : "";
+    if (reason) Object.assign(account, { isVetted: true, approvalSource: "automatic", approvalReason: reason, approvedAt: now, reasons: [] });
+  }
+
+  function prepareReview(account, message, sessionId, settings, now = Date.now()) {
+    const idle = account.lastActivityAt && now - account.lastActivityAt >= settings.reviewIdleMinutes * 60_000;
+    const newSession = account.sessionId && account.sessionId !== sessionId;
+    if (idle || newSession) {
+      if (account.approvalSource === "automatic") Object.assign(account, { isVetted: false, approvalReason: "", approvedAt: 0 });
+      Object.assign(account, { dismissed: false, autoTimeoutApplied: false, messageCount: 0, lookupPending: !account.isVetted, reviewNotified: false });
+    }
+    if (!account.isVetted && settings.autoApproveFollowers && (!account.followerCheckedAt || now - account.followerCheckedAt > 300_000)) account.lookupPending = true;
+    account.lastActivityAt = now;
+    const badges = String(message.tags.badges || "");
+    if (message.tags.subscriber !== undefined || /(?:^|,)(?:subscriber|founder)\//.test(badges)) {
+      account.isSubscriber = message.tags.subscriber !== undefined ? message.tags.subscriber === "1" : /(?:^|,)(?:subscriber|founder)\//.test(badges);
+      if (account.isSubscriber) { account.wasSubscriber = true; account.subscriptionObservedAt = now; }
+    }
+  }
+
   function recordMessage(account, message, sessionId) {
     if (account.sessionId !== sessionId) {
       account.sessionId = sessionId;
@@ -88,7 +129,7 @@
     return account;
   }
 
-  const api = { parseIrcLine, accountAgeDays, normalizeSettings, getFlagReasons, recordMessage };
+  const api = { parseIrcLine, accountAgeDays, resolveLanguage, normalizeSettings, getFlagReasons, applyApproval, prepareReview, recordMessage };
   root.ModerationCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(globalThis);

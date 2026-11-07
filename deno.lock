@@ -5,7 +5,8 @@
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "npm:fake-indexeddb@6.2.2": "6.2.2",
     "npm:fflate@0.8.2": "0.8.2",
-    "npm:playwright@1.56.1": "1.56.1"
+    "npm:playwright@1.56.1": "1.56.1",
+    "npm:pngjs@7.0.0": "7.0.0"
   },
   "jsr": {
     "@std/assert@1.0.19": {
@@ -43,6 +44,9 @@
         "fsevents"
       ],
       "bin": true
+    },
+    "pngjs@7.0.0": {
+      "integrity": "sha512-LKWqWJRhstyYo9pGvgor/ivk2w94eSjE3RGVuzLGlr3NmD8bf7RcYGze1mNdEHRP6TRP6rMuDHk5t44hnTRyow=="
     }
   }
 }

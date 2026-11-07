@@ -1,25 +1,39 @@
 {
   "manifest_version": 3,
   "name": "Twitch Chatter Watch",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Twitch moderation with detached multichat, virtualized feeds, spam filters and slow-mode controls.",
   "minimum_chrome_version": "116",
+  "icons": {
+    "16": "assets/icons/chatter-watch-16.png",
+    "32": "assets/icons/chatter-watch-32.png",
+    "48": "assets/icons/chatter-watch-48.png",
+    "64": "assets/icons/chatter-watch-64.png",
+    "96": "assets/icons/chatter-watch-96.png",
+    "128": "assets/icons/chatter-watch-128.png"
+  },
   "permissions": ["storage", "identity", "sidePanel", "alarms"],
   "host_permissions": [
     "https://api.twitch.tv/*",
     "https://id.twitch.tv/*"
   ],
+  "optional_host_permissions": ["https://*/*"],
   "background": {
     "service_worker": "worker.js"
   },
   "action": {
     "default_title": "Twitch Chatter Watch",
+    "default_icon": {
+      "16": "assets/icons/chatter-watch-16.png",
+      "32": "assets/icons/chatter-watch-32.png",
+      "64": "assets/icons/chatter-watch-64.png"
+    },
     "default_popup": "dashboard.html"
   },
   "side_panel": {
     "default_path": "dashboard.html"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.twitch.tv https://id.twitch.tv wss://irc-ws.chat.twitch.tv:443"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https: wss://irc-ws.chat.twitch.tv:443"
   }
 }

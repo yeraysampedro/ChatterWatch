@@ -3,7 +3,9 @@ import { zipSync } from "npm:fflate@0.8.2";
 const root = new URL("./", import.meta.url);
 const runtimeFiles = [
   "core.js", "chat-flow.js", "worker.js", "virtual-chat.js",
-  "dashboard.html", "dashboard.css", "dashboard.js", "chat.html", "chat.css", "chat.js"
+  "dashboard.html", "dashboard.css", "dashboard.js", "chat.html", "chat.css", "chat.js",
+  "view-tools.js", "view-tools.css", "icons.js", "LICENSE.lucide",
+  ...[16, 32, 48, 64, 96, 128].map((size) => `assets/icons/chatter-watch-${size}.png`)
 ];
 
 export function manifestFor(source, target) {
@@ -14,12 +16,12 @@ export function manifestFor(source, target) {
   delete manifest.side_panel;
   manifest.permissions = manifest.permissions.filter((permission) => permission !== "sidePanel");
   manifest.background = { scripts: ["core.js", "chat-flow.js", "worker.js"] };
-  manifest.sidebar_action = { default_title: manifest.name, default_panel: "dashboard.html", open_at_install: false };
+  manifest.sidebar_action = { default_title: manifest.name, default_panel: "dashboard.html", default_icon: manifest.action.default_icon, open_at_install: false };
   manifest.browser_specific_settings = {
     gecko: {
       id: "twitch-chatter-watch@extensions.local",
       strict_min_version: "140.0",
-      data_collection_permissions: { required: ["authenticationInfo", "personallyIdentifyingInfo"] }
+      data_collection_permissions: { required: ["authenticationInfo", "personallyIdentifyingInfo"], optional: ["personalCommunications"] }
     }
   };
   return manifest;
@@ -39,7 +41,11 @@ export async function buildPackages(output = new URL("./dist/", root)) {
     try { await Deno.remove(directory, { recursive: true }); }
     catch (error) { if (!(error instanceof Deno.errors.NotFound)) throw error; }
     await Deno.mkdir(directory, { recursive: true });
-    for (const [name, content] of Object.entries(entries)) await Deno.writeFile(new URL(name, directory), content);
+    for (const [name, content] of Object.entries(entries)) {
+      const target = new URL(name, directory);
+      await Deno.mkdir(new URL("./", target), { recursive: true });
+      await Deno.writeFile(target, content);
+    }
     const archive = new URL(`chatter-watch-${source.version}-${target}.zip`, output);
     await Deno.writeFile(archive, zipSync(entries, { level: 9, mtime: new Date(2000, 0, 1) }));
     artifacts.push({ target, directory, archive });

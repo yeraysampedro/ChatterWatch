@@ -1,5 +1,15 @@
 # Twitch Chatter Watch
 
+## Versión 1.3.0
+
+Modo oscuro por defecto con contraste corregido, panel más amplio, Client ID ocultable, ventanas persistentes y geometría recordada. La configuración se comparte entre popup, panel lateral, página y ventanas. Se conserva Guardar y se muestra el estado del autoguardado.
+
+La autoaprobación es configurable y viene desactivada: más de N mensajes, seguidor confirmado, suscriptor actual o antiguo suscriptor observado localmente. Las condiciones activas se combinan con OR. El contador N usa la sesión de revisión del canal; la inactividad (15 minutos por defecto) y los cambios de emisión verificados reinician esa sesión por persona. Las aprobaciones manuales permanecen. La pestaña Aprobados muestra el motivo sin retirar mensajes del directo.
+
+Cada mensaje ofrece Borrar, Traducir y Fijar. Las sanciones manuales y `/srs 1s` requieren confirmación; el timeout automático continúa siendo una opción explícita independiente. Las notas admiten RAID con canal de origen y FRONT PAGE. Las alertas de revisión permiten sonido y atención de ventana/barra de tareas, sujetas al navegador y sistema operativo.
+
+La traducción requiere configurar y autorizar un endpoint HTTPS compatible con LibreTranslate y confirmar cada envío. No hay un servidor externo predeterminado. Solo se envían el texto seleccionado y los parámetros de idioma, nunca el token de Twitch. Consulta [PRIVACY.md](PRIVACY.md), [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md), [docs/STORE_SUBMISSION.md](docs/STORE_SUBMISSION.md) y [CHANGELOG.md](CHANGELOG.md).
+
 Extensión Manifest V3 para Chromium y Firefox, para moderación de Twitch y lectura simultánea de hasta seis chats. Incluye ventanas independientes, cuadrícula responsive, filtros de spam y control del slow mode de Twitch. No requiere servidor propio ni compilación; Deno genera los paquetes específicos de cada navegador.
 
 ## Documentación / Documentation / Dokumentation
@@ -16,8 +26,9 @@ Extensión Manifest V3 para Chromium y Firefox, para moderación de Twitch y lec
 - Filtro local por repetición normalizada, frecuencia por usuario y regex restringida para evitar retroceso catastrófico. No genera sanciones.
 - Slow mode local y slow mode real de Twitch separados. El segundo requiere confirmación, rol de moderador y `moderator:manage:chat_settings`.
 - Revisión de cuentas y acciones de moderación existentes para el canal principal. Contador explícito de revisiones omitidas bajo saturación.
-- Interfaz y guías en español, inglés y alemán.
-- Botón `/srs 1s` en mensajes fijados: timeout inmediato de un segundo al autor, con permisos Twitch y sin confirmación adicional.
+- Interfaz y guías en español, inglés y alemán. Sin idioma guardado, se usa el idioma del navegador (incluidas variantes regionales); los idiomas no disponibles usan inglés. Una elección manual guardada tiene prioridad.
+- Autoguardado de los ajustes del panel y de Multichat: 350 ms tras dejar de escribir y guardado inmediato al confirmar un campo. Se mantienen los botones Guardar, la validación y la detección de conflictos entre ventanas.
+- Botón `/srs 1s` en mensajes fijados: timeout de un segundo al autor, con permisos Twitch y confirmación explícita.
 - Mensajes borrados conservados localmente con una capa roja, hasta que salgan del historial acotado.
 - Hasta 8 espacios guardados, con configuración y posición/tamaño de hasta 12 ventanas por espacio; restauración explícita desde Multichat.
 - Hasta 12 reglas de resaltado regex con colores personalizados y 3 mensajes fijados por ventana, independientes del scroll.
@@ -36,6 +47,10 @@ Requiere Chromium/Chrome/Edge de escritorio 116+ o Firefox de escritorio 140+. N
 
 ## Generar los dos entregables
 
+Para preparar la ficha de tienda, permisos, instrucciones de revisión y recursos gráficos, consulta [docs/STORE_LISTING.md](docs/STORE_LISTING.md), [docs/STORE_PERMISSIONS.md](docs/STORE_PERMISSIONS.md), [docs/STORE_TESTING.md](docs/STORE_TESTING.md) y [SUPPORT.md](SUPPORT.md). La URL de soporte pública es https://github.com/yeraysampedro/Twtich-Moderatr/issues .
+
+`deno task store:assets` crea cinco capturas 1280×800 por navegador con datos ficticios, iconos de tienda, promociones opcionales, metadatos y kits independientes en `dist`. El informe [docs/STORE_VALIDATION.md](docs/STORE_VALIDATION.md) registra el contenido real de los ZIP, hashes y bloqueos pendientes. Extrae cada kit: las capturas se suben a la ficha y solo el ZIP de `packages/` se entrega como extensión. El kit no contiene credenciales de prueba reales ni constituye aprobación de las tiendas.
+
 ```powershell
 deno task build
 ```
@@ -50,6 +65,9 @@ El ZIP Chromium sirve para enviar a Chrome Web Store/Edge Add-ons o extraer y ca
 | --- | --- |
 | [manifest.json](manifest.json) | Manifest V3, permisos y CSP local |
 | [build.js](build.js) | ZIP reproducibles, lista de archivos de ejecución y adaptación del manifiesto Firefox |
+| [view-tools.js](view-tools.js), [view-tools.css](view-tools.css) | Diálogos accesibles, idioma de controles nuevos, sonido y geometría compartidos |
+| [icons.js](icons.js), [LICENSE.lucide](LICENSE.lucide) | Seis iconos locales extraídos de Lucide 0.468.0 y su licencia |
+| [assets/icons/chatter-watch-128.png](assets/icons/chatter-watch-128.png), [assets/icons/chatter-watch-512.png](assets/icons/chatter-watch-512.png) | Icono original de la extensión: seis tamaños de ejecución y arte de 512 px para material de tienda |
 | [worker.js](worker.js) | OAuth validado, IRC compartido, JOIN/PART, ventanas, puertos, Helix, IndexedDB y contrapresión |
 | [core.js](core.js) | Parser IRC y reglas de revisión de cuentas |
 | [chat-flow.js](chat-flow.js) | Configuración validada, buffers circulares, filtros por canal, lotes y borrados |
@@ -97,7 +115,7 @@ Máximo 6 canales, 1.000 mensajes retenidos y 250 pendientes por canal; los lote
 
 Los chats en memoria se pierden al reiniciar el worker. Los ajustes y espacios persisten localmente; las pausas y hasta tres pines son independientes por ventana. El feed unificado también se limita a 1.000 mensajes. Las exportaciones incluyen mensajes fantasma y pueden contener datos personales: revisa el destino y no las publiques sin autorización. Las notas y cuentas revisadas persisten en IndexedDB, sin purga automática. Los tokens viven en `chrome.storage.session`, no se sincronizan entre dispositivos ni se escriben en el repo. Desconectar detiene todos los chats compartidos; cerrar una ventana no los desconecta. Véanse las guías para borrar datos.
 
-En Firefox se usa el namespace `browser`, incluido `browser.storage.session`. Su manifiesto declara `authenticationInfo` y `personallyIdentifyingInfo` para la autenticación y los identificadores enviados a Twitch. No hay telemetría ni backend propio, y los textos del chat no se reenvían a terceros. Firefox presenta el consentimiento de datos integrado durante la instalación normal.
+En Firefox se usa el namespace `browser`, incluido `browser.storage.session`. Su manifiesto declara `authenticationInfo` y `personallyIdentifyingInfo` para Twitch y `personalCommunications` como consentimiento opcional para traducción. No hay telemetría ni backend propio. El acceso HTTPS adicional se solicita solo para el dominio de traducción elegido; la CSP permite esas conexiones, pero no código remoto. Revocar ese permiso impide nuevas traducciones. Los textos solo se transmiten al servidor elegido tras confirmar cada traducción.
 
 ## Publicar en GitHub
 

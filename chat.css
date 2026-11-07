@@ -19,6 +19,8 @@ body.multichat { min-width: 280px; background: var(--paper); font-size: 13px; le
 .chat-panel-header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
 .chat-panel h2 { flex: 1; min-width: 80px; margin: 0; font: 700 14px var(--mono); overflow-wrap: anywhere; }
 .chat-panel-header button { font-size: 12px; }
+.export-chat { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.export-chat svg { width: 16px; height: 16px; flex-shrink: 0; }
 .chat-pause { min-width: 90px; font-variant-numeric: tabular-nums; }
 .chat-pause[aria-pressed="true"] { color: var(--coral); background: var(--coral-soft); }
 .room-status { width: 100%; color: var(--muted); font-size: 11px; }

@@ -1,5 +1,6 @@
 {
   "tasks": {
+    "store:assets": "deno run -A store-assets.js",
     "build": "deno run --allow-read --allow-write=dist build.js",
     "test": "deno test --allow-read tests/core_test.js tests/worker_test.js",
     "test:build": "deno test --allow-read --allow-write tests/build_test.js",

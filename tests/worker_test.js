@@ -20,7 +20,7 @@ function storage(initial) {
   };
 }
 
-async function harness({ scopes = ["moderator:manage:chat_settings"], connected = false, firefox = false } = {}) {
+async function harness({ scopes = ["moderator:manage:chat_settings"], connected = false, firefox = false, locale = "en-US" } = {}) {
   const sockets = [];
   const requests = [];
   const windows = [];
@@ -36,6 +36,9 @@ async function harness({ scopes = ["moderator:manage:chat_settings"], connected 
     receive(line) { this.onmessage({ data: `${line}\r\n` }); }
   }
   const chrome = {
+    i18n: { getUILanguage: () => locale },
+    permissions: { contains: async () => true },
+    action: { setBadgeText: async () => {} },
     storage: {
       local: storage({ settings: { channel: "primary", clientId: "client" } }),
       session: storage({ accessToken: "test-token", moderator: { user_id: "42", login: "mod", scopes }, chatConnected: connected })
@@ -78,6 +81,41 @@ async function harness({ scopes = ["moderator:manage:chat_settings"], connected 
   await vm.runInContext("chatReady", context);
   return { context, chrome, sockets, requests, windows, call: (message) => context.handleMessage(message) };
 }
+
+Deno.test("worker detects the browser locale until a supported language is saved", async () => {
+  for (const [locale, expected] of [["es-MX", "es"], ["de-AT", "de"], ["fr-FR", "en"]]) {
+    const app = await harness({ locale, firefox: true });
+    assertEquals((await app.call({ type: "GET_STATE" })).state.settings.language, expected);
+    await app.call({ type: "SAVE_SETTINGS", settings: { clientId: "client", channel: "primary", language: "es" } });
+    assertEquals((await app.call({ type: "GET_STATE" })).state.settings.language, "es");
+  }
+});
+
+Deno.test("moderator autosaves persist in order and a rejected save does not block the next", async () => {
+  const app = await harness();
+  const originalSet = app.chrome.storage.local.set;
+  const started = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const writes = [];
+  app.chrome.storage.local.set = async (values) => {
+    writes.push(values.settings.ageLimitDays);
+    if (writes.length === 1) { started.resolve(); await release.promise; }
+    await originalSet(values);
+  };
+  const settings = { clientId: "client", channel: "primary" };
+  const first = app.call({ type: "SAVE_SETTINGS", settings: { ...settings, ageLimitDays: 21 } });
+  await started.promise;
+  const second = app.call({ type: "SAVE_SETTINGS", settings: { ...settings, ageLimitDays: 45 } });
+  await Promise.resolve();
+  assertEquals(writes, [21]);
+  release.resolve();
+  assertEquals((await first).settings.ageLimitDays, 21);
+  assertEquals((await second).settings.ageLimitDays, 45);
+  assertEquals((await app.chrome.storage.local.get("settings")).settings.ageLimitDays, 45);
+  await assertRejects(() => app.call({ type: "SAVE_SETTINGS", settings: { channel: "bad channel" } }));
+  await app.call({ type: "SAVE_SETTINGS", settings: { ...settings, ageLimitDays: 30 } });
+  assertEquals((await app.chrome.storage.local.get("settings")).settings.ageLimitDays, 30);
+});
 
 Deno.test("worker shares one connection, synchronizes joins, and opens detached extension windows", async () => {
   const app = await harness();
@@ -165,7 +203,8 @@ Deno.test("worker resumes only explicitly connected sessions", async () => {
 Deno.test("quick timeout targets a retained message author for exactly one second", async () => {
   const app = await harness({ scopes: ["moderator:manage:banned_users"] });
   vm.runInContext('chatFlow.ingest({ channel: "primary", id: "joke", userId: "77", text: "/srs" })', app.context);
-  await app.call({ type: "QUICK_TIMEOUT", channel: "primary", id: "joke", userId: "spoofed", duration: 999 });
+  await assertRejects(() => app.call({ type: "QUICK_TIMEOUT", channel: "primary", id: "joke" }));
+  await app.call({ type: "QUICK_TIMEOUT", channel: "primary", id: "joke", userId: "spoofed", duration: 999, confirmed: true });
   const request = app.requests.at(-1);
   assert(request.url.includes("/moderation/bans?broadcaster_id=100&moderator_id=42"));
   assertEquals(JSON.parse(request.options.body), { data: { user_id: "77", duration: 1, reason: "/srs" } });
@@ -209,4 +248,122 @@ Deno.test("Firefox event background starts without importScripts and handles mes
   await app.call({ type: "OPEN_CHAT_WINDOW" });
   assertEquals(app.windows[0].url, "moz-extension://test/chat.html");
   await app.call({ type: "DISCONNECT" });
+});
+
+Deno.test("replacing an IRC socket does not schedule a competing reconnect", async () => {
+  const app = await harness();
+  await app.call({ type: "CONNECT" });
+  app.sockets[0].open();
+  await app.context.startChat({ reconnect: true });
+  assertEquals(vm.runInContext("reconnectTimer", app.context), null);
+  await app.call({ type: "DISCONNECT" });
+});
+
+Deno.test("autoapproved chatters stay in the live feed and out of review", async () => {
+  const app = await harness();
+  await app.call({ type: "SAVE_SETTINGS", settings: { clientId: "client", channel: "primary", autoApproveMessages: true, approvalThreshold: 1 } });
+  await app.call({ type: "CONNECT" });
+  app.sockets[0].open();
+  app.sockets[0].receive(":tmi 001 mod :Welcome");
+  for (const id of ["first", "second"]) {
+    const message = { command: "PRIVMSG", prefix: "viewer!viewer", params: ["#primary"], tags: { id, "user-id": "77", "room-id": "100", "first-msg": "1" }, trailing: id };
+    app.context.ingestChat(message);
+  }
+  while (vm.runInContext("queuedModeration", app.context)) await new Promise((resolve) => setTimeout(resolve, 1));
+  const account = await app.context.getAccount("100:77");
+  assertEquals(account.approvalReason, "messages");
+  assertEquals((await app.call({ type: "GET_STATE" })).state.flagged, 0);
+  assertEquals((await app.call({ type: "GET_CHAT_STATE" })).channels[0].entries.length, 2);
+});
+
+Deno.test("dashboard windows reuse their internal page and remember geometry", async () => {
+  const app = await harness();
+  await app.call({ type: "SAVE_WINDOW_GEOMETRY", view: "dashboard", bounds: { left: -500, top: 100, width: 900, height: 800 } });
+  await app.call({ type: "OPEN_DASHBOARD" });
+  await app.call({ type: "OPEN_DASHBOARD" });
+  assertEquals(app.windows.length, 1);
+  assertEquals(app.windows[0].url, "chrome-extension://test/dashboard.html");
+  assertEquals(app.windows[0].width, 900);
+  assertEquals(app.windows[0].left, -500);
+});
+
+Deno.test("deleting a retained message requires confirmation and scope and retains a ghost", async () => {
+  const app = await harness({ scopes: ["moderator:manage:chat_messages"] });
+  vm.runInContext('chatFlow.ingest({ channel: "primary", id: "delete-me", userId: "77", text: "hello" })', app.context);
+  await assertRejects(() => app.call({ type: "DELETE_MESSAGE", channel: "primary", id: "delete-me" }));
+  await app.call({ type: "DELETE_MESSAGE", channel: "primary", id: "delete-me", confirmed: true });
+  assertEquals(app.requests.at(-1).options.method, "DELETE");
+  assert(app.requests.at(-1).url.includes("message_id=delete-me"));
+  assertEquals((await app.call({ type: "GET_CHAT_STATE" })).channels[0].entries[0].deleted, true);
+});
+
+Deno.test("verified stream transitions rotate the review epoch but polling errors do not", async () => {
+  const app = await harness();
+  await app.call({ type: "CONNECT" });
+  app.context.fetch = async () => ({ ok: true, status: 200, json: async () => ({ data: [{ id: "stream-1" }] }) });
+  await app.context.pollStream();
+  const first = vm.runInContext("activeSessionId", app.context);
+  app.context.fetch = async () => { throw new Error("offline network"); };
+  await assertRejects(() => app.context.pollStream());
+  assertEquals(vm.runInContext("activeSessionId", app.context), first);
+  app.context.fetch = async () => ({ ok: true, status: 200, json: async () => ({ data: [] }) });
+  await app.context.pollStream();
+  assert(vm.runInContext("activeSessionId", app.context) !== first);
+});
+
+Deno.test("translation is explicit, uses retained text, checks optional consent and never sends Twitch credentials", async () => {
+  const app = await harness({ firefox: true });
+  await app.call({ type: "SAVE_SETTINGS", settings: { clientId: "client", channel: "primary", translationUrl: "https://translate.example/translate", translationTarget: "es" } });
+  vm.runInContext('chatFlow.ingest({ channel: "primary", id: "translate-me", userId: "77", text: "hello" })', app.context);
+  const message = { type: "TRANSLATE_MESSAGE", channel: "primary", id: "translate-me", text: "spoofed" };
+  await assertRejects(() => app.call(message));
+  app.chrome.permissions.contains = async () => false;
+  await assertRejects(() => app.call({ ...message, confirmed: true }));
+  assertEquals(app.requests.length, 0);
+  let permission;
+  app.chrome.permissions.contains = async (value) => { permission = value; return true; };
+  app.context.fetch = async (url, options) => {
+    app.requests.push({ url, options });
+    return { ok: true, json: async () => ({ translatedText: "hola" }) };
+  };
+  assertEquals((await app.call({ ...message, confirmed: true })).text, "hola");
+  assertEquals(JSON.parse(app.requests[0].options.body), { q: "hello", source: "auto", target: "es", format: "text" });
+  assertEquals(Object.keys(app.requests[0].options.headers), ["Content-Type"]);
+  assertEquals(app.requests[0].options.credentials, "omit");
+  assertEquals(app.requests[0].options.redirect, "error");
+  assertEquals(JSON.parse(JSON.stringify(permission)), { origins: ["https://translate.example/*"], data_collection: ["personalCommunications"] });
+  await assertRejects(() => app.call({ type: "SAVE_SETTINGS", settings: { translationUrl: "http://unsafe.example/translate" } }));
+});
+
+Deno.test("review alerts go to one view only and do not repeat for the same pending chatter", async () => {
+  const app = await harness();
+  await app.call({ type: "SAVE_SETTINGS", settings: { clientId: "client", channel: "primary", alertSound: true, alertAttention: true, flagNewFollower: false } });
+  const received = [[], []];
+  for (const messages of received) app.chrome.runtime.onConnect.emit({ name: "dashboard", postMessage: (message) => messages.push(message), onDisconnect: eventBus() });
+  await app.call({ type: "CONNECT" });
+  const message = { command: "PRIVMSG", prefix: "viewer!viewer", params: ["#primary"], tags: { "user-id": "77", "room-id": "100", "first-msg": "1" }, trailing: "hello" };
+  await app.context.processChatMessage(message);
+  await app.context.processChatMessage(message);
+  assertEquals(received.flat().filter((item) => item.type === "REVIEW_ALERT").length, 1);
+});
+
+Deno.test("manual approval cannot be overwritten by a pending message update", async () => {
+  const app = await harness();
+  await app.call({ type: "SAVE_SETTINGS", settings: { clientId: "client", channel: "primary", alertAttention: true, flagNewFollower: false } });
+  await app.call({ type: "CONNECT" });
+  const started = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  let first = true;
+  app.chrome.action.setBadgeText = async () => {
+    if (first) { first = false; started.resolve(); await release.promise; }
+  };
+  const processing = app.context.processChatMessage({ command: "PRIVMSG", prefix: "viewer!viewer", params: ["#primary"], tags: { "user-id": "77", "room-id": "100", "first-msg": "1" }, trailing: "hello" });
+  await started.promise;
+  const approval = app.call({ type: "VET", key: "100:77" });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  release.resolve();
+  await Promise.all([processing, approval]);
+  const account = await app.context.getAccount("100:77");
+  assertEquals(account.isVetted, true);
+  assertEquals(account.approvalSource, "manual");
 });

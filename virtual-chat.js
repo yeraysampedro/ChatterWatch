@@ -4,10 +4,11 @@
   const OVERSCAN = 3;
 
   class VirtualChat {
-    constructor(viewport, { onPause, onInspect, pauseOnHover = true, unified = false, highlights = [] }) {
+    constructor(viewport, { onPause, onInspect, onAction, pauseOnHover = true, unified = false, highlights = [] }) {
       this.viewport = viewport;
       this.onPause = onPause;
       this.onInspect = onInspect;
+      this.onAction = onAction;
       this.pauseOnHover = pauseOnHover;
       this.unified = unified;
       this.highlights = VirtualChat.compileHighlights(highlights);
@@ -59,6 +60,7 @@
     }
 
     inspect(event) {
+      if (event.target.closest("button")) return;
       const row = event.target.closest(".chat-row");
       if (row?.entry) this.onInspect(row.entry);
     }
@@ -155,8 +157,12 @@
         if (colors[start]) {
           fragment.style.backgroundColor = colors[start];
           const color = colors[start];
-          const brightness = parseInt(color.slice(1, 3), 16) * .299 + parseInt(color.slice(3, 5), 16) * .587 + parseInt(color.slice(5, 7), 16) * .114;
-          fragment.style.color = brightness > 150 ? "#20231f" : "#ffffff";
+          const components = [1, 3, 5].map((offset) => {
+            const value = parseInt(color.slice(offset, offset + 2), 16) / 255;
+            return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+          });
+          const luminance = components[0] * 0.2126 + components[1] * 0.7152 + components[2] * 0.0722;
+          fragment.style.color = luminance > 0.179 ? "#000000" : "#ffffff";
         }
         node.append(fragment);
         start = end;
@@ -181,6 +187,19 @@
         row.tabIndex = 0;
         row.setAttribute("role", "listitem");
         row.append(document.createElement("time"), document.createElement("strong"), document.createElement("span"));
+        if (this.onAction) {
+          const actions = document.createElement("div");
+          actions.className = "row-actions";
+          for (const [action, icon] of [["delete", "Trash2"], ["translate", "Languages"], ["pin", "Pin"]]) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.dataset.action = action;
+            button.append(ExtensionView.icon(icon));
+            button.addEventListener("click", (event) => { event.stopPropagation(); this.onAction(action, { ...row.entry }, this); });
+            actions.append(button);
+          }
+          row.append(actions);
+        }
         this.content.append(row);
         this.rows.push(row);
       }
@@ -191,7 +210,7 @@
         row.setAttribute("aria-posinset", String(start + offset + 1));
         row.setAttribute("aria-setsize", String(entries.length));
         const [time, author, text] = row.children;
-        time.textContent = new Date(entry.sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        time.textContent = new Date(entry.sentAt).toLocaleTimeString(document.documentElement.lang || "en", { hour: "2-digit", minute: "2-digit", hour12: false });
         author.replaceChildren();
         if (this.unified) {
           const tag = document.createElement("b");
@@ -202,6 +221,11 @@
         author.append(document.createTextNode(entry.displayName || entry.login));
         VirtualChat.highlight(text, entry.text, this.highlights);
         row.dataset.deleted = String(Boolean(entry.deleted));
+        for (const button of row.querySelectorAll("button[data-action]")) {
+          button.title = ExtensionView.label(button.dataset.action);
+          button.setAttribute("aria-label", button.title);
+          button.disabled = button.dataset.action === "delete" && Boolean(entry.deleted);
+        }
         row.title = `${entry.displayName || entry.login}: ${entry.text}`;
       });
       if (!this.paused) {

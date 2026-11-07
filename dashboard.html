@@ -3,11 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f4f3ef">
+  <meta name="theme-color" content="#202723">
   <title>Chatter Watch</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/chatter-watch-32.png">
   <link rel="stylesheet" href="dashboard.css">
+  <link rel="stylesheet" href="view-tools.css">
 </head>
-<body>
+<body data-theme="dark">
   <main class="shell">
     <header class="topbar">
       <a class="brand" href="#" aria-label="Chatter Watch home" data-i18n-aria="brand.home">
@@ -15,6 +17,8 @@
         <span>CHATTER<span class="brand-light">WATCH</span></span>
       </a>
       <div class="top-actions">
+        <button class="icon-button" id="pin-window" type="button" data-view-title="pinWindow" data-icon="Pin"></button>
+        <button class="icon-button" id="open-page" type="button" data-view-title="page" data-icon="ExternalLink"></button>
         <button class="icon-button" id="open-multichat" type="button" title="Multichat" aria-label="Multichat"><span aria-hidden="true">&#8599;</span></button>
         <button class="icon-button theme-toggle" id="theme-toggle" type="button" title="Switch to dark mode" aria-label="Switch to dark mode" data-i18n-title="theme.dark" data-i18n-aria="theme.dark">
           <svg class="sun-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"></path></svg>
@@ -44,17 +48,12 @@
       <span class="viewer-count" id="flagged-count">0 flagged</span>
     </section>
 
-    <section class="metrics" aria-label="Session overview">
-      <div class="metric"><span class="metric-label" data-i18n="metric.chatters">CHATTERS</span><strong id="metric-chatters">0</strong><span class="metric-foot" data-i18n="metric.session">this session</span></div>
-      <div class="metric metric-alert"><span class="metric-label" data-i18n="metric.review">NEEDS REVIEW</span><strong id="metric-flagged">0</strong><span class="metric-foot" data-i18n="metric.unvetted">unapproved accounts</span></div>
-      <div class="metric"><span class="metric-label" data-i18n="metric.new">NEW TODAY</span><strong id="metric-new">0</strong><span class="metric-foot" data-i18n="metric.signals">account signals</span></div>
-    </section>
-
     <nav class="filter-bar" aria-label="Filter chatter" data-i18n-aria="filter.label">
       <button class="filter active" data-filter="all" type="button"><span data-i18n="filter.all">All</span><span id="filter-all-count">0</span></button>
       <button class="filter" data-filter="new" type="button" data-i18n="filter.new">New accounts</button>
       <button class="filter" data-filter="first" type="button" data-i18n="filter.first">First message</button>
       <button class="filter" data-filter="follower" type="button" data-i18n="filter.follower">New followers</button>
+      <button class="filter" data-filter="approved" type="button" data-i18n="filter.approved">Approved</button>
     </nav>
 
     <section class="feed" id="feed" aria-live="polite" aria-label="Flagged chatters" data-i18n-aria="feed.label">
@@ -68,7 +67,7 @@
     <section class="settings-panel" id="settings-panel" hidden>
       <div class="settings-heading"><div><p class="eyebrow" data-i18n="settings.eyebrow">CONTROL ROOM</p><h2 data-i18n="settings.heading">Monitor settings</h2></div><button class="icon-button close-settings" id="settings-close" type="button" aria-label="Close settings" title="Close settings" data-i18n-aria="close" data-i18n-title="close"><span aria-hidden="true">×</span></button></div>
       <form id="settings-form">
-        <label class="field"><span data-i18n="settings.clientId">Twitch application client ID</span><input id="client-id-input" type="text" spellcheck="false" autocomplete="off" placeholder="Register an app at dev.twitch.tv" data-i18n-placeholder="settings.clientIdPlaceholder"></label>
+        <div class="field"><label for="client-id-input" data-i18n="settings.clientId">Twitch application client ID</label><div class="credential-field"><input id="client-id-input" type="password" spellcheck="false" autocomplete="off" placeholder="Register an app at dev.twitch.tv" data-i18n-placeholder="settings.clientIdPlaceholder"><button id="show-client-id" class="icon-button" type="button" data-view-title="show" aria-pressed="false">&#9673;</button></div></div>
         <label class="field"><span data-i18n="settings.language">Language</span><select id="language-input"><option value="en">English</option><option value="de">Deutsch</option><option value="es">Español</option></select></label>
         <p class="field-hint"><span data-i18n="settings.oauthHint">Used for OAuth and Helix. A client secret is never needed or stored. Register this redirect URL in your Twitch app:</span> <span id="redirect-uri" class="redirect-uri"></span></p>
         <label class="field"><span data-i18n="settings.ageLimit">Flag accounts younger than</span><span class="number-field"><input id="age-limit-input" type="number" min="1" max="3650"><span data-i18n="unit.days">days</span></span></label>
@@ -81,6 +80,8 @@
         <div class="field"><span data-i18n="settings.matchSignals">Match enabled signals</span><div class="segmented" role="group" aria-label="Signal matching mode" data-i18n-aria="settings.matchSignals"><button id="match-any" type="button" aria-pressed="true" data-i18n="settings.matchAny">OR</button><button id="match-all" type="button" aria-pressed="false" data-i18n="settings.matchAll">AND</button></div></div>
         <div class="setting-row setting-row-auto"><span><strong data-i18n="settings.autoTimeout">Auto-timeout flagged chatters</strong><small data-i18n="settings.autoTimeoutHint">Timeout at the message threshold</small></span><label class="switch"><input id="auto-timeout-input" type="checkbox"><span></span></label></div>
         <div class="field" id="timeout-duration-wrap"><label for="timeout-duration-input" data-i18n="settings.timeoutDuration">Timeout duration</label><span class="number-field"><input id="timeout-duration-input" type="number" min="1" max="20160"><span data-i18n="unit.minutes">minutes</span></span></div>
+        <div id="shared-preferences"></div>
+        <output id="save-state" aria-live="polite"></output>
         <div class="settings-actions"><button class="text-button danger-text" id="disconnect-button" type="button" data-i18n="settings.disconnect">Disconnect Twitch</button><button class="save-button" type="submit" data-i18n="settings.save">Save settings</button></div>
       </form>
     </section>
@@ -92,6 +93,9 @@
     <ol class="history-list" id="history-list"></ol>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="core.js"></script>
+  <script src="icons.js"></script>
+  <script src="view-tools.js"></script>
   <script src="dashboard.js"></script>
 </body>
 </html>

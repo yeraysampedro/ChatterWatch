@@ -4,6 +4,7 @@ const extensionApi = globalThis.browser ?? globalThis.chrome;
 
 const labels = {
   es: {
+    invalidSettings: "Completa los campos con valores v\u00e1lidos.",
     moderation: "Moderaci\u00f3n", newWindow: "Nueva ventana", settings: "Ajustes", columns: "Columnas", close: "Cerrar", save: "Guardar",
     channels: "Canales adicionales (separados por comas, 6 en total)", batch: "Intervalo entre lotes (ms)", localSlow: "Slow mode local por usuario (s, 0 = no)",
     spam: "Filtro de spam", repeats: "Ocultar texto repetido a partir del mensaje", frequency: "M\u00e1ximo de mensajes por usuario / ventana",
@@ -20,6 +21,7 @@ const labels = {
     export: "Exportar TXT", pinned: "Fijados", unpin: "Desfijar", inspect: "Leer completo", deleted: "Eliminado en Twitch", quickTimeout: "Timeout de 1 segundo (/srs)", timedOut: "Timeout de 1 s aplicado a {name}", noWorkspaces: "Sin espacios guardados"
   },
   en: {
+    invalidSettings: "Complete the fields with valid values.",
     moderation: "Moderation", newWindow: "New window", settings: "Settings", columns: "Columns", close: "Close", save: "Save",
     channels: "Additional channels (comma separated, 6 total)", batch: "Batch interval (ms)", localSlow: "Local slow mode per user (s, 0 = off)",
     spam: "Spam filter", repeats: "Hide repeated text starting at message", frequency: "Maximum messages per user / window",
@@ -36,6 +38,7 @@ const labels = {
     export: "Export TXT", pinned: "Pinned", unpin: "Unpin", inspect: "Read full message", deleted: "Deleted on Twitch", quickTimeout: "1-second timeout (/srs)", timedOut: "1 s timeout applied to {name}", noWorkspaces: "No saved workspaces"
   },
   de: {
+    invalidSettings: "Bitte g\u00fcltige Werte in die Felder eintragen.",
     moderation: "Moderation", newWindow: "Neues Fenster", settings: "Einstellungen", columns: "Spalten", close: "Schlie\u00dfen", save: "Speichern",
     channels: "Weitere Kan\u00e4le (kommagetrennt, insgesamt 6)", batch: "Stapelintervall (ms)", localSlow: "Lokaler Slow Mode je Nutzer (s, 0 = aus)",
     spam: "Spamfilter", repeats: "Wiederholten Text ausblenden ab Nachricht", frequency: "Maximale Nachrichten je Nutzer / Zeitfenster",
@@ -57,9 +60,14 @@ const panels = new Map();
 const pinnedMessages = new Map();
 const UNIFIED = "*";
 const detachedChannel = new URLSearchParams(location.search).get("channel");
-let language = "es";
+let language = ModerationCore.resolveLanguage();
 let state;
+let sharedSettings = ModerationCore.normalizeSettings();
 let draftRevision;
+let chatSettingsDirty = false;
+let chatSettingsEdit = 0;
+let chatSaveTimer;
+let chatSavePromise;
 let port;
 let reconnectTimer;
 let reconnectDelay = 1000;
@@ -71,6 +79,24 @@ function showMessage(entry) {
   element("message-author").textContent = `#${entry.channel} / ${entry.displayName || entry.login}${entry.deleted ? ` / ${text("deleted")}` : ""}`;
   element("message-text").textContent = entry.text;
   element("message-dialog").showModal();
+}
+
+async function messageAction(action, entry, view) {
+  try {
+    if (action === "pin") { pinMessage(entry, view); return; }
+    const title = ExtensionView.label(action);
+    const context = `#${entry.channel} / ${entry.displayName || entry.login}\n${entry.text}`;
+    if (action === "delete") {
+      if (!await ExtensionView.dialog({ title, body: context, danger: true })) return;
+      await request("DELETE_MESSAGE", { channel: entry.channel, id: entry.id, confirmed: true });
+    } else if (action === "translate") {
+      if (!sharedSettings.translationUrl) throw new Error(`${ExtensionView.label("settings")}: ${ExtensionView.label("translationUrl")}`);
+      const server = new URL(sharedSettings.translationUrl).origin;
+      if (!await ExtensionView.dialog({ title, body: `${ExtensionView.label("provider")}\n${server}\n\n${context}` })) return;
+      const result = await request("TRANSLATE_MESSAGE", { channel: entry.channel, id: entry.id, confirmed: true });
+      showMessage({ ...entry, text: `${ExtensionView.label("source")}\n${entry.text}\n\n${ExtensionView.label("result")} (${result.target})\n${result.text}` });
+    }
+  } catch (error) { toast(localError(error)); }
 }
 
 function pinMessage(entry, view) {
@@ -101,7 +127,8 @@ function renderPins() {
       actions.className = "pin-actions";
       const inspect = command(text("inspect"), () => showMessage(entry));
       const timeout = command("/srs 1s", async () => {
-        await request("QUICK_TIMEOUT", { channel: entry.channel, id: entry.id });
+        if (!await ExtensionView.dialog({ title: text("quickTimeout"), body: `#${entry.channel} / ${entry.displayName || entry.login}\n1s /srs`, danger: true })) return;
+        await request("QUICK_TIMEOUT", { channel: entry.channel, id: entry.id, confirmed: true });
         toast(text("timedOut", { name: entry.displayName || entry.login }));
       });
       timeout.className = "quick-timeout";
@@ -112,7 +139,7 @@ function renderPins() {
       unpin.title = text("unpin");
       unpin.setAttribute("aria-label", text("unpin"));
       unpin.className = "unpin-message";
-      actions.append(inspect, timeout, unpin);
+      actions.append(inspect, command(ExtensionView.label("delete"), () => messageAction("delete", entry, panel.view)), command(ExtensionView.label("translate"), () => messageAction("translate", entry, panel.view)), timeout, unpin);
       item.append(author, content, actions);
       panel.pins.append(item);
     }
@@ -180,7 +207,8 @@ function createPanel(channel) {
   pause.className = "chat-pause";
   pause.setAttribute("aria-pressed", "false");
   const detach = command(text("detach"), () => request("OPEN_CHAT_WINDOW", { channel: channel === UNIFIED ? "" : channel }));
-  const exportButton = command("\u21e9", () => exportChat(view, channel));
+  const exportButton = command(text("export"), () => exportChat(view, channel));
+  exportButton.prepend(ExtensionView.icon("Download"));
   exportButton.className = "export-chat";
   exportButton.title = text("export");
   exportButton.setAttribute("aria-label", text("export"));
@@ -203,7 +231,8 @@ function createPanel(channel) {
       pause.title = pause.textContent;
       pause.setAttribute("aria-pressed", String(paused));
     },
-    onInspect: (entry) => pinMessage(entry, view)
+    onInspect: (entry) => pinMessage(entry, view),
+    onAction: messageAction
   });
   const form = document.createElement("form");
   form.className = "slow-form";
@@ -280,6 +309,7 @@ function renderStatus() {
 }
 
 function receive(message) {
+  if (message.type === "REVIEW_ALERT") { void ExtensionView.playSound(message.volume); return; }
   if (message.type === "CHAT_STATE") {
     state = message;
     reconnectDelay = 1000;
@@ -354,7 +384,11 @@ function addHighlight(rule = { pattern: "", color: "#ffe08a" }) {
   color.type = "color";
   color.value = rule.color;
   color.setAttribute("aria-label", text("color"));
-  const remove = command("\u00d7", () => { row.remove(); element("add-highlight").disabled = false; });
+  const remove = command("\u00d7", () => {
+    row.remove();
+    element("add-highlight").disabled = false;
+    scheduleChatSettingsSave(true);
+  });
   remove.title = text("remove");
   remove.setAttribute("aria-label", text("remove"));
   row.append(pattern, color, remove);
@@ -412,8 +446,11 @@ function connectPort() {
   } catch { element("connection-status").textContent = text("unavailable"); }
 }
 
-function openSettings() {
+async function openSettings() {
   if (!state) return;
+  if (chatSavePromise) await chatSavePromise.catch(() => {});
+  clearTimeout(chatSaveTimer);
+  chatSettingsDirty = false;
   draftRevision = state.revision;
   const flow = state.config.flow;
   element("channels").value = state.config.channels.join(", ");
@@ -433,9 +470,11 @@ function openSettings() {
 }
 
 function applyPreferences({ settings, appearance }) {
-  language = labels[settings?.language] ? settings.language : "es";
+  sharedSettings = ModerationCore.normalizeSettings(settings);
+  language = ModerationCore.resolveLanguage(settings?.language || undefined);
   document.documentElement.lang = language;
-  document.body.dataset.theme = appearance === "dark" ? "dark" : "light";
+  ExtensionView.appearance(appearance);
+  ExtensionView.localize();
   document.querySelectorAll("[data-label]").forEach((node) => { node.textContent = text(node.dataset.label); });
   document.querySelector(".layout-control").setAttribute("aria-label", text("columns"));
   for (const panel of panels.values()) {
@@ -444,17 +483,20 @@ function applyPreferences({ settings, appearance }) {
     panel.slowLabel.textContent = text("slow");
     panel.apply.textContent = text("apply");
     panel.exportButton.title = text("export");
+    panel.exportButton.replaceChildren(ExtensionView.icon("Download"), document.createTextNode(text("export")));
     panel.exportButton.setAttribute("aria-label", text("export"));
     if (panel.view.unified) panel.heading.textContent = text("unified");
     panel.view.onPause(panel.view.paused, panel.view.pending);
     if (panel.lastStats) renderStats(panel, panel.lastStats);
+    panel.view.schedule();
   }
   renderPins();
   renderStatus();
 }
 
 element("chat-settings").addEventListener("click", openSettings);
-element("add-highlight").addEventListener("click", () => addHighlight());
+element("all-settings").addEventListener("click", () => request("OPEN_DASHBOARD", { settings: true }).catch((error) => toast(error.message)));
+element("add-highlight").addEventListener("click", () => { addHighlight(); scheduleChatSettingsSave(); });
 element("open-workspaces").addEventListener("click", async () => {
   element("workspace-error").textContent = "";
   element("workspaces-dialog").showModal();
@@ -477,29 +519,78 @@ document.querySelectorAll("button[data-mode]").forEach((button) => button.addEve
   catch (error) { toast(localError(error)); }
 }));
 element("open-grid").addEventListener("click", () => request("OPEN_CHAT_WINDOW").catch((error) => toast(localError(error))));
-document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", () => element(button.dataset.close).close()));
+document.querySelectorAll("[data-close]").forEach((button) => button.addEventListener("click", async () => {
+  if (button.dataset.close === "chat-settings-dialog") {
+    try { await saveChatSettings(); }
+    catch (error) { element("config-error").textContent = localError(error); return; }
+  }
+  element(button.dataset.close).close();
+}));
 document.querySelectorAll("button[data-columns]").forEach((button) => button.addEventListener("click", async () => {
   if (!state) return;
   try { await request("SAVE_CHAT_CONFIG", { revision: state.revision, config: { ...state.config, columns: Number(button.dataset.columns) } }); }
   catch (error) { toast(localError(error)); }
 }));
+function flushChatSettingsSave() {
+  clearTimeout(chatSaveTimer);
+  chatSaveTimer = null;
+  if (chatSettingsDirty && element("chat-settings-form").checkValidity()) {
+    void saveChatSettings().catch((error) => { element("config-error").textContent = localError(error); });
+  }
+}
+
+function scheduleChatSettingsSave(immediate = false) {
+  chatSettingsDirty = true;
+  ExtensionView.saveState("pending");
+  chatSettingsEdit += 1;
+  element("config-error").textContent = "";
+  clearTimeout(chatSaveTimer);
+  if (immediate) flushChatSettingsSave();
+  else chatSaveTimer = setTimeout(flushChatSettingsSave, 350);
+}
+
+async function saveChatSettings() {
+  clearTimeout(chatSaveTimer);
+  chatSaveTimer = null;
+  if (chatSavePromise) {
+    await chatSavePromise;
+    return saveChatSettings();
+  }
+  if (!chatSettingsDirty) return;
+  if (!element("chat-settings-form").checkValidity()) throw new Error(text("invalidSettings"));
+  const edit = chatSettingsEdit;
+  const config = ChatFlow.normalizeConfig({
+    channels: element("channels").value.split(",").map((channel) => channel.trim()).filter(Boolean), columns: state.config.columns,
+    viewMode: state.config.viewMode,
+    highlights: [...element("highlight-rules").children].map((row) => ({ pattern: row.querySelector('input[type="text"]').value, color: row.querySelector('input[type="color"]').value })),
+    flow: {
+      batchMs: Number(element("batch-ms").value), localSlowSeconds: Number(element("local-slow").value),
+      spamEnabled: element("spam-enabled").checked, repeatLimit: Number(element("repeat-limit").value),
+      frequencyLimit: Number(element("frequency-limit").value), windowSeconds: Number(element("window-seconds").value),
+      pattern: element("spam-pattern").value, pauseOnHover: element("pause-hover").checked
+    }
+  });
+  ExtensionView.saveState("saving");
+  chatSavePromise = request("SAVE_CHAT_CONFIG", { config, revision: draftRevision }).then((response) => {
+    draftRevision = response.revision;
+    if (edit === chatSettingsEdit) {
+      chatSettingsDirty = false;
+      element("config-error").textContent = "";
+      ExtensionView.saveState("saved");
+    }
+  }).catch((error) => { ExtensionView.saveState("error"); throw error; }).finally(() => { chatSavePromise = null; });
+  return chatSavePromise;
+}
+
+element("chat-settings-form").addEventListener("input", () => scheduleChatSettingsSave());
+element("chat-settings-form").addEventListener("change", () => scheduleChatSettingsSave(true));
+element("chat-settings-dialog").addEventListener("close", flushChatSettingsSave);
 element("chat-settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const button = event.submitter;
   button.disabled = true;
   try {
-    const config = ChatFlow.normalizeConfig({
-      channels: element("channels").value.split(",").map((channel) => channel.trim()).filter(Boolean), columns: state.config.columns,
-      viewMode: state.config.viewMode,
-      highlights: [...element("highlight-rules").children].map((row) => ({ pattern: row.querySelector('input[type="text"]').value, color: row.querySelector('input[type="color"]').value })),
-      flow: {
-        batchMs: Number(element("batch-ms").value), localSlowSeconds: Number(element("local-slow").value),
-        spamEnabled: element("spam-enabled").checked, repeatLimit: Number(element("repeat-limit").value),
-        frequencyLimit: Number(element("frequency-limit").value), windowSeconds: Number(element("window-seconds").value),
-        pattern: element("spam-pattern").value, pauseOnHover: element("pause-hover").checked
-      }
-    });
-    await request("SAVE_CHAT_CONFIG", { config, revision: draftRevision });
+    await saveChatSettings();
     element("chat-settings-dialog").close();
     toast(text("saved"));
   } catch (error) { element("config-error").textContent = localError(error); }
@@ -516,6 +607,7 @@ document.addEventListener("keydown", (event) => {
 window.addEventListener("resize", updateLayout);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) for (const panel of panels.values()) panel.view.schedule(); });
 window.addEventListener("pagehide", () => {
+  flushChatSettingsSave();
   clearTimeout(reconnectTimer);
   port?.disconnect();
   for (const panel of panels.values()) panel.view.destroy();
@@ -523,5 +615,7 @@ window.addEventListener("pagehide", () => {
 extensionApi.storage.onChanged.addListener((_changes, area) => {
   if (area === "local") void extensionApi.storage.local.get(["settings", "appearance"]).then(applyPreferences);
 });
+applyPreferences({});
 void extensionApi.storage.local.get(["settings", "appearance"]).then(applyPreferences).catch((error) => toast(localError(error)));
 connectPort();
+void ExtensionView.rememberWindow("chat", detachedChannel || "").catch(() => {});

@@ -44,10 +44,11 @@ La carga temporal se elimina al cerrar Firefox. Para distribuir una instalación
 | `moderator:manage:warnings` | Avisos a usuarios |
 | `moderator:read:followers` | Señal de seguidores recientes |
 | `moderator:manage:chat_settings` | Slow mode real de Twitch |
+| `moderator:manage:chat_messages` | Borrar un mensaje concreto desde Multichat |
 
 Leer un canal adicional no exige moderarlo. Las acciones Helix sí requieren ser moderador o broadcaster del canal afectado, además del scope. La validación actual de la extensión exige `chat:read` y `moderator:manage:banned_users`; exige seguidores si esa señal está activada. Un token antiguo puede seguir leyendo chat sin el nuevo scope de ajustes: desconecta Twitch e inicia sesión de nuevo para concederlo antes de usar el slow mode real.
 
-Ambas variantes solicitan `storage`, `identity` y `alarms`; solo Chromium añade `sidePanel`. Solo se declaran hosts de API/autenticación Twitch y conexión IRC TLS en la CSP. No se inyectan scripts en páginas web ni se usa un backend propio. Firefox declara `authenticationInfo` y `personallyIdentifyingInfo` por la autenticación y los identificadores enviados a Twitch, y usa el consentimiento integrado de Firefox 140+. No hay telemetría ni reenvío del texto de chat a terceros.
+Ambas variantes solicitan `storage`, `identity` y `alarms`; solo Chromium añade `sidePanel`. El acceso obligatorio corresponde a Twitch; la traducción añade acceso HTTPS opcional al dominio elegido. No se inyectan scripts ni se carga código remoto. Firefox declara `authenticationInfo` y `personallyIdentifyingInfo` para Twitch y `personalCommunications` opcional para traducción. No hay telemetría ni backend propio. Solo se envía texto a un traductor después de configurar/autorizar el servidor y confirmar el mensaje. Consulta [Privacidad](../PRIVACY.md).
 
 ### Desarrollo, pruebas y build
 
@@ -77,11 +78,39 @@ deno run -A npm:playwright@1.56.1 install firefox
 deno task test:ui:firefox
 ```
 
-Para generar ambos entregables, ejecuta `deno task build`. Crea `dist/chatter-watch-<versión>-chromium.zip`, `dist/chatter-watch-<versión>-firefox.zip` y las carpetas `dist/chromium` y `dist/firefox`. La versión procede del manifiesto. Los ZIP son reproducibles y solo incluyen los once archivos de ejecución, sin pruebas, dependencias, credenciales ni datos de usuario. Las carpetas generadas se reemplazan en cada ejecución; no las edites. La instalación local usa las carpetas, y la distribución por tienda requiere revisión y firma por separado.
+Para generar ambos entregables, ejecuta `deno task build`. Crea `dist/chatter-watch-<versión>-chromium.zip`, `dist/chatter-watch-<versión>-firefox.zip` y las carpetas `dist/chromium` y `dist/firefox`. La lista permitida incluye los recursos locales, la licencia de los iconos Lucide 0.468.0 y los PNG de marca de 16/32/48/64/96/128 px, sin pruebas, credenciales ni datos de usuario. El arte de 512 px en `assets/icons` queda disponible para material de tienda, fuera del ZIP. Las carpetas generadas se reemplazan; no las edites. La distribución por tienda requiere revisión y firma por separado.
 
 ## 2. Guía de uso
 
+### Idioma y autoguardado
+
+Sin una preferencia guardada, la extensión usa el idioma de la interfaz del navegador. Las variantes regionales se reducen al idioma disponible: `es-MX` usa español y `de-AT`, alemán. Si el idioma no está disponible, se usa inglés. Puedes cambiarlo en **Ajustes > Idioma**; la selección se guarda automáticamente y tiene prioridad en futuras aperturas, también en Multichat. No se consulta el perfil de Twitch para determinar el idioma.
+
+Los ajustes del panel, el canal principal y los ajustes de Multichat se guardan automáticamente al confirmar un campo o 350 ms después de dejar de escribir. Los botones **Guardar** siguen disponibles y cerrar los ajustes intenta guardar los cambios pendientes. Los campos incompletos o inválidos no reemplazan la configuración guardada; corrige los valores y los errores mostrados. Si otra ventana cambió Multichat, cierra y vuelve a abrir Ajustes antes de editar de nuevo. Los espacios con nombre y las acciones reales de Twitch siguen requiriendo sus botones; el slow mode real conserva su confirmación.
+
+Los cambios válidos se aplican al guardarse: cambiar el Client ID puede cerrar la sesión, cambiar el canal principal conectado puede reconectar y activar el timeout automático habilita sus reglas de moderación. No se garantiza guardar una edición si el navegador o el equipo termina abruptamente antes de completar la escritura.
+
+### Mejoras de la versión 1.3
+
+El tema inicial es oscuro; una elección clara guardada se conserva. El panel principal es más ancho y mantiene el tamaño al abrir ajustes. Solo se destaca el total de personas por revisar. **Aprobados** permite consultar aprobaciones y motivos, sin mezclar esas personas con los pendientes ni ocultarlas del chat. Las listas muestran hasta 100 personas; el total pendiente no se limita a ese número.
+
+El botón de fijar la ventana abre o reutiliza un panel independiente de 820 × 820 por defecto. El popup nativo sigue cerrándose al perder foco: usa esa ventana, el panel lateral o la página interna para trabajar al cambiar de pestaña. OAuth desde el popup pasa primero a una ventana persistente; continúa allí el inicio de sesión. El Client ID se muestra oculto con opción de revelarlo; no es un Client Secret. **Todos los ajustes** en Multichat abre la configuración común.
+
+Las ventanas independientes recuerdan su posición/tamaño cada dos segundos si cambian, al perder foco y al cerrarse. La siguiente apertura usa la geometría guardada; un canal separado comienza en 520 × 760 si no hay una previa. No se abren ventanas automáticamente al iniciar el navegador. Los espacios guardados mantienen su restauración explícita. El sistema operativo puede ajustar posiciones de monitores ausentes; la geometría física aún requiere comprobación manual.
+
+En **Aprobación automática**, activa por separado las reglas OR: más de N mensajes, seguidor confirmado, suscriptor actual o antiguo suscriptor observado localmente. Todas vienen desactivadas; N empieza en 10 y admite 1-10.000. Con N=10, 10 mensajes no aprueban por cantidad y 11 sí. El historial de suscripciones solo cubre lo observado por esta instalación, no todo el historial de Twitch. Datos desconocidos o errores de consulta no aprueban a nadie.
+
+La inactividad empieza en 15 minutos y admite 1-1.440. Al volver a escribir se reinician el conteo, descartes y aprobación automática si se alcanzó ese plazo o cambió la emisión verificada. Se consulta el estado de emisión cada minuto; un fallo de red no equivale a fin de stream. Las aprobaciones manuales y notas se conservan. Una condición OR aún válida puede volver a aprobar inmediatamente. El timeout automático es independiente y sigue desactivado por defecto: si su umbral es menor que N, puede actuar antes de que se alcance la autoaprobación.
+
+Las alertas de revisión permiten sonido, volumen 0-100 y atención de ventana/barra de tareas, desactivados inicialmente. Usa **Probar sonido** en una vista abierta con interacción permitida. Una revisión no suena en todas las ventanas y hay un máximo de una alerta cada diez segundos. El parpadeo depende del navegador/sistema; no se roba foco. Sin una vista capaz de reproducir audio no se garantiza sonido; la insignia ofrece un indicador visual.
+
+Cada fila tiene **Borrar mensaje**, **Traducir** y **Fijar mensaje**. Borrar requiere confirmación, rol y `moderator:manage:chat_messages`; vuelve a autorizar Twitch para obtenerlo. Las sanciones manuales muestran el objetivo y piden confirmación, también `/srs 1s`. El timeout permite 1-1.209.600 segundos y sugerencias de duración; el ban es permanente. Las notas rápidas añaden `RAID canal_origen` o `FRONT PAGE` sin reemplazar el texto previo, dentro del límite de 500 caracteres.
+
+Para traducir, configura un endpoint HTTPS compatible con LibreTranslate (habitualmente `/translate`), un código de idioma de dos letras y pulsa **Autorizar servidor de traducción**. No hay servidor ni clave API preconfigurados: el endpoint debe aceptar la petición JSON sin una clave almacenada por la extensión. Cada traducción pide consentimiento mostrando el origen y texto; el original se conserva y el resultado aparece en la extensión. No se envían tokens Twitch, cookies ni metadatos de autor/canal. Revisa la política del servidor: su operador recibe la conexión y el texto y puede conservarlos. Revocar su permiso o borrar la URL deshabilita nuevas traducciones.
+
 ### Multichat y ventanas
+
+La autoaprobación por seguimiento utiliza consultas de como máximo cinco minutos de antigüedad y las renueva al recibir mensajes cuando hace falta. Los cambios de una misma cuenta se procesan en orden para que una actualización retrasada no sobrescriba una aprobación o nota manual.
 
 1. Conecta el canal principal desde el panel de moderación.
 2. Abre **Multichat**. En **Ajustes**, introduce canales adicionales separados por comas, por ejemplo `canal_dos, canal_tres`. No pegues URLs.
@@ -110,7 +139,7 @@ En **Ajustes > Resaltado de palabras**, añade hasta 12 reglas. Cada regla combi
 
 Haz clic o pulsa Enter en una fila para fijarla arriba. Hay hasta 3 pines por ventana; un cuarto reemplaza el más antiguo. La acción vuelve al directo para que el resto del chat continúe avanzando. Los pines son locales, sobreviven al cambio de cuadrícula/unificado dentro de esa ventana y se pierden al cerrarla o recargarla. **Leer completo** abre el texto y **Desfijar** lo libera. Un pin puede conservar contexto aunque el mensaje haya salido del buffer vivo.
 
-En cada pin, **`/srs 1s`** envía inmediatamente un timeout de exactamente un segundo con motivo `/srs`, sin otro diálogo. Es una acción real en Twitch sobre ese autor y ese canal: comprueba la identidad indicada antes de pulsarla. Requiere `moderator:manage:banned_users` y ser moderador/broadcaster allí. No se activa automáticamente al detectar `/srs` y no se añade un atajo global para evitar sanciones accidentales. El worker obtiene el usuario del mensaje retenido, no de un identificador arbitrario enviado por la vista. Si el mensaje ya salió de su historial, se rechaza la acción; errores de permisos o de Twitch se muestran sin fingir éxito.
+En cada pin, **`/srs 1s`** solicita confirmar un timeout de exactamente un segundo con motivo `/srs`, mostrando autor y canal. Cancelar no envía la sanción. Requiere `moderator:manage:banned_users` y ser moderador/broadcaster allí. No se activa automáticamente al detectar `/srs`. El worker obtiene el usuario del mensaje retenido, no de un identificador arbitrario enviado por la vista. Si el mensaje ya salió del historial, se rechaza la acción; los errores no se presentan como éxito.
 
 ### Mensajes fantasma y exportación local
 

@@ -7,19 +7,20 @@ const launchBrowser = () => browserName === "firefox"
   : chromium.launch({ channel: browserName, headless: true });
 
 Deno.test({
-  name: "headless dashboard: Chromium and Firefox OAuth, storage and sidebar APIs",
+  name: "headless dashboard: autosave, browser language, OAuth and sidebar APIs",
   sanitizeResources: false,
   sanitizeOps: false,
   async fn() {
     const browser = await launchBrowser();
+    const screenshots = await Deno.makeTempDir({ prefix: "chatter-watch-dashboard-" });
     try {
       for (const firefoxApi of [false, true]) {
         const page = await browser.newPage();
         const errors = [];
         page.on("pageerror", (error) => errors.push(error.message));
         await page.addInitScript(({ firefoxApi }) => {
-          const settings = {
-            channel: "primary", clientId: "client", language: "en", ageLimitDays: 7, flagNewAccounts: true,
+          const settings = JSON.parse(sessionStorage.getItem("testSettings") || "null") || {
+            channel: "primary", clientId: "client", ageLimitDays: 7, flagNewAccounts: true,
             recentFollowerDays: 1, messageThreshold: 3, flagFirstMessage: true, flagNewFollower: false,
             trustMessageThreshold: 10, matchMode: "any", autoTimeout: false, timeoutMinutes: 1
           };
@@ -28,19 +29,33 @@ Deno.test({
           window.testRequests = [];
           window.close = () => { window.testClosed = true; };
           const api = {
+            i18n: { getUILanguage: () => firefoxApi ? "de-AT" : "fr-FR" },
             runtime: {
               connect: () => ({ onDisconnect: { addListener() {} } }),
-              onMessage: { addListener() {} },
+              onMessage: { addListener: (listener) => { window.testStateUpdate = (accounts, approved = []) => listener({ type: "STATE", state: { ...state, settings: window.ModerationCore.normalizeSettings(state.settings), accounts, approved, flagged: accounts.length } }); } },
               sendMessage: async (message) => {
                 window.testRequests.push(message);
-                if (message.type === "GET_STATE") return { state };
-                if (message.type === "SAVE_SETTINGS") return { settings: message.settings };
+                if (message.type === "GET_STATE") return { state: { ...state, settings: window.ModerationCore.normalizeSettings(settings) } };
+                if (message.type === "SAVE_SETTINGS") {
+                  if (window.testHoldSettingsSave) {
+                    window.testHoldSettingsSave = false;
+                    await new Promise((resolve) => { window.testReleaseSettingsSave = resolve; });
+                  }
+                  if (window.testFailSettingsSave) {
+                    window.testFailSettingsSave = false;
+                    return { error: "Simulated save failure" };
+                  }
+                  sessionStorage.setItem("testSettings", JSON.stringify(message.settings));
+                  state.settings = message.settings;
+                  return { settings: message.settings };
+                }
                 return { ok: true };
               }
             },
             storage: {
-              local: { get: async () => ({ appearance: "dark" }), set: async () => {} },
-              session: { remove: async (keys) => { window.testRemoved = keys; } }
+              local: { get: async () => ({}), set: async () => {} },
+              session: { remove: async (keys) => { window.testRemoved = keys; } },
+              onChanged: { addListener: (listener) => { window.testPreferenceChange = listener; } }
             },
             identity: {
               getRedirectURL: () => redirect,
@@ -60,18 +75,98 @@ Deno.test({
         }, { firefoxApi });
         await page.goto(new URL("../dashboard.html", import.meta.url).href);
         await page.waitForFunction(() => document.querySelector("#channel-input").value === "primary");
+        assertEquals(await page.locator("html").getAttribute("lang"), firefoxApi ? "de" : "en");
         assertEquals(await page.locator("body").getAttribute("data-theme"), "dark");
         assertEquals(await page.locator("#redirect-uri").textContent(), await page.evaluate(() => window.testRedirect));
         await page.locator("#connect-button").click();
         await page.waitForFunction(() => window.testRequests.some((request) => request.type === "CONNECT"));
         assertEquals(await page.evaluate(() => window.testAuthorization.redirect_uri), await page.evaluate(() => window.testRedirect));
         assertEquals(await page.evaluate(() => window.testRequests.find((request) => request.type === "AUTH").accessToken), "test-token");
+        await page.locator("#settings-toggle").click();
+        await page.locator("#age-limit-input").fill("21");
+        await page.waitForFunction(() => JSON.parse(sessionStorage.getItem("testSettings")).ageLimitDays === 21);
+        assert(await page.locator("#settings-panel").isVisible());
+        await page.evaluate(() => { window.testHoldSettingsSave = true; });
+        await page.locator("#age-limit-input").fill("22");
+        await page.waitForFunction(() => typeof window.testReleaseSettingsSave === "function");
+        await page.locator("#age-limit-input").fill("23");
+        await page.evaluate(() => window.testReleaseSettingsSave());
+        assertEquals(await page.locator("#age-limit-input").inputValue(), "23");
+        await page.waitForFunction(() => JSON.parse(sessionStorage.getItem("testSettings")).ageLimitDays === 23);
+        await page.evaluate(() => { window.testFailSettingsSave = true; });
+        await page.locator("#age-limit-input").fill("24");
+        await page.waitForFunction(() => document.querySelector("#toast").textContent === "Simulated save failure");
+        assertEquals(await page.evaluate(() => JSON.parse(sessionStorage.getItem("testSettings")).ageLimitDays), 23);
+        await page.locator("#age-limit-input").fill("21");
+        await page.waitForFunction(() => JSON.parse(sessionStorage.getItem("testSettings")).ageLimitDays === 21);
+        await page.locator("#age-limit-input").fill("");
+        await page.waitForFunction(() => settingsSaveTimer === null);
+        assertEquals(await page.evaluate(() => JSON.parse(sessionStorage.getItem("testSettings")).ageLimitDays), 21);
+        await page.locator("#age-limit-input").fill("21");
+        await page.locator("#language-input").selectOption("es");
+        await page.locator("label.switch").filter({ has: page.locator("#first-message-input") }).click();
+        await page.locator("#match-all").click();
+        await page.waitForFunction(() => {
+          const saved = JSON.parse(sessionStorage.getItem("testSettings"));
+          return saved.language === "es" && !saved.flagFirstMessage && saved.matchMode === "all";
+        });
+        await page.locator("#settings-close").click();
+        await page.locator("#channel-input").fill("autosaved_channel");
+        await page.waitForFunction(() => JSON.parse(sessionStorage.getItem("testSettings")).channel === "autosaved_channel");
+        await page.reload();
+        await page.waitForFunction(() => document.querySelector("#channel-input").value === "autosaved_channel");
+        assertEquals(await page.locator("html").getAttribute("lang"), "es");
+        assertEquals(await page.locator("#age-limit-input").inputValue(), "21");
+        assertEquals(await page.locator("#metric-chatters").count(), 0);
+        await page.locator("#settings-toggle").click();
+        assertEquals(await page.locator("#client-id-input").getAttribute("type"), "password");
+        await page.locator("#show-client-id").click();
+        assertEquals(await page.locator("#client-id-input").getAttribute("type"), "text");
+        await page.locator("#autoApproveMessages").check();
+        await page.locator("#approvalThreshold").fill("12");
+        await page.waitForFunction(() => JSON.parse(sessionStorage.getItem("testSettings")).approvalThreshold === 12);
+        assertEquals(await page.evaluate(() => JSON.parse(sessionStorage.getItem("testSettings")).autoApproveMessages), true);
+        await page.locator("#settings-close").click();
+        await page.evaluate(() => window.testPreferenceChange({ appearance: { newValue: "light" } }, "local"));
+        assertEquals(await page.locator("body").getAttribute("data-theme"), "light");
+        await page.evaluate(() => window.testPreferenceChange({ appearance: { newValue: "dark" } }, "local"));
+        await page.evaluate(() => window.testStateUpdate([{
+          key: "100:77", displayName: "TestViewer", login: "viewer", lastMessageAt: Date.now(), ageDays: 2,
+          messageCount: 1, reasons: ["new-account"], note: "Existing note", recentMessages: [{ text: "A test message", sentAt: Date.now() }]
+        }]));
+        await page.locator(".action-button.ban").click();
+        assert((await page.locator(".action-dialog").textContent()).includes("TestViewer"));
+        await page.locator(".dialog-cancel").click();
+        assertEquals(await page.evaluate(() => window.testRequests.some((request) => request.type === "MODERATE")), false);
+        await page.locator(".action-row .action-button").nth(1).click();
+        await page.locator('.action-dialog input[name="duration"]').fill("300");
+        await page.locator(".dialog-confirm").click();
+        await page.waitForFunction(() => window.testRequests.some((request) => request.type === "MODERATE"));
+        assertEquals(await page.evaluate(() => window.testRequests.findLast((request) => request.type === "MODERATE").duration), 300);
+        assertEquals(await page.evaluate(() => window.testRequests.findLast((request) => request.type === "MODERATE").confirmed), true);
+        await page.locator(".secondary-actions button").first().click();
+        await page.locator('.action-dialog select[name="template"]').selectOption("RAID");
+        await page.locator('.action-dialog input[name="source"]').fill("source_channel");
+        await page.locator(".dialog-confirm").click();
+        await page.waitForFunction(() => window.testRequests.some((request) => request.type === "NOTE"));
+        assertEquals(await page.evaluate(() => window.testRequests.findLast((request) => request.type === "NOTE").note), "Existing note\nRAID source_channel");
+        await page.evaluate(() => window.testStateUpdate([], [{ key: "100:77", login: "viewer", displayName: "ApprovedViewer", isVetted: true, approvalSource: "automatic", approvalReason: "messages", messageCount: 20, lastMessageAt: Date.now() }]));
+        await page.locator('[data-filter="approved"]').click();
+        assert((await page.locator("#feed").textContent()).includes("ApprovedViewer"));
+        assert((await page.locator("#feed").textContent()).includes("Aprobado: cantidad de mensajes"));
+        await page.locator("#pin-window").click();
+        assertEquals(await page.evaluate(() => window.testRequests.at(-1).type), "OPEN_DASHBOARD");
+        await page.setViewportSize({ width: 360, height: 800 });
+        assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+        assert(await page.locator('[data-filter="approved"]').isVisible());
+        await page.screenshot({ path: `${screenshots}/${firefoxApi ? "firefox" : "chromium"}-narrow.png`, fullPage: true, animations: "disabled" });
         await page.locator("#open-side-panel").click();
         await page.waitForFunction(() => window.testClosed);
         assertEquals(await page.evaluate(() => window.testSidebar), firefoxApi ? "firefox" : { windowId: 7 });
         assertEquals(errors, []);
         await page.close();
       }
+      console.log(`Dashboard screenshots: ${screenshots}`);
     } finally { await browser.close(); }
   }
 });
@@ -92,7 +187,7 @@ Deno.test({
           const listeners = [];
           const workspaces = new Map();
           const channels = ["primary", "secondary", "third", "fourth", "fifth", "sixth"];
-          const config = {
+          const config = JSON.parse(sessionStorage.getItem("testChatConfig") || "null") || {
             channels: channels.slice(1), columns: 3, viewMode: "grid", highlights: [],
             flow: { batchMs: 200, localSlowSeconds: 0, spamEnabled: true, repeatLimit: 3, frequencyLimit: 6, windowSeconds: 10, pattern: "", pauseOnHover: true }
           };
@@ -107,10 +202,17 @@ Deno.test({
           };
           window.testRequests = [];
           window.testSend = (message) => listeners.forEach((listener) => listener(message));
+          window.testRemoteChatSettings = () => {
+            state.config.flow.batchMs = 480;
+            state.revision += 1;
+            sessionStorage.setItem("testChatConfig", JSON.stringify(state.config));
+            window.testSend(structuredClone(state));
+          };
           window.testBurst = (start, count) => window.testSend({
             type: "CHAT_BATCH", batches: [{ channel: "primary", entries: entries("primary", start, count), stats: { received: start + count, filtered: 2, overflow: 3, moderationSkipped: 4 } }]
           });
           window.chrome = {
+            i18n: { getUILanguage: () => ({ es: "es-MX", en: "fr-FR", de: "de-AT" })[language] },
             runtime: {
               connect: () => ({
                 onMessage: { addListener: (listener) => { listeners.push(listener); queueMicrotask(() => listener(structuredClone(state))); } },
@@ -119,17 +221,29 @@ Deno.test({
               sendMessage: async (message) => {
                 window.testRequests.push(message);
                 if (message.type === "LIST_WORKSPACES") return { names: [...workspaces.keys()] };
+                if (message.type === "DELETE_MESSAGE") {
+                  queueMicrotask(() => window.testSend({ type: "CHAT_PURGE", channel: message.channel, id: message.id }));
+                  return { ok: true };
+                }
+                if (message.type === "TRANSLATE_MESSAGE") return { text: "Translated <img src=x onerror=alert(1)>", target: "en" };
                 if (message.type === "SAVE_WORKSPACE") workspaces.set(message.name, structuredClone(state.config));
                 if (message.type === "DELETE_WORKSPACE") workspaces.delete(message.name);
                 if (message.type === "SAVE_CHAT_CONFIG") {
+                  if (window.testHoldChatSave) {
+                    window.testHoldChatSave = false;
+                    await new Promise((resolve) => { window.testReleaseChatSave = resolve; });
+                  }
+                  if (message.revision !== state.revision) return { error: "Chat settings changed in another window. Reload settings and try again." };
                   state.config = message.config;
                   state.revision += 1;
+                  sessionStorage.setItem("testChatConfig", JSON.stringify(state.config));
                   queueMicrotask(() => window.testSend(structuredClone(state)));
+                  return { config: state.config, revision: state.revision };
                 }
                 return { ok: true };
               }
             },
-            storage: { local: { get: async () => ({ settings: { language }, appearance: "light" }) }, onChanged: { addListener() {} } }
+            storage: { local: { get: async () => ({ settings: { translationUrl: "https://translate.example/translate" }, appearance: language === "en" ? "light" : undefined }) }, onChanged: { addListener() {} } }
           };
           if (firefoxApi) {
             window.browser = window.chrome;
@@ -141,8 +255,49 @@ Deno.test({
         assertEquals(await page.locator(".chat-panel").count(), 6);
         assert(await page.locator(".chat-row").count() < 200);
         assertEquals(await page.locator(".chat-row img").count(), 0);
+        assert(await page.evaluate(() => {
+          const luminance = (color) => {
+            const values = color.match(/[\d.]+/g).slice(0, 3).map((value) => {
+              const normalized = Number(value) / 255;
+              return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+            });
+            return values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722;
+          };
+          const foreground = luminance(getComputedStyle(document.querySelector(".chat-row > span")).color);
+          const background = luminance(getComputedStyle(document.querySelector(".chat-panel")).backgroundColor);
+          return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05) >= 4.5;
+        }), "Chat text must maintain AA contrast in both themes");
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
         await page.screenshot({ path: `${screenshots}/${width}-${language}.png`, fullPage: true });
+
+        assertEquals(await page.locator("html").getAttribute("lang"), language);
+        assertEquals(await page.locator("body").getAttribute("data-theme"), language === "en" ? "light" : "dark");
+        await page.locator("#chat-settings").click();
+        await page.locator("#batch-ms").fill("350");
+        await page.waitForFunction(() => JSON.parse(sessionStorage.getItem("testChatConfig") || "null")?.flow.batchMs === 350);
+        assert(await page.locator("#chat-settings-dialog").isVisible());
+        await page.evaluate(() => { window.testHoldChatSave = true; });
+        await page.locator("#batch-ms").fill("360");
+        await page.waitForFunction(() => typeof window.testReleaseChatSave === "function");
+        await page.locator("#batch-ms").fill("370");
+        await page.evaluate(() => window.testReleaseChatSave());
+        await page.waitForFunction(() => JSON.parse(sessionStorage.getItem("testChatConfig")).flow.batchMs === 370);
+        assertEquals(await page.locator("#batch-ms").inputValue(), "370");
+        assertEquals(await page.locator("#config-error").textContent(), "");
+        await page.evaluate(() => window.testRemoteChatSettings());
+        await page.locator("#batch-ms").fill("400");
+        await page.waitForFunction(() => document.querySelector("#config-error").textContent.length > 0);
+        assertEquals(await page.evaluate(() => JSON.parse(sessionStorage.getItem("testChatConfig")).flow.batchMs), 480);
+        await page.keyboard.press("Escape");
+        await page.locator("#chat-settings").click();
+        assertEquals(await page.locator("#batch-ms").inputValue(), "480");
+        await page.locator("#batch-ms").fill("350");
+        await page.locator('[data-close="chat-settings-dialog"]').click();
+        await page.reload();
+        await page.waitForFunction(() => document.querySelectorAll(".chat-row").length > 0);
+        await page.locator("#chat-settings").click();
+        assertEquals(await page.locator("#batch-ms").inputValue(), "350");
+        await page.locator('[data-close="chat-settings-dialog"]').click();
 
         const pause = page.locator(".chat-pause").first();
         const viewport = page.locator(".chat-viewport").first();
@@ -199,6 +354,7 @@ Deno.test({
         assertEquals(await page.evaluate(() => window.testRequests.at(-1).channel), "primary");
         await page.waitForFunction(() => document.querySelector(".chat-row mark")?.textContent === "message");
         assertEquals(await page.locator(".chat-row mark").first().evaluate((node) => getComputedStyle(node).backgroundColor), "rgb(0, 255, 0)");
+        assertEquals(await page.locator(".chat-row mark").first().evaluate((node) => getComputedStyle(node).color), "rgb(0, 0, 0)");
 
         await page.locator(".chat-viewport").first().locator(".chat-row").last().click();
         await page.waitForFunction(() => document.querySelectorAll(".pinned-message").length === 1);
@@ -209,7 +365,12 @@ Deno.test({
         await page.waitForFunction(() => document.querySelector(".chat-viewport").textContent.includes("message 1009"));
         assertEquals(await page.locator(".pinned-message > p").innerText(), pinnedText);
         await page.locator(".quick-timeout").click();
-        assertEquals(await page.evaluate(() => window.testRequests.at(-1)), { type: "QUICK_TIMEOUT", channel: "primary", id: pinnedEntry.id });
+        await page.locator(".dialog-cancel").click();
+        assertEquals(await page.evaluate(() => window.testRequests.some((request) => request.type === "QUICK_TIMEOUT")), false);
+        await page.locator(".quick-timeout").click();
+        await page.locator(".dialog-confirm").click();
+        await page.waitForFunction(() => window.testRequests.at(-1).type === "QUICK_TIMEOUT");
+        assertEquals(await page.evaluate(() => window.testRequests.at(-1)), { type: "QUICK_TIMEOUT", channel: "primary", id: pinnedEntry.id, confirmed: true });
         await page.evaluate((id) => window.testSend({ type: "CHAT_PURGE", channel: "primary", id }), pinnedEntry.id);
         assertEquals(await page.locator(".pinned-message").getAttribute("data-deleted"), "true");
         await page.screenshot({ path: `${screenshots}/${width}-${language}-features.png`, fullPage: true });
@@ -269,6 +430,20 @@ Deno.test({
         await page.locator("#delete-workspace").click();
         await page.waitForFunction(() => document.querySelector("#restore-workspace").disabled);
         await page.locator('[data-close="workspaces-dialog"]').click();
+        await page.locator('.chat-row button[data-action="delete"]').first().click();
+        await page.locator(".dialog-cancel").click();
+        assertEquals(await page.evaluate(() => window.testRequests.some((request) => request.type === "DELETE_MESSAGE")), false);
+        await page.locator('.chat-row button[data-action="delete"]').first().click();
+        await page.locator(".dialog-confirm").click();
+        await page.waitForFunction(() => document.querySelector('.chat-row[data-deleted="true"]'));
+        assertEquals(await page.evaluate(() => window.testRequests.findLast((request) => request.type === "DELETE_MESSAGE").confirmed), true);
+        await page.locator('.chat-row button[data-action="translate"]').first().click();
+        assert((await page.locator(".action-dialog").textContent()).includes("https://translate.example"));
+        await page.locator(".dialog-confirm").click();
+        await page.waitForFunction(() => document.querySelector("#message-dialog").open);
+        assert((await page.locator("#message-text").textContent()).includes("Translated <img"));
+        assertEquals(await page.locator("#message-dialog img").count(), 0);
+        await page.locator('[data-close="message-dialog"]').click();
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
         assertEquals(errors, []);
         await page.close();

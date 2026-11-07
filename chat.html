@@ -1,13 +1,15 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Chatter Watch | Multichat</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/chatter-watch-32.png">
   <link rel="stylesheet" href="dashboard.css">
   <link rel="stylesheet" href="chat.css">
+  <link rel="stylesheet" href="view-tools.css">
 </head>
-<body class="multichat">
+<body class="multichat" data-theme="dark">
   <header class="chat-topbar">
     <a class="brand" href="dashboard.html" target="_blank" rel="noopener">
       <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
@@ -19,6 +21,7 @@
       <button id="open-grid" type="button" data-label="newWindow">New window</button>
       <button id="open-workspaces" type="button" data-label="workspaces">Workspaces</button>
       <button id="chat-settings" type="button" data-label="settings">Settings</button>
+      <button id="all-settings" type="button" data-view-label="settings">All settings</button>
     </nav>
   </header>
   <main class="chat-workspace">
@@ -56,6 +59,7 @@
         <button id="add-highlight" type="button" data-label="addHighlight">Add highlight</button>
       </fieldset>
       <p class="form-error" id="config-error" role="alert"></p>
+      <output id="save-state" aria-live="polite"></output>
       <button class="primary-command" type="submit" data-label="save">Save</button>
     </form>
   </dialog>
@@ -74,6 +78,9 @@
     <p id="message-text"></p>
   </dialog>
   <div id="chat-toast" class="chat-toast" role="status" hidden></div>
+  <script src="core.js"></script>
+  <script src="icons.js"></script>
+  <script src="view-tools.js"></script>
   <script src="chat-flow.js"></script>
   <script src="virtual-chat.js"></script>
   <script src="chat.js"></script>
