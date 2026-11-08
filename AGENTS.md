@@ -39,6 +39,7 @@
 ## Change Rules
 
 - example_accounts.md is a user-owned ignored private file, not a source document. Never print, commit, copy or package it. Only `deno task store:submission` may read it, writing solely to the ignored dist/store-submission PRIVATE-* notes; other tooling may check its existence only and must not infer that the accounts or callbacks have been verified. All archive types use explicit allowlists and reject private-file paths before reading them.
+- store-checklist.xlsx (repo root) is the owner's local, Git-ignored store-submission tracker, edited by hand in Excel. Do not commit, package, overwrite or put account data in it.
 - Anything local-only (owner .bat/.cmd launchers such as publish or test shortcuts, *.local.* settings, PRIVATE-* reviewer notes, signing state) must be Git-ignored: add new cases to .gitignore and tests/gitignore_test.js, and `git rm --cached` files that were tracked before. Versioned workflows use `deno task` commands, never the launchers.
 - For changed limits, permissions, shortcuts or behavior, update all three language guides and the README where relevant.
 - Keep tokens in extensionApi.storage.session and message content in textContent. Validate channel names before IRC commands and window URLs.

@@ -59,6 +59,10 @@ exports/
 PRIVATE-*
 store-submission/
 
+# Owner-only Excel trackers (may hold private notes) and Excel's lock files.
+*.xlsx
+~$*
+
 # Mozilla web-ext signing state and artifacts.
 web-ext-artifacts/
 .web-extension-id
