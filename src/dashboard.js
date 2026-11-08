@@ -25,14 +25,14 @@ const messages = {
     "history.profile": "Chatter history", "history.local": "LOCAL HISTORY", "history.coverage": "Local records only: up to 50 messages and 100 activity events. Earlier unrecorded actions are unavailable.", "history.messages": "Messages", "history.notes": "Notes", "history.actions": "Moderation", "history.currentNote": "Current note", "history.noNote": "No note", "history.noEvents": "No recorded activity in this view.", "history.previous": "Previous", "history.current": "Current", "history.timeout": "Timeout: {seconds} s", "history.ban": "Ban", "history.warning": "Warning", "history.delete": "Message deleted", "history.approval": "Approval", "history.note": "Note changed", "history.manual": "Manual", "history.automatic": "Automatic", "history.quick": "/srs 1s", "history.legacy": "Previous state (no detailed event): {action}",
     "filter.approved": "Approved", "approval.manual": "Manually approved", "approval.messages": "Approved: message count", "approval.follower": "Approved: follower", "approval.subscriber": "Approved: subscriber", "approval.previous-subscriber": "Approved: locally observed former subscriber",
     "error.invalidSettings": "Complete the numeric settings with valid values.",
-    "brand.home": "Chatter Watch home", "theme.dark": "Switch to dark mode", "theme.light": "Switch to light mode", "sidePanel.open": "Open side panel", "settings.title": "Settings", "close": "Close",
+    "brand.home": "ChatterWatch home", "theme.dark": "Switch to dark mode", "theme.light": "Switch to light mode", "sidePanel.open": "Open side panel", "settings.title": "Settings", "close": "Close",
     "channel.connection": "Channel connection", "channel.placeholder": "channel", "channel.name": "Twitch channel", "connect": "Connect", "connect.connect": "Connect", "connect.disconnect": "Disconnect", "connect.signIn": "Sign in",
     "status.ready": "Ready to monitor", "status.monitoring": "Monitoring {channel}", "status.connecting": "Connecting to {channel}…", "status.signingIn": "Signing in to Twitch chat…", "status.reconnecting": "Chat disconnected; reconnecting…", "status.disconnected": "Chat disconnected", "status.interrupted": "Chat connection interrupted", "status.authFailed": "Chat authentication failed. Sign in again.",
     "counter.flagged": "{count} flagged", "metric.chatters": "CHATTERS", "metric.session": "this session", "metric.review": "NEEDS REVIEW", "metric.unvetted": "unapproved accounts", "metric.new": "NEW TODAY", "metric.signals": "account signals",
     "filter.label": "Filter chatter", "filter.all": "All", "filter.new": "New accounts", "filter.first": "First message", "filter.follower": "Recent followers", "feed.label": "Flagged chatters", "empty.quiet": "Quiet for now.", "empty.allClear": "All clear.", "empty.connect": "Connect a channel to review incoming chatters.", "empty.none": "No chatters need review right now.",
     "settings.eyebrow": "CONTROL ROOM", "settings.heading": "Monitor settings", "settings.clientId": "Twitch application client ID", "settings.clientIdPlaceholder": "Register an app at dev.twitch.tv", "settings.language": "Language", "settings.oauthHint": "Used for OAuth and Helix. A client secret is never needed or stored. Register this redirect URL in your Twitch app:", "settings.ageLimit": "Flag accounts younger than", "settings.timeoutThreshold": "Auto-timeout threshold", "settings.firstMessage": "First message", "settings.firstMessageHint": "Flag Twitch's first-msg tag", "settings.newAccount": "New account signal", "settings.newAccountHint": "Include account age in the risk check", "settings.followerWindow": "Recent follower window", "settings.recentFollower": "Recent follower", "settings.recentFollowerHint": "Include recent follows in the risk check", "settings.trustAfter": "Cool down first-message and follower flags after", "settings.matchSignals": "Match enabled signals", "settings.autoTimeout": "Auto-timeout flagged chatters", "settings.autoTimeoutHint": "Timeout at the message threshold", "settings.timeoutDuration": "Timeout duration", "settings.disconnect": "Disconnect Twitch", "settings.save": "Save settings",
     "unit.days": "days", "unit.messages": "messages", "unit.minutes": "minutes", "settings.matchAny": "OR", "settings.matchAll": "AND",
-    "theme.footer": "CHAT MONITOR", "theme.local": "LOCAL ONLY", "auth.signedOut": "Not signed in",
+    "theme.footer": "CHAT MONITOR", "theme.local": "LOCAL RECORDS", "auth.signedOut": "Not signed in",
     "tag.newAccount": "NEW ACCOUNT", "tag.firstMessage": "FIRST MESSAGE", "tag.recentFollower": "RECENT FOLLOWER", "tag.checking": "CHECKING ACCOUNT",
     "age.unavailable": "Account age unavailable", "age.today": "Account created today", "age.days": "Account is {count} days old", "age.day": "Account is 1 day old", "age.months": "Account is {count} months old", "age.month": "Account is 1 month old", "age.years": "Account is {count} years old", "age.year": "Account is {count} year old",
     "time.now": "now", "message.one": "message", "message.many": "messages", "message.threshold": " · threshold {count}", "message.empty": "(empty message)", "message.historyCount": "@{login} · {count} messages", "message.historyEmpty": "No messages recorded in this session.",
@@ -47,14 +47,14 @@ const messages = {
     "history.profile": "Chatter-Verlauf", "history.local": "LOKALER VERLAUF", "history.coverage": "Nur lokale Daten: bis zu 50 Nachrichten und 100 Ereignisse. Frühere nicht erfasste Aktionen sind nicht verfügbar.", "history.messages": "Nachrichten", "history.notes": "Notizen", "history.actions": "Moderation", "history.currentNote": "Aktuelle Notiz", "history.noNote": "Keine Notiz", "history.noEvents": "Keine aufgezeichneten Ereignisse in dieser Ansicht.", "history.previous": "Vorher", "history.current": "Aktuell", "history.timeout": "Timeout: {seconds} s", "history.ban": "Ban", "history.warning": "Verwarnung", "history.delete": "Nachricht gelöscht", "history.approval": "Freigabe", "history.note": "Notiz geändert", "history.manual": "Manuell", "history.automatic": "Automatisch", "history.quick": "/srs 1s", "history.legacy": "Vorheriger Zustand (ohne Ereignisdetails): {action}",
     "filter.approved": "Freigegeben", "approval.manual": "Manuell freigegeben", "approval.messages": "Freigegeben: Nachrichtenanzahl", "approval.follower": "Freigegeben: Follower", "approval.subscriber": "Freigegeben: Abonnent", "approval.previous-subscriber": "Freigegeben: lokal beobachteter fr\u00fcherer Abonnent",
     "error.invalidSettings": "Bitte g\u00fcltige Werte in die Zahlenfelder eintragen.",
-    "brand.home": "Chatter Watch Startseite", "theme.dark": "Dunkelmodus aktivieren", "theme.light": "Hellmodus aktivieren", "sidePanel.open": "Seitenleiste öffnen", "settings.title": "Einstellungen", "close": "Schließen",
+    "brand.home": "ChatterWatch Startseite", "theme.dark": "Dunkelmodus aktivieren", "theme.light": "Hellmodus aktivieren", "sidePanel.open": "Seitenleiste öffnen", "settings.title": "Einstellungen", "close": "Schließen",
     "channel.connection": "Kanalverbindung", "channel.placeholder": "Kanal", "channel.name": "Twitch-Kanal", "connect": "Verbinden", "connect.connect": "Verbinden", "connect.disconnect": "Trennen", "connect.signIn": "Anmelden",
     "status.ready": "Bereit zur Überwachung", "status.monitoring": "Überwache {channel}", "status.connecting": "Verbinde mit {channel}…", "status.signingIn": "Anmeldung im Twitch-Chat…", "status.reconnecting": "Chat getrennt; Verbindung wird wiederhergestellt…", "status.disconnected": "Chat getrennt", "status.interrupted": "Chatverbindung unterbrochen", "status.authFailed": "Chat-Anmeldung fehlgeschlagen. Bitte erneut anmelden.",
     "counter.flagged": "{count} markiert", "metric.chatters": "CHATTER", "metric.session": "diese Sitzung", "metric.review": "PRÜFEN", "metric.unvetted": "nicht freigegebene Konten", "metric.new": "HEUTE NEU", "metric.signals": "Kontosignale",
     "filter.label": "Chatter filtern", "filter.all": "Alle", "filter.new": "Neue Konten", "filter.first": "Erste Nachricht", "filter.follower": "Neue Follower", "feed.label": "Markierte Chatter", "empty.quiet": "Im Moment ist es ruhig.", "empty.allClear": "Alles in Ordnung.", "empty.connect": "Verbinde einen Kanal, um neue Chatter zu prüfen.", "empty.none": "Im Moment muss niemand geprüft werden.",
     "settings.eyebrow": "KONTROLLRAUM", "settings.heading": "Überwachungseinstellungen", "settings.clientId": "Twitch-Anwendungs-Client-ID", "settings.clientIdPlaceholder": "App auf dev.twitch.tv registrieren", "settings.language": "Sprache", "settings.oauthHint": "Für OAuth und Helix. Ein Client Secret ist nicht erforderlich und wird nicht gespeichert. Registriere diese Redirect-URL in deiner Twitch-App:", "settings.ageLimit": "Konten markieren, die jünger sind als", "settings.timeoutThreshold": "Timeout-Schwelle", "settings.firstMessage": "Erste Nachricht", "settings.firstMessageHint": "Twitch-Tag first-msg berücksichtigen", "settings.newAccount": "Signal für neue Konten", "settings.newAccountHint": "Kontoalter in die Risikoprüfung einbeziehen", "settings.followerWindow": "Zeitraum für neue Follower", "settings.recentFollower": "Neuer Follower", "settings.recentFollowerHint": "Kürzliche Follows in die Risikoprüfung einbeziehen", "settings.trustAfter": "Erste-Nachricht- und Follower-Markierung aufheben nach", "settings.matchSignals": "Aktive Signale kombinieren", "settings.autoTimeout": "Markierte Chatter automatisch mit Timeout belegen", "settings.autoTimeoutHint": "Timeout ab der Nachrichtenschwelle", "settings.timeoutDuration": "Timeout-Dauer", "settings.disconnect": "Twitch trennen", "settings.save": "Einstellungen speichern",
     "unit.days": "Tage", "unit.messages": "Nachrichten", "unit.minutes": "Minuten", "settings.matchAny": "ODER", "settings.matchAll": "UND",
-    "theme.footer": "CHAT-ÜBERWACHUNG", "theme.local": "NUR LOKAL", "auth.signedOut": "Nicht angemeldet",
+    "theme.footer": "CHAT-ÜBERWACHUNG", "theme.local": "LOKALE DATEN", "auth.signedOut": "Nicht angemeldet",
     "tag.newAccount": "NEUES KONTO", "tag.firstMessage": "ERSTE NACHRICHT", "tag.recentFollower": "NEUER FOLLOWER", "tag.checking": "KONTO WIRD GEPRÜFT",
     "age.unavailable": "Kontoalter nicht verfügbar", "age.today": "Konto heute erstellt", "age.days": "Konto ist {count} Tage alt", "age.day": "Konto ist 1 Tag alt", "age.months": "Konto ist {count} Monate alt", "age.month": "Konto ist 1 Monat alt", "age.years": "Konto ist {count} Jahre alt", "age.year": "Konto ist {count} Jahr alt",
     "time.now": "jetzt", "message.one": "Nachricht", "message.many": "Nachrichten", "message.threshold": " · Schwelle {count}", "message.empty": "(leere Nachricht)", "message.historyCount": "@{login} · {count} Nachrichten", "message.historyEmpty": "In dieser Sitzung wurden keine Nachrichten erfasst.",
@@ -69,14 +69,14 @@ const messages = {
     "history.profile": "Historial del chatter", "history.local": "HISTORIAL LOCAL", "history.coverage": "Solo registros locales: hasta 50 mensajes y 100 eventos. Las acciones anteriores no registradas no están disponibles.", "history.messages": "Mensajes", "history.notes": "Notas", "history.actions": "Moderación", "history.currentNote": "Nota actual", "history.noNote": "Sin nota", "history.noEvents": "No hay actividad registrada en esta vista.", "history.previous": "Anterior", "history.current": "Actual", "history.timeout": "Timeout: {seconds} s", "history.ban": "Ban", "history.warning": "Aviso", "history.delete": "Mensaje borrado", "history.approval": "Aprobación", "history.note": "Nota modificada", "history.manual": "Manual", "history.automatic": "Automático", "history.quick": "/srs 1s", "history.legacy": "Estado anterior (sin evento detallado): {action}",
     "filter.approved": "Aprobados", "approval.manual": "Aprobado manualmente", "approval.messages": "Aprobado: cantidad de mensajes", "approval.follower": "Aprobado: seguidor", "approval.subscriber": "Aprobado: suscriptor", "approval.previous-subscriber": "Aprobado: antiguo suscriptor observado localmente",
     "error.invalidSettings": "Completa los ajustes num\u00e9ricos con valores v\u00e1lidos.",
-    "brand.home": "Inicio de Chatter Watch", "theme.dark": "Activar modo nocturno", "theme.light": "Activar modo diurno", "sidePanel.open": "Abrir panel lateral", "settings.title": "Ajustes", "close": "Cerrar",
+    "brand.home": "Inicio de ChatterWatch", "theme.dark": "Activar modo nocturno", "theme.light": "Activar modo diurno", "sidePanel.open": "Abrir panel lateral", "settings.title": "Ajustes", "close": "Cerrar",
     "channel.connection": "Conexión del canal", "channel.placeholder": "canal", "channel.name": "Canal de Twitch", "connect": "Conectar", "connect.connect": "Conectar", "connect.disconnect": "Desconectar", "connect.signIn": "Iniciar sesión",
     "status.ready": "Listo para monitorizar", "status.monitoring": "Monitorizando {channel}", "status.connecting": "Conectando con {channel}…", "status.signingIn": "Iniciando sesión en el chat de Twitch…", "status.reconnecting": "Chat desconectado; reconectando…", "status.disconnected": "Chat desconectado", "status.interrupted": "Conexión del chat interrumpida", "status.authFailed": "Falló la autenticación del chat. Inicia sesión otra vez.",
     "counter.flagged": "{count} marcados", "metric.chatters": "CHATTERS", "metric.session": "esta sesión", "metric.review": "POR REVISAR", "metric.unvetted": "cuentas sin aprobar", "metric.new": "NUEVOS HOY", "metric.signals": "señales de cuenta",
     "filter.label": "Filtrar chatter", "filter.all": "Todos", "filter.new": "Cuentas nuevas", "filter.first": "Primer mensaje", "filter.follower": "Nuevos seguidores", "feed.label": "Chatters marcados", "empty.quiet": "Todo tranquilo por ahora.", "empty.allClear": "Todo en orden.", "empty.connect": "Conecta un canal para revisar los nuevos chatters.", "empty.none": "No hay chatters que revisar ahora.",
     "settings.eyebrow": "CENTRO DE CONTROL", "settings.heading": "Ajustes de monitorización", "settings.clientId": "Client ID de la aplicación Twitch", "settings.clientIdPlaceholder": "Registra una app en dev.twitch.tv", "settings.language": "Idioma", "settings.oauthHint": "Se usa para OAuth y Helix. No se necesita ni se guarda un client secret. Registra esta URL de redirección en tu app de Twitch:", "settings.ageLimit": "Marcar cuentas con menos de", "settings.timeoutThreshold": "Umbral de timeout automático", "settings.firstMessage": "Primer mensaje", "settings.firstMessageHint": "Usar la etiqueta first-msg de Twitch", "settings.newAccount": "Señal de cuenta nueva", "settings.newAccountHint": "Incluir la antigüedad de la cuenta en el riesgo", "settings.followerWindow": "Ventana de seguidor reciente", "settings.recentFollower": "Seguidor reciente", "settings.recentFollowerHint": "Incluir follows recientes en la evaluación", "settings.trustAfter": "Dejar de marcar primer mensaje y seguidor después de", "settings.matchSignals": "Combinar señales activadas", "settings.autoTimeout": "Aplicar timeout automático a chatters marcados", "settings.autoTimeoutHint": "Aplicar timeout al alcanzar el umbral", "settings.timeoutDuration": "Duración del timeout", "settings.disconnect": "Desconectar Twitch", "settings.save": "Guardar ajustes",
     "unit.days": "días", "unit.messages": "mensajes", "unit.minutes": "minutos", "settings.matchAny": "O", "settings.matchAll": "Y",
-    "theme.footer": "MONITOR DE CHAT", "theme.local": "SOLO LOCAL", "auth.signedOut": "Sin iniciar sesión",
+    "theme.footer": "MONITOR DE CHAT", "theme.local": "REGISTROS LOCALES", "auth.signedOut": "Sin iniciar sesión",
     "tag.newAccount": "CUENTA NUEVA", "tag.firstMessage": "PRIMER MENSAJE", "tag.recentFollower": "SEGUIDOR RECIENTE", "tag.checking": "REVISANDO CUENTA",
     "age.unavailable": "Antigüedad de cuenta no disponible", "age.today": "Cuenta creada hoy", "age.days": "Cuenta de {count} días", "age.day": "Cuenta de 1 día", "age.months": "Cuenta de {count} meses", "age.month": "Cuenta de 1 mes", "age.years": "Cuenta de {count} años", "age.year": "Cuenta de {count} año",
     "time.now": "ahora", "message.one": "mensaje", "message.many": "mensajes", "message.threshold": " · umbral {count}", "message.empty": "(mensaje vacío)", "message.historyCount": "@{login} · {count} mensajes", "message.historyEmpty": "No hay mensajes registrados en esta sesión.",
@@ -153,7 +153,7 @@ function applyLanguage(language) {
   themeButton.setAttribute("aria-label", t(themeKey));
   const languageInput = byId("language-input");
   if (languageInput) languageInput.value = currentLanguage;
-  document.title = `Chatter Watch`;
+  document.title = `ChatterWatch`;
 }
 
 function localizeMessage(message) {
@@ -175,8 +175,59 @@ function showToast(message, isError = false) {
 async function request(type, payload = {}) {
   const response = await extensionApi.runtime.sendMessage({ type, ...payload });
   if (!response) throw new Error("The extension service is unavailable. Reload the extension and try again.");
-  if (response.error) throw new Error(response.error);
+  if (response.error) throw new Error(ExtensionView.privacyError(response.error));
   return response;
+}
+
+function updatePrivacyControls() {
+  const consent = ExtensionView.dataConsent();
+  byId("privacy-banner").hidden = consent.accepted;
+  byId("privacy-allow").hidden = consent.accepted;
+  byId("privacy-withdraw").hidden = !consent.accepted;
+  byId("privacy-status").textContent = ExtensionView.label(consent.accepted ? "privacyAllowed" : "privacyOfflineStatus");
+  if (!consent.accepted && (settingsDirty || settingsSaveTimer)) {
+    clearTimeout(settingsSaveTimer);
+    settingsSaveTimer = null;
+    settingsDirty = false;
+    languageDirty = false;
+    settingsRevision += 1;
+    if (currentState) updateSettingsForm(currentState.settings);
+  }
+  const controls = [byId("channel-input"), ...byId("settings-form").querySelectorAll("input, select, textarea, button"),
+    ...document.querySelectorAll('[data-account-action]:not([data-account-action="history"])')];
+  for (const control of controls) {
+    if (!consent.accepted) {
+      if (!control.disabled) control.dataset.privacyDisabled = "true";
+      control.disabled = true;
+    } else if (control.dataset.privacyDisabled === "true") {
+      control.disabled = false;
+      delete control.dataset.privacyDisabled;
+    }
+  }
+  if (!consent.accepted) for (const avatar of document.querySelectorAll(".avatar")) avatar.textContent = avatar.dataset.initial || "?";
+}
+
+async function readDataConsent() {
+  const response = await request("GET_DATA_CONSENT");
+  const consent = ExtensionView.updateDataConsent(response.dataConsent);
+  updatePrivacyControls();
+  if (consent.version !== ModerationCore.DATA_CONSENT_VERSION) throw new Error(ExtensionView.label("privacyChanged"));
+  return consent;
+}
+
+async function ensureDataConsent() {
+  const current = await readDataConsent();
+  if (current.accepted) return current;
+  const values = await ExtensionView.dialog({
+    title: ExtensionView.label("privacyTitle"), body: ExtensionView.label("privacyBody"),
+    accept: "privacyAllow", cancelLabel: "privacyOffline", focusStart: true,
+    fields: [{ name: "agreement", label: ExtensionView.label("privacyAgreement"), type: "checkbox", value: "yes", required: true }]
+  });
+  if (values?.agreement !== "yes") return null;
+  const response = await request("SET_DATA_CONSENT", { accepted: true, version: ModerationCore.DATA_CONSENT_VERSION, confirmed: true });
+  const consent = ExtensionView.updateDataConsent(response.dataConsent);
+  render(response.state);
+  return consent.accepted ? consent : null;
 }
 
 function updateSettingsForm(settings) {
@@ -224,6 +275,11 @@ function makeButton(label, className, action, account, iconName = "") {
   const button = document.createElement("button");
   button.type = "button";
   button.className = `action-button ${className}`;
+  button.dataset.accountAction = action;
+  if (action !== "history" && !ExtensionView.dataConsent().accepted) {
+    button.disabled = true;
+    button.dataset.privacyDisabled = "true";
+  }
   if (iconName) {
     const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     icon.setAttribute("viewBox", "0 0 24 24");
@@ -300,7 +356,8 @@ function renderCard(account, index) {
   const avatar = document.createElement("div");
   avatar.className = "avatar";
   avatar.setAttribute("aria-hidden", "true");
-  if (account.profileImage) {
+  avatar.dataset.initial = (account.displayName || account.login || "?").slice(0, 1).toUpperCase();
+  if (account.profileImage && ExtensionView.dataConsent().accepted) {
     const image = document.createElement("img");
     image.src = account.profileImage;
     image.alt = "";
@@ -485,6 +542,8 @@ async function refreshDirectory() {
 }
 
 function render(state) {
+  state = { ...state, dataConsent: ExtensionView.updateDataConsent(state.dataConsent) };
+  if (!state.dataConsent.accepted) state = { ...state, moderator: null, status: "disconnected" };
   if (currentState && currentState.settings.channel !== state.settings.channel) {
     directoryVersion += 1;
     directoryPage = 0;
@@ -496,13 +555,14 @@ function render(state) {
   if (!settingsDirty && byId("settings-panel").hidden && document.activeElement !== byId("channel-input")) updateSettingsForm(state.settings);
   const statusBar = document.querySelector(".stream-status");
   statusBar.dataset.status = state.status;
-  byId("status-text").textContent = localizedStatus(state);
+  byId("status-text").textContent = state.dataConsent.accepted ? localizedStatus(state) : ExtensionView.label("privacyOfflineStatus");
   byId("flagged-count").textContent = t("counter.flagged", { count: state.flagged });
   byId("filter-all-count").textContent = state.flagged;
   byId("auth-label").textContent = state.moderator?.login ? `@${state.moderator.login}` : t("auth.signedOut");
   byId("connect-button").classList.toggle("connected", state.status === "connected");
   byId("connect-button").disabled = ["connecting", "reconnecting"].includes(state.status);
   byId("connect-button").querySelector("span:last-child").textContent = state.status === "connected" ? t("connect.disconnect") : state.moderator ? t("connect.connect") : t("connect.signIn");
+  updatePrivacyControls();
 
   void refreshDirectory();
   if (byId("history-dialog").open) renderHistory();
@@ -511,6 +571,7 @@ function render(state) {
 async function runAction(action, account, button) {
   button.disabled = true;
   try {
+    if (action !== "history" && !ExtensionView.dataConsent().accepted) throw new Error(ExtensionView.label("privacyRequired"));
     if (action === "vet") {
       await request("VET", { key: account.key });
       showToast(t("approval.done", { name: account.displayName }));
@@ -558,7 +619,7 @@ async function runAction(action, account, button) {
   } catch (error) {
     showToast(error.message, true);
   } finally {
-    button.disabled = false;
+    button.disabled = action !== "history" && !ExtensionView.dataConsent().accepted;
     if (action !== "history") void refreshDirectory();
   }
 }
@@ -626,12 +687,14 @@ async function saveSettings() {
   return settingsSavePromise;
 }
 
-async function signIn() {
+async function signIn(consent) {
   if (document.documentElement.dataset.popup === "true") {
     await request("OPEN_DASHBOARD", { page: true, pinned: true });
     window.close();
     return false;
   }
+  consent ||= await ensureDataConsent();
+  if (!consent) return false;
   const clientId = byId("client-id-input").value.trim();
   if (!clientId) {
     byId("settings-panel").hidden = false;
@@ -648,7 +711,9 @@ async function signIn() {
   url.searchParams.set("scope", "chat:read moderator:manage:banned_users moderator:manage:warnings moderator:read:followers moderator:manage:chat_settings moderator:manage:chat_messages");
   url.searchParams.set("state", state);
   url.searchParams.set("force_verify", "false");
+  if ((await readDataConsent()).id !== consent.id) throw new Error(ExtensionView.label("privacyInterrupted"));
   const callbackUrl = await extensionApi.identity.launchWebAuthFlow({ url: url.toString(), interactive: true });
+  if ((await readDataConsent()).id !== consent.id) throw new Error(ExtensionView.label("privacyInterrupted"));
   if (!callbackUrl) throw new Error(t("error.signInCancelled"));
   const callback = new URL(callbackUrl);
   const parameters = new URLSearchParams(callback.hash.slice(1));
@@ -657,7 +722,7 @@ async function signIn() {
   if (parameters.get("state") !== state) throw new Error(t("error.stateMismatch"));
   const accessToken = parameters.get("access_token");
   if (!accessToken) throw new Error(t("error.noToken"));
-  await request("AUTH", { accessToken });
+  await request("AUTH", { accessToken, consentId: consent.id });
   return true;
 }
 
@@ -667,8 +732,14 @@ async function connectOrDisconnect() {
     showToast(t("chat.disconnectedToast"));
     return;
   }
+  if (document.documentElement.dataset.popup === "true" && (!currentState?.moderator || !ExtensionView.dataConsent().accepted)) {
+    await signIn();
+    return;
+  }
+  const consent = await ensureDataConsent();
+  if (!consent) return;
   await saveSettings();
-  if (!currentState?.moderator && !await signIn()) return;
+  if (!currentState?.moderator && !await signIn(consent)) return;
   await request("CONNECT");
   showToast(t("channel.connecting", { channel: byId("channel-input").value.trim() }));
 }
@@ -780,6 +851,19 @@ byId("show-client-id").addEventListener("click", () => {
   input.type = input.type === "password" ? "text" : "password";
   byId("show-client-id").setAttribute("aria-pressed", String(input.type === "text"));
 });
+for (const id of ["privacy-review", "privacy-allow"]) byId(id).addEventListener("click", () => {
+  void ensureDataConsent().catch((error) => showToast(error.message, true));
+});
+byId("privacy-withdraw").addEventListener("click", async () => {
+  const button = byId("privacy-withdraw");
+  button.disabled = true;
+  try {
+    const response = await request("SET_DATA_CONSENT", { accepted: false });
+    render(response.state);
+    showToast(ExtensionView.label("privacyWithdrawn"));
+  } catch (error) { showToast(error.message, true); }
+  finally { button.disabled = false; }
+});
 byId("show-client-id").replaceChildren(ExtensionView.icon("Eye"));
 function buildPreferences() {
   const groups = new Map();
@@ -834,7 +918,7 @@ let dashboardPort;
 function connectDashboardPort() {
   try {
     dashboardPort = extensionApi.runtime.connect({ name: "dashboard" });
-    dashboardPort.onMessage?.addListener((message) => { if (message.type === "REVIEW_ALERT") void ExtensionView.playSound(message.volume); });
+    dashboardPort.onMessage?.addListener((message) => { if (message.type === "REVIEW_ALERT" && ExtensionView.dataConsent().accepted) void ExtensionView.playSound(message.volume); });
     dashboardPort.onDisconnect.addListener(() => {
       void extensionApi.runtime.lastError;
       setTimeout(connectDashboardPort, 1000);
@@ -854,12 +938,18 @@ extensionApi.storage.onChanged?.addListener((changes, area) => {
   }
 });
 extensionApi.runtime.onMessage.addListener((message) => {
+  if (message.type === "DATA_CONSENT") {
+    const consent = ExtensionView.updateDataConsent(message.dataConsent);
+    if (currentState) render({ ...currentState, dataConsent: consent });
+    else updatePrivacyControls();
+  }
   if (message.type === "OPEN_SETTINGS") byId("settings-panel").hidden = false;
   if (message.type === "STATE") render(message.state);
   if (message.type === "ERROR" || message.type === "NOTICE") showToast(message.message, message.type === "ERROR");
 });
 
 applyLanguage(currentLanguage);
+updatePrivacyControls();
 request("GET_STATE").then((response) => {
   render(response.state);
   if (new URLSearchParams(location.search).get("settings") === "1") {

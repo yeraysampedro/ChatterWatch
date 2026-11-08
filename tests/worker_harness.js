@@ -19,7 +19,7 @@ function storage(initial) {
   };
 }
 
-export async function harness({ scopes = ["moderator:manage:chat_settings"], connected = false, firefox = false, locale = "en-US", fetch: fetchResponse, realTimers = false } = {}) {
+export async function harness({ scopes = ["moderator:manage:chat_settings"], connected = false, firefox = false, locale = "en-US", fetch: fetchResponse, realTimers = false, consented = true, consentVersion = 1 } = {}) {
   const sockets = [];
   const requests = [];
   const windows = [];
@@ -54,8 +54,9 @@ export async function harness({ scopes = ["moderator:manage:chat_settings"], con
     permissions: { contains: async () => true },
     action: { setBadgeText: async () => {} },
     storage: {
-      local: storage({ settings: { channel: "primary", clientId: "client" } }),
-      session: storage({ accessToken: "test-token", moderator: { user_id: "42", login: "mod", scopes }, chatConnected: connected })
+      local: storage({ settings: { channel: "primary", clientId: "client" },
+        ...(consented ? { dataConsent: { version: consentVersion, accepted: true, id: "fixture-consent", acceptedAt: 1, revision: 1 } } : {}) }),
+      session: storage({ accessToken: "test-token", moderator: { user_id: "42", login: "mod", scopes }, dataConsentId: "fixture-consent", chatConnected: connected })
     },
     runtime: {
       onMessage: eventBus(), onConnect: eventBus(), sendMessage: () => Promise.resolve(), getURL: (path) => `${firefox ? "moz" : "chrome"}-extension://test/${path}`,
@@ -80,7 +81,7 @@ export async function harness({ scopes = ["moderator:manage:chat_settings"], con
     alarms: { create() {}, onAlarm: eventBus() }
   };
   const context = vm.createContext({
-    chrome, crypto, URL, console, AbortSignal, indexedDB: new IDBFactory(), IDBKeyRange, WebSocket: Socket,
+    chrome, crypto, URL, console, AbortSignal, AbortController, indexedDB: new IDBFactory(), IDBKeyRange, WebSocket: Socket,
     setTimeout: (callback, delay) => schedule(callback, delay),
     clearTimeout: clearTimer,
     setInterval: (callback, delay) => schedule(callback, delay, true),

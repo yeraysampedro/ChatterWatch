@@ -1,12 +1,12 @@
 # Store Listing Copy and Assets
 
-Twitch Chatter Watch 1.3.1. Prepared 7 November 2026 for Chrome Web Store and Mozilla Add-ons. Copy the text under the relevant field, not the editorial notes. This kit is not a store approval or a claim that live Twitch testing is complete.
+ChatterWatch 1.0.0. Prepared 8 November 2026 for Chrome Web Store and Mozilla Add-ons. Copy the text under the relevant field, not the editorial notes. This kit is not a store approval or a claim that live Twitch testing is complete.
 
 ## Shared Fields
 
 | Field | Value / action |
 | --- | --- |
-| Product name / Name | Twitch Chatter Watch |
+| Product name / Name | ChatterWatch |
 | Default listing language | English |
 | Support URL / Support-URL | https://github.com/yeraysampedro/Twtich-Moderatr/issues |
 | Homepage URL | https://github.com/yeraysampedro/Twtich-Moderatr |
@@ -18,6 +18,8 @@ Twitch Chatter Watch 1.3.1. Prepared 7 November 2026 for Chrome Web Store and Mo
 
 The support and homepage URLs were publicly reachable on 7 November 2026. A GitHub homepage is not a verified-publisher domain claim. The public repository may still show an older release until the owner publishes the local changes. GitHub Issues requires a GitHub account to submit an issue; the support page itself is public.
 
+These are the existing internal-project URLs, not a claim that the new `ChatterWatch` repository has been created. After GitHub setup, update and verify this table, SUPPORT.md and the `supportUrl`, `homepageUrl` and `privacyUrl` constants in `build/store-assets.js`, including the chosen `ChatterWatch` branch in the policy URL. Do not replace verified URLs with an assumed public address before it exists.
+
 ## English
 
 ### Short Summary
@@ -26,7 +28,15 @@ Read and moderate Twitch chat with multichat windows, review queues, optional au
 
 ### Detailed Description / Beschreibung
 
-Twitch Chatter Watch gives streamers and moderators a dedicated workspace for reading Twitch chat and reviewing chatters without losing their place.
+DATA USE AND YOUR CHOICE
+
+ChatterWatch processes Twitch identity/session tokens, configured channels, chatter identifiers/profile metadata, chat text/timestamps and moderation notes/actions for its chat-reading and moderation workspace. Authentication, API and IRC traffic go to Twitch; allowed profile images load from Twitch's CDN. A translation provider receives only the selected text and language options after separate permission and per-message confirmation, and can see network information such as your IP.
+
+Twitch features and new account-history records stay off until you read the in-extension disclosure, check its unchecked consent box and choose Allow data use. Stay offline permits read-only access to existing local history without Twitch/provider requests or remote avatars. Withdraw consent and disconnect in Settings > Data and privacy stops new activity and removes session credentials, but keeps previous local history. Clear extension storage or uninstall to delete it; downloaded TXT files must be deleted separately.
+
+Settings, profiles and notes are stored locally, with up to 50 messages and 100 activity events per account/channel and bounded temporary live buffers. There is no automatic age-based purge or application-provided encryption at rest. No advertising, sale of data, telemetry or publisher backend. Read the linked privacy policy before installing; prior transmissions and Twitch actions cannot be undone by withdrawing consent.
+
+ChatterWatch gives streamers and moderators a dedicated workspace for reading Twitch chat and reviewing chatters without losing their place.
 
 Search all locally recorded chatters, including approved and resolved accounts, with 25-person pages. Open a chatter's Messages, Notes and Moderation history: up to 50 recent messages across sessions and 100 locally recorded actions/note changes with dates, reasons and durations. A timeout does not automatically dismiss the person. Earlier actions never recorded by the extension cannot be recovered. Window-opening controls reuse existing views instead of creating duplicates, with a limit of twelve extension windows.
 
@@ -36,7 +46,7 @@ Review new-account, first-message and recent-follower signals for your primary c
 
 Manual bans, timeouts, specific-message deletion and the one-second timeout action require confirmation. Choose a timeout duration explicitly and see the target before submitting. Local spam filters and local slow mode are separate from sanctions and from actual Twitch slow-mode settings. Any automatic-timeout rule remains a separate opt-in setting.
 
-Use the popup, sidebar, extension page or a persistent window. Settings autosave and remain shared between views, while pause, scroll and message pins stay local to each window. The interface starts in dark mode, remembers independent-window geometry and supports English, Spanish and German. Optional review alerts can play a sound or request native window attention, subject to browser and operating-system restrictions.
+Use the popup, sidebar or pinned dashboard tab inside the browser; Multichat can use detached windows. After data-use consent, settings autosave and remain shared between views, while pause, scroll and message pins stay local to each window. The interface starts in dark mode, remembers independent-window geometry and supports English, Spanish and German. Optional review alerts can play a sound or request native window attention, subject to browser and operating-system restrictions.
 
 Translation is optional and requires your own compatible HTTPS LibreTranslate endpoint, permission for that origin and confirmation for each message sent. No translation provider or API key is supplied. The selected text goes to that provider; Twitch tokens and author/channel metadata are not forwarded. Check the provider's privacy policy and any charges before enabling it.
 
@@ -54,7 +64,15 @@ Twitch-Chats in mehreren Fenstern lesen und moderieren, Personen prüfen und Mod
 
 ### Ausführliche Beschreibung / Beschreibung
 
-Twitch Chatter Watch bietet Streamern und Moderatoren einen eigenen Arbeitsbereich zum Lesen von Twitch-Chats und Prüfen von Chatteilnehmern.
+DATENNUTZUNG UND DEINE WAHL
+
+ChatterWatch verarbeitet Twitch-Identität/Sitzungstoken, konfigurierte Kanäle, Chatter-IDs/Profilmetadaten, Nachrichtentexte/Zeitpunkte und Moderationsnotizen/Aktionen für seinen Chat- und Moderationsarbeitsbereich. Anmeldung, API und IRC kommunizieren mit Twitch; erlaubte Profilbilder werden vom Twitch-CDN geladen. Ein Übersetzer erhält nur den ausgewählten Text und Sprachoptionen nach gesonderter Freigabe und Nachrichtenbestätigung und sieht Netzwerkinformationen wie deine IP.
+
+Twitch-Funktionen und neue Kontoverläufe bleiben gesperrt, bis du den Hinweis in der Erweiterung liest, das anfangs leere Zustimmungsfeld aktivierst und Datennutzung erlauben wählst. Offline bleibt vorhandener lokaler Verlauf lesbar, ohne Twitch-/Übersetzungsanfragen oder externe Avatare. Unter Einstellungen > Daten und Datenschutz widerrufen und trennen stoppt neue Aktivität und entfernt Sitzungstoken; bisheriger Verlauf bleibt lokal erhalten. Zum Löschen den Erweiterungsspeicher leeren oder deinstallieren; heruntergeladene TXT-Dateien separat löschen.
+
+Einstellungen, Profile und Notizen bleiben lokal, zusammen mit bis zu 50 Nachrichten und 100 Ereignissen je Konto/Kanal sowie begrenzten temporären Live-Puffern. Keine automatische zeitbasierte Löschung oder anwendungseigene Verschlüsselung im Ruhezustand. Keine Werbung, Datenverkäufe, Telemetrie oder Herausgeber-Backend. Die verlinkte Datenschutzerklärung vor der Installation lesen; ein Widerruf kann frühere Übertragungen oder Twitch-Aktionen nicht rückgängig machen.
+
+ChatterWatch bietet Streamern und Moderatoren einen eigenen Arbeitsbereich zum Lesen von Twitch-Chats und Prüfen von Chatteilnehmern.
 
 Alle lokal erfassten Chatter einschließlich freigegebener und abgeschlossener Konten auf Seiten mit 25 Personen durchsuchen. Der Verlauf zeigt Nachrichten, Notizen und Moderation: bis zu 50 aktuelle Nachrichten über Sitzungen hinweg und 100 lokal erfasste Aktionen/Notizänderungen mit Datum, Grund und Dauer. Ein Timeout verwirft die Person nicht automatisch. Frühere, nie erfasste Aktionen lassen sich nicht rekonstruieren. Fenster werden wiederverwendet statt dupliziert; höchstens zwölf Erweiterungsfenster sind erlaubt.
 
@@ -64,7 +82,7 @@ Im Hauptkanal neue Konten, erste Nachrichten und kürzlich gefolgte Nutzer prüf
 
 Manuelle Bans, Timeouts, das Löschen einzelner Nachrichten und die Ein-Sekunden-Timeout-Aktion verlangen eine Bestätigung. Dauer und Ziel werden vor der Ausführung festgelegt. Lokale Spamfilter und lokaler Slow Mode sind von Sanktionen und dem tatsächlichen Twitch Slow Mode getrennt. Automatische Timeouts bleiben eine separate ausdrücklich aktivierte Option.
 
-Popup, Seitenleiste, Erweiterungsseite oder dauerhaftes Fenster verwenden. Einstellungen werden automatisch gespeichert und zwischen Ansichten geteilt; Pause, Scrollposition und angeheftete Nachrichten bleiben fensterbezogen. Dunkler Startmodus, gespeicherte Fensterpositionen sowie Englisch, Spanisch und Deutsch sind verfügbar. Optionale Prüfhinweise können Ton oder native Fensteraufmerksamkeit nutzen, soweit Browser und Betriebssystem dies erlauben.
+Popup, Seitenleiste oder angehefteten Dashboard-Tab im Browser verwenden; Multichat kann abgetrennte Fenster nutzen. Nach Einwilligung werden Einstellungen automatisch gespeichert und zwischen Ansichten geteilt; Pause, Scrollposition und angeheftete Nachrichten bleiben fensterbezogen. Dunkler Startmodus, gespeicherte Fensterpositionen sowie Englisch, Spanisch und Deutsch sind verfügbar. Optionale Prüfhinweise können Ton oder native Fensteraufmerksamkeit nutzen, soweit Browser und Betriebssystem dies erlauben.
 
 Übersetzung benötigt einen selbst gewählten HTTPS-Endpunkt mit LibreTranslate-Kompatibilität, die Freigabe dieses Ursprungs und Bestätigung jeder übertragenen Nachricht. Kein Anbieter und kein API-Schlüssel werden bereitgestellt. Ausgewählter Text geht an diesen Anbieter, nicht die Twitch-Tokens oder Autoren-/Kanalmetadaten. Datenschutz und mögliche Kosten des Anbieters vor Aktivierung prüfen.
 
@@ -82,7 +100,15 @@ Lee y modera Twitch con ventanas multichat, revisión de usuarios, aprobación o
 
 ### Descripción Completa
 
-Twitch Chatter Watch ofrece a streamers y moderadores un espacio dedicado para leer el chat de Twitch y revisar participantes sin perder el contexto.
+USO DE DATOS Y TU DECISIÓN
+
+ChatterWatch trata identidad/tokens de sesión Twitch, canales configurados, identificadores/metadatos de chatters, texto/fechas de mensajes y notas/acciones de moderación para su espacio de lectura y moderación. Autenticación, API e IRC se comunican con Twitch; los avatares permitidos se cargan desde su CDN. Un traductor recibe solo el texto seleccionado y opciones de idioma tras autorizarlo y confirmar ese mensaje, y puede ver datos de red como tu IP.
+
+Twitch y los nuevos registros de cuentas permanecen bloqueados hasta leer el aviso de la extensión, marcar la casilla inicialmente vacía y pulsar Permitir uso de datos. Sin conexión puedes leer el historial local existente, sin peticiones a Twitch/traductores ni avatares remotos. Retirar consentimiento y desconectar en Ajustes > Datos y privacidad detiene nueva actividad y elimina credenciales de sesión, pero conserva el historial previo. Para borrarlo, elimina el almacenamiento de la extensión o desinstálala; borra aparte los TXT descargados.
+
+Ajustes, perfiles y notas se guardan localmente, con hasta 50 mensajes y 100 eventos por cuenta/canal y buffers en directo acotados y temporales. No hay purga automática por fecha ni cifrado propio en reposo. Sin publicidad, venta de datos, telemetría ni backend del editor. Lee la política de privacidad enlazada antes de instalar; retirar el consentimiento no recupera transmisiones anteriores ni deshace acciones de Twitch.
+
+ChatterWatch ofrece a streamers y moderadores un espacio dedicado para leer el chat de Twitch y revisar participantes sin perder el contexto.
 
 Busca entre todos los chatters registrados localmente, incluidos aprobados y resueltos, en páginas de 25 personas. Su ficha muestra Mensajes, Notas y Moderación: hasta 50 mensajes recientes entre sesiones y 100 acciones/cambios de nota locales con fecha, motivo y duración. Un timeout no descarta automáticamente a la persona. Las acciones antiguas nunca registradas no pueden recuperarse. Los controles reutilizan las ventanas abiertas, con un límite de doce ventanas de la extensión.
 
@@ -92,7 +118,7 @@ Revisa señales de cuentas nuevas, primeros mensajes y seguidores recientes del 
 
 Los bans, timeouts, borrados individuales y el timeout de un segundo manuales requieren confirmación. Elige la duración y comprueba el objetivo antes de ejecutar. Los filtros y el slow mode locales son independientes de las sanciones y del slow mode real de Twitch. El timeout automático continúa siendo una opción separada que debes activar expresamente.
 
-Usa el popup, panel lateral, página interna o una ventana persistente. Los ajustes se autoguardan y comparten; las pausas, el scroll y los pines son locales a cada ventana. Modo oscuro inicial, geometría recordada e interfaz en inglés, español y alemán. Las alertas opcionales ofrecen sonido y atención de ventana según las restricciones del navegador y sistema operativo.
+Usa el popup, panel lateral o la pestaña fijada del dashboard dentro del navegador; Multichat puede usar ventanas separadas. Tras permitir el uso de datos, los ajustes se autoguardan y comparten; las pausas, el scroll y los pines son locales a cada ventana. Modo oscuro inicial, geometría recordada e interfaz en inglés, español y alemán. Las alertas opcionales ofrecen sonido y atención de ventana según las restricciones del navegador y sistema operativo.
 
 La traducción requiere tu propio endpoint HTTPS compatible con LibreTranslate, permiso para ese origen y confirmación de cada envío. No se proporciona proveedor ni clave API. El texto seleccionado se envía al proveedor, nunca el token de Twitch ni los metadatos de autor/canal. Revisa su privacidad y posibles costes antes de activarlo.
 

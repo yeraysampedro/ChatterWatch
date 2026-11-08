@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Twitch Chatter Watch",
-  "version": "1.3.1",
+  "name": "ChatterWatch",
+  "version": "1.0.0",
   "description": "Twitch moderation with detached multichat, virtualized feeds, spam filters and slow-mode controls.",
   "minimum_chrome_version": "116",
   "icons": {
@@ -22,7 +22,7 @@
     "service_worker": "worker.js"
   },
   "action": {
-    "default_title": "Twitch Chatter Watch",
+    "default_title": "ChatterWatch",
     "default_icon": {
       "16": "assets/icons/chatter-watch-16.png",
       "32": "assets/icons/chatter-watch-32.png",
@@ -32,6 +32,10 @@
   },
   "side_panel": {
     "default_path": "dashboard.html"
+  },
+  "options_ui": {
+    "page": "dashboard.html?settings=1",
+    "open_in_tab": true
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https: wss://irc-ws.chat.twitch.tv:443"

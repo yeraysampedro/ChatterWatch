@@ -6,6 +6,40 @@ const launchBrowser = () => browserName === "firefox"
   ? firefox.launch({ headless: true })
   : chromium.launch({ channel: browserName, headless: true });
 
+async function assertThemeContrast(page) {
+  const result = await page.evaluate(() => {
+    const styles = getComputedStyle(document.body);
+    const color = (name) => styles.getPropertyValue(`--${name}`).trim();
+    const luminance = (value) => {
+      const channels = value.startsWith("#") ? value.slice(1).match(/../g)?.map((part) => parseInt(part, 16))
+        : value.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+      if (!channels || channels.length !== 3) throw new Error(`Missing or invalid theme color: ${value}`);
+      const linear = channels.map((channel) => {
+        const normalized = channel / 255;
+        return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+      });
+      return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+    };
+    const ratio = (foreground, background) => {
+      const a = luminance(foreground), b = luminance(background);
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    };
+    const checks = [
+      ["ink", "paper", 4.5], ["ink", "surface", 4.5], ["muted", "surface", 4.5],
+      ["muted", "accent-soft", 4.5], ["accent", "accent-soft", 4.5], ["on-accent", "accent", 4.5],
+      ["coral", "coral-soft", 4.5], ["amber", "amber-soft", 4.5], ["blue", "blue-soft", 4.5],
+      ["line", "surface", 3], ["line", "paper", 3]
+    ].map(([foreground, background, minimum]) => ({ name: `${foreground}/${background}`, ratio: ratio(color(foreground), color(background)), minimum }));
+    const message = document.querySelector(".chat-row > span");
+    if (message) checks.push({ name: "rendered chat text", ratio: ratio(getComputedStyle(message).color, getComputedStyle(message.closest(".chat-panel")).backgroundColor), minimum: 4.5 });
+    const switchTrack = document.querySelector(".switch input:checked + span");
+    if (switchTrack) checks.push({ name: "switch thumb", ratio: ratio(getComputedStyle(switchTrack, "::after").backgroundColor, getComputedStyle(switchTrack).backgroundColor), minimum: 3 });
+    return { theme: document.body.dataset.theme, accent: color("accent"), checks };
+  });
+  assertEquals(result.accent, result.theme === "dark" ? "#d2a4ff" : "#38005e");
+  for (const check of result.checks) assert(check.ratio >= check.minimum, `${result.theme} ${check.name}: ${check.ratio.toFixed(2)}:1 < ${check.minimum}:1`);
+}
+
 Deno.test({
   name: "headless dashboard: autosave, browser language, OAuth and sidebar APIs",
   sanitizeResources: false,
@@ -24,7 +58,8 @@ Deno.test({
             recentFollowerDays: 1, messageThreshold: 3, flagFirstMessage: true, flagNewFollower: false,
             trustMessageThreshold: 10, matchMode: "any", autoTimeout: false, timeoutMinutes: 1
           };
-          const state = { settings, status: "disconnected", chatters: 0, flagged: 0, newAccounts: 0, accounts: [] };
+          const state = { settings, status: "disconnected", chatters: 0, flagged: 0, newAccounts: 0, accounts: [],
+            dataConsent: { version: 1, accepted: true, id: "ui-consent", acceptedAt: 1, revision: 1 } };
           const redirect = firefoxApi ? "https://test.extensions.allizom.org/" : "https://test.chromiumapp.org/twitch";
           window.testRequests = [];
           window.close = () => { window.testClosed = true; };
@@ -38,6 +73,7 @@ Deno.test({
               }; } },
               sendMessage: async (message) => {
                 window.testRequests.push(message);
+                if (message.type === "GET_DATA_CONSENT") return { dataConsent: state.dataConsent };
                 if (message.type === "GET_STATE") return { state: { ...state, settings: window.ModerationCore.normalizeSettings(settings) } };
                 if (message.type === "GET_CHATTERS") {
                   let accounts = message.filter === "approved" ? state.approved || [] : message.filter === "pending" ? state.accounts : [...state.accounts, ...(state.approved || [])];
@@ -85,6 +121,9 @@ Deno.test({
         }, { firefoxApi });
         await page.goto(new URL("../src/dashboard.html", import.meta.url).href);
         await page.waitForFunction(() => document.querySelector("#channel-input").value === "primary");
+        assertEquals(await page.title(), "ChatterWatch");
+        assertEquals(await page.locator(".brand-mark").evaluate((node) => node.tagName), "IMG");
+        await page.waitForFunction(() => document.querySelector(".brand-mark").complete && document.querySelector(".brand-mark").naturalWidth === 32);
         assertEquals(await page.locator("html").getAttribute("lang"), firefoxApi ? "de" : "en");
         assertEquals(await page.locator("body").getAttribute("data-theme"), "dark");
         for (const width of [1120, 1920, 2560, 320, 280]) {
@@ -99,8 +138,10 @@ Deno.test({
           assert(Math.abs(before.left) <= 1 && Math.abs(before.width - before.viewport) <= 1, `Dashboard must fill the page, not a centered strip: ${JSON.stringify(before)}`);
           assert(before.toolsRight <= before.viewport + 1, JSON.stringify(before));
           await page.evaluate(() => setTheme("light", false));
+          await assertThemeContrast(page);
           const light = await page.locator(".shell").boundingBox();
           await page.evaluate(() => setTheme("dark", false));
+          await assertThemeContrast(page);
           const dark = await page.locator(".shell").boundingBox();
           assertEquals(light, dark);
           await page.locator("#settings-toggle").click();
@@ -259,6 +300,7 @@ Deno.test({
           }));
           const state = {
             type: "CHAT_STATE", config, revision: 0, status: "connected", primaryChannel: "primary",
+            dataConsent: { version: 1, accepted: true, id: "ui-consent", acceptedAt: 1, revision: 1 },
             rooms: Object.fromEntries(channels.map((channel) => [channel, { connected: true, slow: 0 }])),
             channels: channels.map((channel) => ({ channel, entries: entries(channel, 0, 1000), stats: { received: 1000, filtered: 0, overflow: 0, moderationSkipped: 0 } }))
           };
@@ -314,6 +356,7 @@ Deno.test({
         }, { language, firefoxApi: browserName === "firefox" || language === "en" });
         await page.goto(new URL("../src/chat.html", import.meta.url).href);
         await page.waitForFunction(() => document.querySelectorAll(".chat-row").length > 0);
+        assertEquals(await page.title(), "ChatterWatch | Multichat");
         await page.evaluate(() => {
           for (let index = 0; index < 20; index += 1) document.querySelector("#open-grid").dispatchEvent(new Event("click"));
         });
@@ -321,18 +364,7 @@ Deno.test({
         assertEquals(await page.locator(".chat-panel").count(), 6);
         assert(await page.locator(".chat-row").count() < 200);
         assertEquals(await page.locator(".chat-row img").count(), 0);
-        assert(await page.evaluate(() => {
-          const luminance = (color) => {
-            const values = color.match(/[\d.]+/g).slice(0, 3).map((value) => {
-              const normalized = Number(value) / 255;
-              return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
-            });
-            return values[0] * 0.2126 + values[1] * 0.7152 + values[2] * 0.0722;
-          };
-          const foreground = luminance(getComputedStyle(document.querySelector(".chat-row > span")).color);
-          const background = luminance(getComputedStyle(document.querySelector(".chat-panel")).backgroundColor);
-          return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05) >= 4.5;
-        }), "Chat text must maintain AA contrast in both themes");
+        await assertThemeContrast(page);
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
         await page.screenshot({ path: `${screenshots}/${width}-${language}.png`, fullPage: true });
 

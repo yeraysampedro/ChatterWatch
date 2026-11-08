@@ -17,7 +17,7 @@
 1. Chromium-ZIP entpacken, nach `deno task build` den Ordner `dist/chromium` verwenden oder das Repository in ein dauerhaftes Verzeichnis klonen.
 2. `chrome://extensions` oder `edge://extensions` öffnen und **Entwicklermodus** aktivieren.
 3. **Entpackte Erweiterung laden / Load unpacked** auswählen und den Ordner mit `manifest.json` öffnen, nicht `tests` oder `docs`.
-4. Chatter Watch an die Symbolleiste anheften, das Panel öffnen und **Einstellungen** auswählen.
+4. ChatterWatch an die Symbolleiste anheften und das Panel öffnen. Vor der Twitch-Einrichtung **Datennutzung prüfen** wählen: **Offline bleiben** lehnt ab; das anfangs leere Zustimmungsfeld aktivieren und **Datennutzung erlauben** wählen, um Twitch freizugeben. Danach **Einstellungen** öffnen.
 5. Die angezeigte OAuth-URL kopieren: `https://<ERWEITERUNGS-ID>.chromiumapp.org/twitch`.
 6. Diese exakte URL als OAuth Redirect URL in der Twitch-Anwendung registrieren. Die **Client ID**, kein Client Secret, in der Erweiterung eintragen und speichern.
 7. Den Namen des Hauptkanals ohne vollständige URL eingeben, mit **Verbinden** anmelden und die angeforderten Berechtigungen bestätigen.
@@ -51,6 +51,8 @@ Das Lesen zusätzlicher Kanäle erfordert keine Moderatorrolle. Für Helix-Moder
 Beide Varianten verwenden `storage`, `identity` und `alarms`; nur Chromium zusätzlich `sidePanel`. Erforderlicher Hostzugriff gilt Twitch; Übersetzung erlaubt optionalen HTTPS-Zugriff auf den ausgewählten Ursprung. Es werden weder Webseitenskripte noch entfernter Code geladen. Firefox deklariert erforderliche `authenticationInfo`/`personallyIdentifyingInfo` für Twitch und optionale `personalCommunications` für Übersetzung. Keine Telemetrie und kein eigenes Backend. Nachrichtentext wird nur nach Einrichtung/Freigabe des Servers und Bestätigung der Nachricht übertragen. Siehe [Datenschutz](PRIVACY.md).
 
 ### Entwicklung, Tests und Build
+
+Die erste öffentliche Version wird als **ChatterWatch 1.0.0** mit dem vorgesehenen Tag `v1.0.0` vorbereitet. Zusätzlich zu den Chromium- und Firefox-ZIPs erzeugt `deno task build` die Datei `dist/packages/chatter-watch-1.0.0-firefox-unsigned.xpi`. Sie ist unsignierte Entwicklungs-/Signierungseingabe, keine dauerhafte Firefox-Installation. Das [englische README](../README.md) erklärt GitHub Releases und den Bezug einer von Mozilla signierten XPI.
 
 [Deno 2 installieren](https://docs.deno.com/runtime/getting_started/installation/) und im Hauptverzeichnis ausführen:
 
@@ -90,9 +92,13 @@ Paneleinstellungen, Hauptkanal und Multichat-Einstellungen werden beim Bestätig
 
 Gültige Änderungen gelten nach dem Speichern: Eine andere Client ID kann die Anmeldung aufheben, ein geänderter verbundener Hauptkanal kann eine Wiederverbindung auslösen, und das Aktivieren automatischer Timeouts schaltet deren Moderationsregeln ein. Bei abruptem Beenden des Browsers oder Computers vor Abschluss des Schreibvorgangs ist das Speichern nicht garantiert.
 
-### Verbesserungen in Version 1.3
+### Dashboard und Moderationsfunktionen
+
+**Daten und Datenschutz:** Twitch-Anmeldung/API/IRC, neue Kontoverläufe und externe Avatare beginnen erst nach aktueller ausdrücklicher Einwilligung. Der Hinweis erklärt Kategorien, Empfänger, lokale Aufbewahrung und Widerruf; er ersetzt weder OAuth noch die einzelne Übersetzungsbestätigung. In Einstellungen oder den Erweiterungsoptionen des Browsers entfernt **Einwilligung widerrufen und trennen** Sitzungstoken und stoppt neue Aktivität. Bestehender Verlauf bleibt offline schreibgeschützt lesbar. Zum Löschen den Browserspeicher leeren oder deinstallieren; Exporte separat entfernen. Lokale Anzeige-/Fenstereinstellungen bleiben verfügbar; frühere Übertragungen oder Twitch-Aktionen lassen sich nicht zurückrufen.
 
 Der anfängliche Modus ist dunkel; eine gespeicherte helle Auswahl bleibt erhalten. Dashboard und Einstellungen nutzen die verfügbare Breite mit gleicher Geometrie in beiden Designs. Nur die Zahl ausstehender Prüfungen wird hervorgehoben; das Verzeichnis hat Seiten mit 25 Personen. **Freigegeben** zeigt Freigabegründe, ohne Nachrichten im Live-Chat auszublenden.
+
+Das bereitgestellte Augen-Symbol bestimmt die violette Gestaltung: tagsüber weiße/lavendelfarbene Flächen mit dem ursprünglichen dunklen Violett, nachts dunkelviolette Flächen mit hellem Lavendelakzent. Die schwarzen Konturen behalten einen hellen Hintergrund in den erzeugten Icons. Warnungen und Fehler bleiben gelb/rot und damit vom Markenakzent unterscheidbar.
 
 Die Anheften-Schaltfläche öffnet oder verwendet einen **angehefteten Tab im Browser**, kein unabhängiges Fenster. Auch ladende Tabs werden wiederverwendet und minimierte Browserfenster wiederhergestellt, ohne andere Ansichten zu schließen. Das native Popup fordert 760 x 580 Inhaltsgröße an, begrenzt durch den Browser und den Platz für Scrollleisten; bei Fokusverlust schließt es weiterhin. Für dauerhaftes Öffnen den angehefteten Tab oder die Seitenleiste verwenden. OAuth aus dem Popup wechselt zuerst zum angehefteten Tab; dort die Anmeldung fortsetzen. Die Client ID ist verdeckt und kann angezeigt werden; sie ist kein Client Secret. **Alle Einstellungen** in Multichat öffnet die gemeinsame Konfiguration im Dashboard-Tab.
 
@@ -110,7 +116,7 @@ Für Übersetzung einen HTTPS-Endpunkt mit LibreTranslate-Kompatibilität (meist
 
 ### Multichat und Fenster
 
-Seit 1.3.1 verwenden **Multichat öffnen** und **Abtrennen** das passende Fenster erneut und fokussieren es, auch während des Ladens oder bei mehrfachen Klicks. Der Dashboard-Tab wird ebenfalls wiederverwendet. Höchstens zwölf unabhängige Erweiterungs-Popupfenster sind erlaubt, einschließlich älterer abgetrennter Dashboards und Arbeitsbereich-Wiederherstellung; angeheftete Browser-Tabs zählen nicht dazu. Fremde Fenster und alte Duplikate werden nicht geschlossen; Duplikate früherer Versionen manuell schließen. Reicht die Kapazität für einen Arbeitsbereich nicht, wird teilweise Wiederherstellung gemeldet.
+**Multichat öffnen** und **Abtrennen** verwenden das passende Fenster erneut und fokussieren es, auch während des Ladens oder bei mehrfachen Klicks. Der Dashboard-Tab wird ebenfalls wiederverwendet. Höchstens zwölf unabhängige Erweiterungs-Popupfenster sind erlaubt, einschließlich älterer abgetrennter Dashboards und Arbeitsbereich-Wiederherstellung; angeheftete Browser-Tabs zählen nicht dazu. Fremde Fenster und alte Duplikate werden nicht geschlossen; bestehende Duplikate manuell schließen. Reicht die Kapazität für einen Arbeitsbereich nicht, wird teilweise Wiederherstellung gemeldet.
 
 ### Alle Chatter und lokaler Verlauf
 
@@ -225,4 +231,4 @@ Einstellungen liegen in `chrome.storage.local`, OAuth-Sitzungsdaten in `chrome.s
 
 Automatisierte Tests verwenden simulierten Verkehr. Echte OAuth-Anmeldung, Kanalrechte, Slow-Mode-Änderungen, Ein-Sekunden-Timeouts und Wiederherstellung auf physischen Monitoren müssen noch manuell geprüft werden. Ein berechtigtes Konto und einen eigenen Kanal verwenden; anschließend dessen vorherige Slow-Mode-Einstellung wiederherstellen.
 
-Die genauen Veröffentlichungsbefehle stehen unter [README: GitHub](../README.md#publicar-en-github). Ein leeres GitHub-Repository anlegen, den eigenen Kontonamen in der Remote-URL einsetzen und die dort gezeigten Befehle `git init -b main`, `git add .`, `git commit`, `git remote add origin` und `git push -u origin main` ausführen. Vorgemerkte Dateien vorher auf Geheimnisse prüfen. Die Veröffentlichung des Repositories veröffentlicht die Erweiterung nicht automatisch in Browser-Stores.
+Die genauen Veröffentlichungsbefehle stehen unter [README: GitHub](../README.md#github-repository-and-release-commands). Sie verwenden Repository/Branch `ChatterWatch` und Tag `v1.0.0`, mit getrennten Abläufen für ein neues Repository oder den Erhalt eines bestehenden Verlaufs. Den Eigentümer in der Remote-URL ersetzen und vorgemerkte Dateien vor dem Commit auf Geheimnisse prüfen. Die Veröffentlichung des Repositories veröffentlicht die Erweiterung nicht automatisch in Browser-Stores.

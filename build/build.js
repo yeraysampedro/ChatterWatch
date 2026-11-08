@@ -48,12 +48,22 @@ export async function buildPackages(output = new URL("../dist/", import.meta.url
     }
     const archive = new URL(`packages/chatter-watch-${source.version}-${target}.zip`, output);
     await Deno.mkdir(new URL("./", archive), { recursive: true });
-    await Deno.writeFile(archive, zipSync(entries, { level: 9, mtime: new Date(2000, 0, 1) }));
-    artifacts.push({ target, directory, archive });
+    const bytes = zipSync(entries, { level: 9, mtime: new Date(2000, 0, 1) });
+    await Deno.writeFile(archive, bytes);
+    if (target === "firefox") {
+      const unsignedArchive = new URL(`packages/chatter-watch-${source.version}-firefox-unsigned.xpi`, output);
+      await Deno.writeFile(unsignedArchive, bytes);
+      artifacts.push({ target, directory, archive, unsignedArchive });
+    } else {
+      artifacts.push({ target, directory, archive });
+    }
   }
   return artifacts;
 }
 
 if (import.meta.main) {
-  for (const artifact of await buildPackages()) console.log(`${artifact.target}: ${decodeURI(artifact.archive.pathname)}`);
+  for (const artifact of await buildPackages()) {
+    console.log(`${artifact.target}: ${decodeURI(artifact.archive.pathname)}`);
+    if (artifact.unsignedArchive) console.log(`firefox (UNSIGNED, not a permanent-install package): ${decodeURI(artifact.unsignedArchive.pathname)}`);
+  }
 }

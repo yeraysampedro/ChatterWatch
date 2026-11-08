@@ -1,9 +1,6 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { chromium, firefox } from "npm:playwright@1.56.1";
 import { exampleAccounts, exampleApp, receiveExampleMessage } from "./example_accounts.js";
-import { eventBus } from "./worker_harness.js";
-
-const browserName = Deno.env.get("CHATTER_BROWSER") || "chrome";
+import { browserHarness, browserName } from "./browser_harness.js";
 
 Deno.test({
   name: "example accounts UI: review, notes, history, approval and confirmed moderation through the worker",
@@ -12,84 +9,9 @@ Deno.test({
   async fn() {
     const firefoxApi = browserName === "firefox";
     const app = await exampleApp({ firefox: firefoxApi, realTimers: true });
-    let browser;
-    const pages = [];
-    const connections = [];
-    const deliveries = [];
-    const errors = [];
-    const runtimeRequests = [];
-    const deliver = (page, message, portId = null) => {
-      const delivery = page.evaluate(({ message, portId }) => window.exampleReceive(message, portId), { message: structuredClone(message), portId });
-      deliveries.push(delivery);
-      delivery.catch((error) => errors.push(error.message));
-      return delivery;
-    };
-    app.chrome.runtime.sendMessage = (message) => Promise.all(pages.map((page) => deliver(page, message)));
+    const ui = await browserHarness(app);
+    const { openView, errors, runtimeRequests, deliveries } = ui;
     try {
-      browser = await (firefoxApi ? firefox.launch({ headless: true }) : chromium.launch({ channel: browserName, headless: true }));
-      const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-      await context.route(/^https?:\/\//, (route) => {
-        errors.push(`Unexpected browser network request: ${route.request().url()}`);
-        return route.abort("blockedbyclient");
-      });
-      const openView = async (name) => {
-        const page = await context.newPage();
-        const ports = new Map();
-        connections.push(ports);
-        page.on("pageerror", (error) => errors.push(error.message));
-        await page.exposeFunction("exampleRequest", (message) => {
-          runtimeRequests.push(message);
-          return app.sendMessage(message);
-        });
-        await page.exposeFunction("exampleStorageGet", (keys) => app.chrome.storage.local.get(keys));
-        await page.exposeFunction("exampleStorageSet", (values) => app.chrome.storage.local.set(values));
-        await page.exposeFunction("exampleConnect", (id, name) => {
-          const port = { name, onDisconnect: eventBus(), postMessage: (message) => { void deliver(page, message, id); } };
-          ports.set(id, port);
-          app.chrome.runtime.onConnect.emit(port);
-        });
-        await page.exposeFunction("exampleDisconnect", (id) => {
-          ports.get(id)?.onDisconnect.emit();
-          ports.delete(id);
-        });
-        await page.addInitScript(({ firefoxApi }) => {
-          const listeners = [];
-          const ports = new Map();
-          window.exampleReceive = (message, portId) => {
-            for (const listener of portId === null ? listeners : ports.get(portId) || []) listener(message);
-          };
-          const api = {
-            i18n: { getUILanguage: () => "en-US" },
-            runtime: {
-              sendMessage: (message) => window.exampleRequest(message),
-              onMessage: { addListener: (listener) => listeners.push(listener) },
-              connect: ({ name }) => {
-                const id = crypto.randomUUID();
-                const callbacks = [];
-                ports.set(id, callbacks);
-                void window.exampleConnect(id, name);
-                return {
-                  onMessage: { addListener: (listener) => callbacks.push(listener) },
-                  onDisconnect: { addListener() {} },
-                  disconnect() { ports.delete(id); void window.exampleDisconnect(id); }
-                };
-              }
-            },
-            storage: {
-              local: { get: (keys) => window.exampleStorageGet(keys), set: (values) => window.exampleStorageSet(values) },
-              onChanged: { addListener() {} }
-            },
-            identity: { getRedirectURL: () => firefoxApi ? "https://test.extensions.allizom.org/" : "https://test.chromiumapp.org/twitch" }
-          };
-          window.chrome = firefoxApi ? {} : api;
-          if (firefoxApi) window.browser = api;
-          window.addEventListener("pagehide", () => { for (const id of ports.keys()) void window.exampleDisconnect(id); });
-        }, { firefoxApi });
-        await page.goto(new URL(`../src/${name}.html`, import.meta.url).href);
-        pages.push(page);
-        return page;
-      };
-
       const message = await receiveExampleMessage(app, exampleAccounts.newcomer, 1, { text: "Hello from SampleViewer01 <b>plain text</b>" });
       for (const account of [exampleAccounts.follower, exampleAccounts.regular, exampleAccounts.moderator]) {
         await receiveExampleMessage(app, account);
@@ -221,19 +143,6 @@ Deno.test({
       assert((await dashboard.locator("#history-note").textContent()).includes("RAID sample_a"));
       await Promise.all(deliveries);
       assertEquals(errors, []);
-    } finally {
-      app.chrome.runtime.sendMessage = () => Promise.resolve();
-      for (const ports of connections) {
-        for (const port of ports.values()) port.onDisconnect.emit();
-        ports.clear();
-      }
-      try {
-        await app.request({ type: "DISCONNECT" });
-        await Promise.all(deliveries);
-      } finally {
-        app.dispose();
-        await browser?.close();
-      }
-    }
+    } finally { await ui.dispose(); }
   }
 });

@@ -1,6 +1,6 @@
 # Testing Instructions for Store Reviewers
 
-Twitch Chatter Watch 1.3.1. These instructions describe the implemented extension. They are suitable for the Chrome Web Store Test instructions field and Mozilla Notes for Reviewers after the publisher provides the private test-access details below.
+ChatterWatch 1.0.0. These instructions describe the implemented extension. They are suitable for the Chrome Web Store Test instructions field and Mozilla Notes for Reviewers after the publisher provides the private test-access details below.
 
 ## Credentials and Access: Publisher Must Supply Privately
 
@@ -49,9 +49,10 @@ New-device/2FA verification arrangement: <ENTER_A_WORKING_PRIVATE_CONTACT_AND_PR
 
 Setup:
 1. Open the toolbar popup and use the pin button to open a pinned dashboard tab inside the browser.
-2. Open Settings, enter the Client ID and primary test channel, and save.
-3. Click Connect in that tab, sign in through Twitch with the test moderator/broadcaster account and approve the requested scopes.
-4. Wait for Connected / Monitoring.
+2. Review the data-use disclosure. Cancel/Stay offline first; then reopen, check the initially unchecked consent box and choose Allow data use.
+3. Open Settings, enter the Client ID and primary test channel, and save.
+4. Click Connect in that tab, sign in through Twitch with the test moderator/broadcaster account and approve the requested scopes.
+5. Wait for Connected / Monitoring.
 
 Core features:
 - From the separate ordinary account, open twitch.tv/<CHANNEL> and send harmless sample messages. They appear in Multichat and in All chatters. Pending review is conditional on enabled account-review signals; it does not list every chatter.
@@ -68,13 +69,18 @@ After testing, restore any changed channel settings and disconnect. The publishe
 
 ## Package and Setup
 
-1. Extract the browser-specific store kit. Install only `packages/chatter-watch-1.3.1-chromium.zip` or `packages/chatter-watch-1.3.1-firefox.zip` through the relevant review workflow. The store kit itself is not an installable extension ZIP.
+1. Extract the browser-specific store kit. Submit only `packages/chatter-watch-1.0.0-chromium.zip` or `packages/chatter-watch-1.0.0-firefox.zip` through the relevant review workflow. The store kit itself is not an installable extension ZIP. The separately generated Firefox `-unsigned.xpi` is also unsigned submission/development input, not a permanent-install asset.
 2. Use desktop Chromium/Chrome 116+ or Firefox 140+. The ordinary Firefox release requires signing for permanent installation; temporary loading is a development check, not proof of signing. No mobile compatibility is claimed.
 3. Open the extension and use the pin button for a pinned dashboard tab inside the browser, not a detached window. Repeated clicks reuse the tab. This avoids the native toolbar popup closing while the official OAuth flow runs.
-4. Open Settings. Confirm the displayed browser-specific OAuth redirect is registered in the test Twitch application. A locally unpacked Chrome installation can have a different ID/redirect from the store build. Prepare the final redirect after the item ID is known, before submitting the item for review.
-5. Enter the supplied Client ID and primary test channel. Settings save automatically after a valid edit or through Save. No Client Secret is requested.
-6. Select Connect in the pinned tab and complete Twitch's official sign-in. Grant the listed scopes: `chat:read`, `moderator:manage:banned_users`, `moderator:manage:warnings`, `moderator:read:followers`, `moderator:manage:chat_settings`, `moderator:manage:chat_messages`.
-7. Wait for Connected/Monitoring. Scope authorization is not the same as permission to moderate any channel: the account must have the appropriate role in the target channel.
+4. Choose **Review data use**, read the data categories, purposes, recipients, retention and withdrawal information, and test **Stay offline** first. No Twitch login/HTTP/IRC or remote avatars should start. Reopen the notice, check its initially unchecked consent box and choose **Allow data use** before enabling Twitch features. OAuth permission alone is not data-use consent.
+5. Open Settings. Confirm the displayed browser-specific OAuth redirect is registered in the test Twitch application. A locally unpacked Chrome installation can have a different ID/redirect from the store build. Prepare the final redirect after the item ID is known, before submitting the item for review.
+6. Enter the supplied Client ID and primary test channel. Settings save automatically after a valid edit or through Save. No Client Secret is requested.
+7. Select Connect in the pinned tab and complete Twitch's official sign-in. Grant the listed scopes: `chat:read`, `moderator:manage:banned_users`, `moderator:manage:warnings`, `moderator:read:followers`, `moderator:manage:chat_settings`, `moderator:manage:chat_messages`.
+8. Wait for Connected/Monitoring. Scope authorization is not the same as permission to moderate any channel: the account must have the appropriate role in the target channel.
+
+### Withdraw and Stay Offline
+
+Open Settings (or the browser's extension-options page), then **Data and privacy > Withdraw consent and disconnect**. Verify that session credentials are removed, IRC/API/translation activity stops and remote profile images are replaced by local initials. Search and open old messages/notes through All chatters without new network activity; account edits and sanctions remain blocked. History is deliberately retained, not erased by withdrawal. Reopen the view and verify it stays offline. Re-enable only through the current notice and another affirmative choice, then sign in again if required. To delete retained records, use the browser's storage-clearing tools or uninstall; remove TXT exports separately.
 
 ## Core Reading and Review
 
@@ -146,11 +152,13 @@ deno task test:ui --filter "example accounts"
 deno task test:ui:firefox --filter "example accounts"
 ```
 
-They are also included in the unfiltered test tasks. Browser prerequisites and the `CHATTER_BROWSER=msedge` alternative are described in [README.md](../README.md#desarrollo-y-pruebas). Test dependencies may download on the first run. The browser suite uses isolated headless contexts; it does not sign in through an existing personal browser profile.
+They are also included in the unfiltered test tasks. Browser prerequisites and the `CHATTER_BROWSER=msedge` alternative are described in [README.md](../README.md#development-and-verification). Test dependencies may download on the first run. The browser suite uses isolated headless contexts; it does not sign in through an existing personal browser profile.
 
 On Windows, double-click [build/run-example-account-tests.bat](../build/run-example-account-tests.bat) to run all three focused suites. It requires Deno 2 on PATH and the browsers described above, works from any current directory, honors `CHATTER_BROWSER`, and pauses to keep the results visible. It stops at the first failing suite and preserves its exit code. Pass `--no-pause` when invoking it from an automated command or an existing terminal.
 
 Separately, `deno task test:native` runs [native_popup_test.js](../tests/native_popup_test.js) with the actual extension loaded in an empty headless Chromium profile. It checks native popup sizing and Settings in EN/ES/DE and light/dark themes, pinned-tab reuse, full tab width and the popup sign-in handoff. It requires Playwright's full Chromium; `CHATTER_CHROMIUM_EXECUTABLE` can select an existing compatible binary. This test neither signs in to Twitch nor verifies the publisher's accounts.
+
+For the disclosure/consent boundary, `deno task test --filter privacy` covers absent/stale consent, data actions, session credentials, late responses and failed consent persistence. `deno task test:ui --filter "privacy UI"` and its Firefox counterpart exercise the real worker and views in EN/ES/DE: visible data details, unchecked/declined consent, no early OAuth/avatar requests, explicit acceptance, withdrawal, retained offline history and rejection of stale UI/OAuth results. All Twitch identities, tokens and avatar responses in these checks are fictional.
 
 ## Known Evidence Limits
 

@@ -3,6 +3,13 @@ if (typeof importScripts === "function") importScripts("core.js", "chat-flow.js"
 const extensionApi = globalThis.browser ?? globalThis.chrome;
 
 const { parseIrcLine, accountAgeDays, normalizeSettings, getFlagReasons, applyApproval, prepareReview, recordMessage } = ModerationCore;
+const { DATA_CONSENT_VERSION, DATA_CONSENT_REQUIRED, DATA_CONSENT_WITHDRAWN, hasDataConsent } = ModerationCore;
+const offlineRequests = new Set(["GET_STATE", "GET_CHAT_STATE", "GET_CHATTERS", "GET_ACCOUNT_HISTORY",
+  "OPEN_DASHBOARD", "OPEN_CHAT_WINDOW", "SAVE_WINDOW_GEOMETRY", "LIST_WORKSPACES", "DISCONNECT"]);
+const dataOperations = new Set();
+let dataConsent = null;
+let consentController = null;
+let consentWrites = Promise.resolve();
 const DB_NAME = "chatter-watch";
 const DB_VERSION = 2;
 const STORE = "accounts";
@@ -56,6 +63,86 @@ let sessionChatters = new Set();
 let sessionNewAccounts = new Set();
 let activeSessionId = "";
 
+function consentStatus() {
+  const accepted = hasDataConsent(dataConsent) && Boolean(consentController && !consentController.signal.aborted);
+  return {
+    version: DATA_CONSENT_VERSION, accepted, id: accepted ? dataConsent.id : null,
+    acceptedAt: accepted ? dataConsent.acceptedAt : null,
+    revision: Number.isFinite(dataConsent?.revision) ? dataConsent.revision : 0
+  };
+}
+
+function requireDataConsent(expected = consentController) {
+  if (!expected || expected !== consentController || expected.signal.aborted || !hasDataConsent(dataConsent)) {
+    const error = new Error(expected ? DATA_CONSENT_WITHDRAWN : DATA_CONSENT_REQUIRED);
+    error.name = "DataConsentError";
+    throw error;
+  }
+  return expected;
+}
+
+function withDataConsent(operation, expected = consentController) {
+  const task = Promise.resolve().then(() => {
+    requireDataConsent(expected);
+    return operation(expected);
+  }).then((result) => {
+    requireDataConsent(expected);
+    return result;
+  });
+  dataOperations.add(task);
+  const release = () => dataOperations.delete(task);
+  task.then(release, release);
+  return task;
+}
+
+async function clearSessionCredentials() {
+  await extensionApi.storage.session.remove(["accessToken", "moderator", "dataConsentId", "broadcasterId", "broadcasterLogin", "activeSessionId"]);
+  await extensionApi.storage.session.set({ chatConnected: false });
+}
+
+async function setDataConsent(message) {
+  if (message.accepted !== true && message.accepted !== false) throw new Error("Choose whether to allow data use.");
+  if (message.accepted && (message.confirmed !== true || message.version !== DATA_CONSENT_VERSION)) {
+    throw new Error(DATA_CONSENT_REQUIRED);
+  }
+  if (message.accepted && consentStatus().accepted) return { state: await snapshot(), dataConsent: consentStatus() };
+  const record = {
+    version: DATA_CONSENT_VERSION, accepted: message.accepted,
+    id: message.accepted ? crypto.randomUUID() : null,
+    acceptedAt: message.accepted ? Date.now() : null,
+    revision: Math.max(Date.now(), consentStatus().revision + 1)
+  };
+  if (message.accepted) {
+    await extensionApi.storage.local.set({ dataConsent: record });
+    dataConsent = record;
+    consentController = new AbortController();
+  } else {
+    const previous = consentController;
+    dataConsent = record;
+    consentController = null;
+    const cancellation = new Error(DATA_CONSENT_WITHDRAWN);
+    cancellation.name = "DataConsentError";
+    previous?.abort(cancellation);
+    for (const job of moderationWaiting.splice(0)) { queuedModeration -= 1; job.resolve(); }
+    broadcast("DATA_CONSENT", { dataConsent: consentStatus() });
+    postChat({ type: "DATA_CONSENT", dataConsent: consentStatus() });
+    const stopped = await Promise.allSettled([
+      extensionApi.storage.local.set({ dataConsent: record }),
+      stopChat(),
+      ...dataOperations,
+      ...accountTasks.values()
+    ]);
+    await clearSessionCredentials();
+    const persistenceFailure = stopped.slice(0, 2).find((result) => result.status === "rejected");
+    if (persistenceFailure) throw persistenceFailure.reason;
+  }
+  const state = await snapshot();
+  broadcast("DATA_CONSENT", { dataConsent: consentStatus() });
+  broadcast("STATE", { state });
+  postChat(chatState());
+  return { state, dataConsent: consentStatus() };
+}
+
 function openDatabase() {
   if (databasePromise) return databasePromise;
   databasePromise = new Promise((resolve, reject) => {
@@ -92,14 +179,28 @@ async function getAccount(key) {
   });
 }
 
-async function saveAccount(account) {
+async function saveRecord(store, value) {
+  const consent = requireDataConsent();
   const database = await openDatabase();
+  requireDataConsent(consent);
   return new Promise((resolve, reject) => {
-    const request = database.transaction(STORE, "readwrite").objectStore(STORE).put(account);
-    request.onsuccess = () => resolve(account);
-    request.onerror = () => reject(request.error);
+    const transaction = database.transaction(store, "readwrite");
+    const cancel = () => {
+      try { transaction.abort(); }
+      catch (error) { if (error.name !== "InvalidStateError") throw error; }
+    };
+    const cleanup = () => consent.signal.removeEventListener("abort", cancel);
+    consent.signal.addEventListener("abort", cancel, { once: true });
+    transaction.oncomplete = () => { cleanup(); resolve(value); };
+    transaction.onabort = transaction.onerror = () => {
+      cleanup();
+      reject(consent.signal.aborted ? consent.signal.reason : transaction.error || new Error("Could not save local history."));
+    };
+    transaction.objectStore(store).put(value);
   });
 }
+
+function saveAccount(account) { return saveRecord(STORE, account); }
 
 async function getChannelAccounts(broadcasterId, summaries = false) {
   const database = await openDatabase();
@@ -127,33 +228,29 @@ async function getCachedProfile(userId) {
   });
 }
 
-async function saveCachedProfile(profile) {
-  const database = await openDatabase();
-  return new Promise((resolve, reject) => {
-    const request = database.transaction(PROFILE_STORE, "readwrite").objectStore(PROFILE_STORE).put(profile);
-    request.onsuccess = () => resolve(profile);
-    request.onerror = () => reject(request.error);
-  });
-}
+function saveCachedProfile(profile) { return saveRecord(PROFILE_STORE, profile); }
 
 async function getSessionData() {
   const values = await extensionApi.storage.local.get("settings");
-  const sessionValues = await extensionApi.storage.session.get(["accessToken", "moderator"]);
+  const sessionValues = await extensionApi.storage.session.get(["accessToken", "moderator", "dataConsentId"]);
+  const authorized = consentStatus().accepted && sessionValues.dataConsentId === dataConsent.id;
   return {
     settings: normalizeSettings(values.settings),
-    accessToken: sessionValues.accessToken || "",
-    moderator: sessionValues.moderator || null
+    accessToken: authorized ? sessionValues.accessToken || "" : "",
+    moderator: authorized ? sessionValues.moderator || null : null
   };
 }
 
 async function apiRequest(path, { method = "GET", body, token, clientId, query } = {}) {
+  const consent = requireDataConsent();
   const auth = token && clientId ? { accessToken: token, settings: { clientId } } : await getSessionData();
   if (!auth.accessToken || !auth.settings.clientId) throw new Error("Sign in with Twitch before using Helix.");
   const url = new URL(`${HELIX}${path}`);
   if (query) for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
+  requireDataConsent(consent);
   const response = await fetch(url, {
     method,
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.any([consent.signal, AbortSignal.timeout(15_000)]),
     headers: {
       "Client-Id": auth.settings.clientId,
       "Authorization": `Bearer ${auth.accessToken}`,
@@ -161,26 +258,35 @@ async function apiRequest(path, { method = "GET", body, token, clientId, query }
     },
     ...(body ? { body: JSON.stringify(body) } : {})
   });
+  requireDataConsent(consent);
   if (!response.ok) {
     let detail = "";
     try { detail = (await response.json()).message || ""; } catch { /* Response may be empty. */ }
+    requireDataConsent(consent);
     if (response.status === 401) {
       await extensionApi.storage.session.remove(["accessToken", "moderator"]);
       await stopChat();
     }
     throw new Error(detail || `Twitch API returned ${response.status}.`);
   }
-  return response.status === 204 ? null : response.json();
+  const data = response.status === 204 ? null : await response.json();
+  requireDataConsent(consent);
+  return data;
 }
 
 async function validateToken(token, clientId, settings = activeSettings) {
-  const response = await fetch(OAUTH_VALIDATE, { headers: { Authorization: `OAuth ${token}` } });
+  const consent = requireDataConsent();
+  const response = await fetch(OAUTH_VALIDATE, {
+    headers: { Authorization: `OAuth ${token}` }, signal: AbortSignal.any([consent.signal, AbortSignal.timeout(15_000)])
+  });
+  requireDataConsent(consent);
   if (!response.ok) {
     const error = new Error(response.status === 401 ? "Twitch sign-in expired. Sign in again to continue." : "Twitch validation is temporarily unavailable.");
     error.authFailure = response.status === 401;
     throw error;
   }
   const user = await response.json();
+  requireDataConsent(consent);
   if (user.client_id !== clientId || !user.user_id) throw new Error("The Twitch token does not match this app or is not a user token.");
   if (!user.scopes.includes("chat:read")) throw new Error("Grant the chat:read permission to connect to Twitch chat.");
   if (!user.scopes.includes("moderator:manage:banned_users")) throw new Error("Grant the moderator:manage:banned_users permission to moderate chatters.");
@@ -259,9 +365,10 @@ async function snapshot() {
   const flagged = accounts
     .filter((account) => !account.reviewExempt && !account.isVetted && !account.dismissed && (account.reasons?.length || account.lookupPending))
     .sort((left, right) => (right.lastMessageAt || 0) - (left.lastMessageAt || 0));
-  await extensionApi.action?.setBadgeText({ text: settings.alertAttention && flagged.length ? (flagged.length > 999 ? "999+" : String(flagged.length)) : "" });
+  await extensionApi.action?.setBadgeText({ text: consentStatus().accepted && settings.alertAttention && flagged.length ? (flagged.length > 999 ? "999+" : String(flagged.length)) : "" });
   return {
     settings,
+    dataConsent: consentStatus(),
     moderator,
     status,
     statusMessage,
@@ -303,7 +410,7 @@ function allChannels(config = chatConfig) {
 
 function chatState() {
   return {
-    type: "CHAT_STATE", config: chatConfig, revision: chatConfigRevision, status, statusMessage,
+    type: "CHAT_STATE", config: chatConfig, revision: chatConfigRevision, status, statusMessage, dataConsent: consentStatus(),
     primaryChannel, rooms: Object.fromEntries(roomStates),
     channels: allChannels().map((channel) => chatFlow.snapshot(channel))
   };
@@ -337,6 +444,7 @@ function syncChannels() {
 }
 
 function ingestChat(message) {
+  if (!consentStatus().accepted) return;
   const channel = message.params[0]?.replace(/^#/, "").toLowerCase();
   if (!joinedChannels.has(channel)) return;
   if (message.command === "CLEARMSG" || message.command === "CLEARCHAT") {
@@ -530,6 +638,7 @@ async function deleteChatMessage(message) {
 }
 
 async function translateChatMessage(message) {
+  const consent = requireDataConsent();
   if (message.confirmed !== true) throw new Error("Confirm sending this message to your translation server.");
   const { entry } = retainedEntry(message);
   const { settings } = await getSessionData();
@@ -537,13 +646,15 @@ async function translateChatMessage(message) {
   const url = new URL(settings.translationUrl);
   if (url.protocol !== "https:" || url.username || url.password || url.hash) throw new Error("Use an HTTPS translation URL without credentials or fragment.");
   if (!await extensionApi.permissions.contains({ origins: [`${url.origin}/*`], ...(globalThis.browser ? { data_collection: ["personalCommunications"] } : {}) })) throw new Error("Allow this translation server in Settings first.");
+  requireDataConsent(consent);
   const response = await fetch(url.href, {
-    method: "POST", credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(15_000),
+    method: "POST", credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", signal: AbortSignal.any([consent.signal, AbortSignal.timeout(15_000)]),
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ q: entry.text, source: "auto", target: settings.translationTarget, format: "text" })
   });
   if (!response.ok) throw new Error(`Translation server returned ${response.status}.`);
   const data = await response.json();
+  requireDataConsent(consent);
   if (typeof data.translatedText !== "string") throw new Error("Translation server did not return translatedText.");
   return { text: data.translatedText.slice(0, 8000), target: settings.translationTarget };
 }
@@ -769,6 +880,7 @@ async function lookupSignals(account) {
 }
 
 async function processChatMessage(message) {
+  requireDataConsent();
   if (message.command !== "PRIVMSG" || !message.prefix) return;
   const userId = message.tags["user-id"];
   const broadcasterId = message.tags["room-id"] || (await extensionApi.storage.session.get("broadcasterId")).broadcasterId;
@@ -798,6 +910,7 @@ async function processChatMessage(message) {
 }
 
 function handleChatMessage(message) {
+  if (!consentStatus().accepted) return Promise.resolve();
   if (message.command !== "PRIVMSG" || !message.tags["user-id"]) return Promise.resolve();
   if (queuedModeration >= 256) {
     chatFlow.channel(primaryChannel).stats.moderationSkipped += 1;
@@ -805,7 +918,7 @@ function handleChatMessage(message) {
   }
   queuedModeration += 1;
   return new Promise((resolve) => {
-    moderationWaiting.push({ message, resolve, session: activeSessionId });
+    moderationWaiting.push({ message, resolve, session: activeSessionId, consent: consentController });
     drainModeration();
   });
 }
@@ -818,8 +931,8 @@ function drainModeration() {
     const key = `${job.message.tags["room-id"]}:${job.message.tags["user-id"]}`;
     messageQueues.set(key, true);
     runningModeration += 1;
-    Promise.resolve().then(() => job.session === activeSessionId ? processChatMessage(job.message) : undefined)
-      .catch((error) => console.warn("Could not process chat message", error))
+    withDataConsent(() => job.session === activeSessionId ? processChatMessage(job.message) : undefined, job.consent)
+      .catch((error) => { if (error.name !== "DataConsentError") console.warn("Could not process chat message", error); })
       .finally(() => {
         messageQueues.delete(key);
         runningModeration -= 1;
@@ -897,7 +1010,8 @@ function scheduleReconnect() {
   const delay = Math.min(30_000, 1000 * (2 ** reconnectAttempt++));
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    void startChat({ reconnect: true }).catch((error) => {
+    void withDataConsent(() => startChat({ reconnect: true })).catch((error) => {
+      if (error.name === "DataConsentError" || !consentStatus().accepted) return;
       void setStatus("error", error.message);
       scheduleReconnect();
     });
@@ -905,6 +1019,7 @@ function scheduleReconnect() {
 }
 
 async function startChat({ reconnect = false, resume = false } = {}) {
+  const consent = requireDataConsent();
   const generation = ++connectionGeneration;
   clearTimeout(reconnectTimer);
   reconnectTimer = null;
@@ -928,6 +1043,7 @@ async function startChat({ reconnect = false, resume = false } = {}) {
   const nextPrimary = ChatFlow.channelName(settings.channel);
   if (new Set([nextPrimary, ...chatConfig.channels]).size > ChatFlow.MAX_CHANNELS) throw new Error("Remove a chat before connecting another primary channel (maximum 6).");
   const broadcaster = await loadChannel();
+  requireDataConsent(consent);
   if (generation !== connectionGeneration) return;
   primaryChannel = nextPrimary;
   manualDisconnect = false;
@@ -946,6 +1062,7 @@ async function startChat({ reconnect = false, resume = false } = {}) {
   roomStates.clear();
   syncChannels();
   await setStatus("connecting", `Connecting to ${broadcaster.login}…`);
+  requireDataConsent(consent);
   const connection = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
   socket = connection;
   lastIrcAt = Date.now();
@@ -1025,17 +1142,18 @@ async function startChat({ reconnect = false, resume = false } = {}) {
 async function stopChat() {
   connectionGeneration += 1;
   manualDisconnect = true;
-  await extensionApi.storage.session.set({ chatConnected: false });
+  const previous = socket;
+  socket = null;
   if (reconnectTimer) clearTimeout(reconnectTimer);
   reconnectTimer = null;
   clearTimeout(connectionWatchdog);
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   heartbeatTimer = null;
-  if (socket) socket.close(1000, "Disconnected by moderator");
-  socket = null;
+  if (previous) previous.close(1000, "Disconnected by moderator");
   joined = false;
   joinedChannels.clear();
   roomStates.clear();
+  await extensionApi.storage.session.set({ chatConnected: false });
   await extensionApi.storage.session.remove("broadcasterId");
   await setStatus("disconnected", "Chat disconnected");
 }
@@ -1056,7 +1174,7 @@ async function saveModeratorSettings(settings) {
   const clientChanged = previousSettings.clientId !== activeSettings.clientId;
   const channelChanged = previousSettings.channel !== activeSettings.channel;
   if (clientChanged) {
-    await extensionApi.storage.session.remove(["accessToken", "moderator"]);
+    await extensionApi.storage.session.remove(["accessToken", "moderator", "dataConsentId"]);
     if (socket) await stopChat();
   } else if (channelChanged && socket) {
     await stopChat();
@@ -1070,7 +1188,19 @@ async function saveModeratorSettings(settings) {
 }
 
 async function handleMessage(message) {
+  await consentReady;
+  if (message.type === "GET_DATA_CONSENT") return { dataConsent: consentStatus() };
+  if (message.type === "SET_DATA_CONSENT") {
+    const task = consentWrites.then(() => setDataConsent(message));
+    consentWrites = task.catch(() => {});
+    return task;
+  }
   await chatReady;
+  if (!offlineRequests.has(message.type)) return withDataConsent(() => dispatchMessage(message));
+  return dispatchMessage(message);
+}
+
+async function dispatchMessage(message) {
   if (message.type === "GET_CHATTERS") return listChatters(message);
   if (message.type === "GET_ACCOUNT_HISTORY") {
     const { settings } = await getSessionData();
@@ -1110,10 +1240,11 @@ async function handleMessage(message) {
   }
   if (message.type === "GET_STATE") return { state: await snapshot() };
   if (message.type === "AUTH") {
+    if (message.consentId !== dataConsent.id) throw new Error(DATA_CONSENT_WITHDRAWN);
     const { settings } = await getSessionData();
     if (!settings.clientId) throw new Error("Save your Twitch application client ID first.");
     const moderator = await validateToken(String(message.accessToken || ""), settings.clientId);
-    await extensionApi.storage.session.set({ accessToken: String(message.accessToken), moderator });
+    await extensionApi.storage.session.set({ accessToken: String(message.accessToken), moderator, dataConsentId: message.consentId });
     await publishSnapshot();
     return { state: await snapshot() };
   }
@@ -1187,7 +1318,7 @@ async function refreshAllReasons() {
 }
 
 extensionApi.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (["STATE", "ERROR", "NOTICE", "OPEN_SETTINGS"].includes(message.type)) return false;
+  if (["STATE", "ERROR", "NOTICE", "OPEN_SETTINGS", "DATA_CONSENT"].includes(message.type)) return false;
   handleMessage(message).then(sendResponse).catch((error) => sendResponse({ error: error.message || "Something went wrong." }));
   return true;
 });
@@ -1208,12 +1339,13 @@ extensionApi.runtime.onConnect.addListener((port) => {
 extensionApi.alarms.create("token-validation", { periodInMinutes: 60 });
 extensionApi.alarms.create("stream-status", { periodInMinutes: 1 });
 extensionApi.alarms.onAlarm.addListener((alarm) => {
+  if (!consentStatus().accepted) return;
   if (alarm.name === "stream-status") {
-    void pollStream().catch((error) => broadcast("NOTICE", { message: error.message }));
+    void withDataConsent(() => pollStream()).catch((error) => { if (error.name !== "DataConsentError") broadcast("NOTICE", { message: error.message }); });
     return;
   }
   if (alarm.name !== "token-validation") return;
-  void (async () => {
+  void withDataConsent(async () => {
     const { settings, accessToken, moderator } = await getSessionData();
     if (!accessToken) return;
     try {
@@ -1225,11 +1357,18 @@ extensionApi.alarms.onAlarm.addListener((alarm) => {
       await stopChat();
       await setStatus("error", error.message);
     }
-  })();
+  }).catch((error) => { if (error.name !== "DataConsentError") broadcast("NOTICE", { message: error.message }); });
 });
+
+const consentReady = (async () => {
+  dataConsent = (await extensionApi.storage.local.get("dataConsent")).dataConsent || null;
+  if (hasDataConsent(dataConsent)) consentController = new AbortController();
+  return consentController;
+})();
 
 const chatReady = (async () => {
   try {
+    const initialConsent = await consentReady;
     const saved = await extensionApi.storage.local.get("chatConfig");
     chatConfig = ChatFlow.normalizeConfig(saved.chatConfig);
     chatFlow.configure(chatConfig.flow);
@@ -1239,10 +1378,15 @@ const chatReady = (async () => {
     primaryChannel = settings.channel ? ChatFlow.channelName(settings.channel) : "";
     if (allChannels().length > ChatFlow.MAX_CHANNELS) chatConfig.channels = chatConfig.channels.slice(0, 5);
     resetBatchTimer();
+    if (!initialConsent || initialConsent !== consentController || !consentStatus().accepted) {
+      await clearSessionCredentials();
+      manualDisconnect = true;
+      return;
+    }
     if (accessToken && settings.channel && storedSession.chatConnected === true) {
-      await startChat({ resume: Boolean(storedSession.activeSessionId) });
+      await withDataConsent(() => startChat({ resume: Boolean(storedSession.activeSessionId) }), initialConsent);
     }
   } catch (error) {
-    await setStatus("error", error.message);
+    if (error.name !== "DataConsentError") await setStatus("error", error.message);
   }
 })();

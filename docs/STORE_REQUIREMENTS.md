@@ -1,6 +1,6 @@
 # Store Publication Requirements
 
-Reviewed: **2026-11-07**. Target: Twitch Chatter Watch **1.3.1**, Chrome Web Store (CWS) and Mozilla Add-ons (AMO).
+Requirements reviewed: **2026-11-07**. Release target updated **2026-11-08**: ChatterWatch **1.0.0**, Chrome Web Store (CWS) and Mozilla Add-ons (AMO).
 Scope: primary-source requirements research only; no submission, signing, package audit, asset generation or authenticated dashboard inspection.
 Project behavior comes from [PRIVACY.md](PRIVACY.md) and [docs/STORE_SUBMISSION.md](STORE_SUBMISSION.md), not an independent runtime verification.
 **Required** means an explicit store requirement; **recommended/optional** is not a publication blocker; **publisher action** requires the owner's decision or account.

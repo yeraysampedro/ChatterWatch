@@ -84,6 +84,7 @@ function showMessage(entry) {
 async function messageAction(action, entry, view) {
   try {
     if (action === "pin") { pinMessage(entry, view); return; }
+    if (!ExtensionView.dataConsent().accepted) throw new Error(ExtensionView.label("privacyRequired"));
     const title = ExtensionView.label(action);
     const context = `#${entry.channel} / ${entry.displayName || entry.login}\n${entry.text}`;
     if (action === "delete") {
@@ -163,6 +164,8 @@ function text(key, values = {}) {
 }
 
 function localError(error) {
+  const privacy = ExtensionView.privacyError(error.message);
+  if (privacy !== error.message) return privacy;
   if (error.message.includes("settings changed")) return text("conflict");
   if (/pattern|regex|quantifier/i.test(error.message)) return text("invalidPattern");
   return error.message;
@@ -296,7 +299,8 @@ function updateLayout() {
 
 function renderStatus() {
   if (!state) return;
-  element("connection-status").textContent = state.status === "error" ? `${text("error")}: ${state.statusMessage}` : text(state.status);
+  element("connection-status").textContent = !ExtensionView.dataConsent().accepted ? ExtensionView.label("privacyOfflineStatus")
+    : state.status === "error" ? `${text("error")}: ${state.statusMessage}` : text(state.status);
   for (const [channel, panel] of panels) {
     if (channel === UNIFIED) {
       panel.room.textContent = state.channels.map((entry) => `#${entry.channel}: ${text(state.rooms[entry.channel]?.connected ? "connected" : "waiting")}`).join(" / ");
@@ -309,9 +313,14 @@ function renderStatus() {
 }
 
 function receive(message) {
-  if (message.type === "REVIEW_ALERT") { void ExtensionView.playSound(message.volume); return; }
+  if (message.type === "DATA_CONSENT") {
+    ExtensionView.updateDataConsent(message.dataConsent);
+    renderStatus();
+    return;
+  }
+  if (message.type === "REVIEW_ALERT") { if (ExtensionView.dataConsent().accepted) void ExtensionView.playSound(message.volume); return; }
   if (message.type === "CHAT_STATE") {
-    state = message;
+    state = { ...message, dataConsent: ExtensionView.updateDataConsent(message.dataConsent) };
     reconnectDelay = 1000;
     const unified = state.config.viewMode === "unified" && !detachedChannel;
     const channels = unified && message.channels.length ? [{

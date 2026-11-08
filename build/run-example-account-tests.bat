@@ -5,7 +5,7 @@ set "exitCode=1"
 pushd "%~dp0.."
 if errorlevel 1 goto directoryError
 
-echo Twitch Chatter Watch - example-account tests
+echo ChatterWatch - example-account tests
 echo Fictional accounts only. No live Twitch actions.
 echo.
 

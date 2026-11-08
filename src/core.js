@@ -1,6 +1,17 @@
 (function (root) {
   "use strict";
 
+  const DATA_CONSENT_VERSION = 1;
+  const DATA_CONSENT_REQUIRED = "Review and allow data use before using Twitch or changing account records.";
+  const DATA_CONSENT_WITHDRAWN = "Data-use consent was withdrawn. Earlier requests may already have reached Twitch or the translation provider.";
+
+  function hasDataConsent(value) {
+    return value?.accepted === true && value.version === DATA_CONSENT_VERSION &&
+      typeof value.id === "string" && value.id.length > 0 &&
+      Number.isFinite(value.acceptedAt) && value.acceptedAt > 0 &&
+      Number.isFinite(value.revision) && value.revision > 0;
+  }
+
   function parseIrcLine(line) {
     let remaining = line;
     const tags = {};
@@ -129,7 +140,8 @@
     return account;
   }
 
-  const api = { parseIrcLine, accountAgeDays, resolveLanguage, normalizeSettings, getFlagReasons, applyApproval, prepareReview, recordMessage };
+  const api = { DATA_CONSENT_VERSION, DATA_CONSENT_REQUIRED, DATA_CONSENT_WITHDRAWN, hasDataConsent,
+    parseIrcLine, accountAgeDays, resolveLanguage, normalizeSettings, getFlagReasons, applyApproval, prepareReview, recordMessage };
   root.ModerationCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(globalThis);

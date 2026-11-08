@@ -118,6 +118,15 @@ Deno.test("language resolution handles regional locales, saved choices and Engli
   assertEquals(normalizeSettings({ language: "de-AT" }).language, "de");
 });
 
+Deno.test("data-use consent requires an affirmative current-version record, not a legacy boolean or OAuth state", () => {
+  const record = { version: ModerationCore.DATA_CONSENT_VERSION, accepted: true, id: "local-grant", acceptedAt: 1, revision: 1 };
+  assert(ModerationCore.hasDataConsent(record));
+  for (const value of [undefined, null, true, { chatConnected: true }, { ...record, accepted: false },
+    { ...record, version: record.version - 1 }, { ...record, id: "" }, { ...record, acceptedAt: "1" }, { ...record, revision: 0 }]) {
+    assertFalse(ModerationCore.hasDataConsent(value));
+  }
+});
+
 Deno.test("flags only enabled, known risk signals", () => {
   const settings = normalizeSettings({ flagFirstMessage: false, flagNewFollower: true, ageLimitDays: 60 });
   assertEquals(getFlagReasons({ ageDays: 12, firstMessage: true, followedAt: new Date().toISOString() }, settings), ["new-account", "new-follower"]);

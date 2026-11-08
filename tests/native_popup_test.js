@@ -72,7 +72,10 @@ Deno.test({
     });
     const views = [];
     try {
-      const worker = context.serviceWorkers()[0] || await context.waitForEvent("serviceworker");
+      const isExtensionWorker = (worker) => /^chrome-extension:\/\/[^/]+\/worker\.js$/.test(worker.url());
+      const worker = context.serviceWorkers().find(isExtensionWorker) ||
+        await context.waitForEvent("serviceworker", { predicate: isExtensionWorker });
+      await eventually(() => worker.evaluate(() => typeof chrome !== "undefined" && Boolean(chrome.runtime?.id)));
       const cdp = await context.browser().newBrowserCDPSession();
       const originalWindows = await worker.evaluate(() => chrome.windows.getAll());
       const openPopup = async () => {

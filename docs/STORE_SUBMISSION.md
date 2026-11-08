@@ -1,6 +1,17 @@
 # Store Submission Checklist
 
-Version 1.3.1. This checklist supports Chrome Web Store and Mozilla Add-ons (AMO); it does not submit or publish anything.
+ChatterWatch 1.0.0. This checklist supports Chrome Web Store and Mozilla Add-ons (AMO); it does not submit or publish anything.
+
+## Purple Nickel: Prominent Disclosure and Consent
+
+1. Put the **DATA USE AND YOUR CHOICE** block at the beginning of the Chrome Web Store detailed description, using the copy in STORE_LISTING.md. Do not hide collection/recipients in a link, screenshot, footer or features list. Chrome's disclosure requirements apply before installation.
+2. Publish the current PRIVACY.md at the actual public policy URL and update the store's privacy-practices declarations to match. A local Markdown edit or in-extension checkbox does not update that website or the store listing.
+3. Submit the build containing the initial disclosure, initially unchecked consent box, **Stay offline** choice and **Settings > Data and privacy > Withdraw consent and disconnect** control. Browser options open the same settings page.
+4. Test with no prior consent and with an old signed-in session: no Twitch authentication/API/IRC or remote avatar request may start before explicit current consent. Cancel/unchecked submission must remain offline.
+5. Test withdrawal during normal use and an in-flight request. New activity stops, session credentials are removed and existing history remains read-only. Reopening the view must not load remote avatars or revive the old grant. Previous transmissions and Twitch actions cannot be recalled.
+6. Supply the updated public listing/policy and reviewer steps when requesting another review. Automated tests demonstrate local behavior, not Google approval or legal certification. Other documented publication blockers, including licensing and at-rest-security assessment, remain separate.
+
+Official references: [Disclosure requirements](https://developer.chrome.com/docs/webstore/program-policies/disclosure-requirements) and [Limited Use](https://developer.chrome.com/docs/webstore/program-policies/limited-use).
 
 ## Prepared Materials
 
@@ -11,7 +22,9 @@ Version 1.3.1. This checklist supports Chrome Web Store and Mozilla Add-ons (AMO
 - `dist/store/`: 128px icon, Firefox 32/64px derivatives, five 1280x800 screenshots per browser, optional promotional images, asset hashes and generated metadata.
 - [STORE_VALIDATION.md](STORE_VALIDATION.md): generated analysis of the actual extension ZIPs and the two store-kit ZIPs, including publication blockers. A structural PASS is not a store approval.
 
-Run `deno task store:assets` to capture both browser sets, rebuild the extension packages, export metadata and create `dist/store-kits/chatter-watch-1.3.1-chromium-store-kit.zip` and `dist/store-kits/chatter-watch-1.3.1-firefox-store-kit.zip`. Each kit has exactly one listing icon of 128x128 and five 1280x800 screenshots. Extract the kit before uploading: only the ZIP inside `packages/` is the installable extension. Captures are separate listing uploads and intentionally absent from the extension ZIP itself. `--capture-only` regenerates images; `--bundle-only` revalidates existing images/packages and rebuilds kits.
+Run `deno task store:assets` to capture both browser sets, rebuild the extension packages, export metadata and create `dist/store-kits/chatter-watch-1.0.0-chromium-store-kit.zip` and `dist/store-kits/chatter-watch-1.0.0-firefox-store-kit.zip`. Each kit has exactly one listing icon of 128x128 and five 1280x800 screenshots. Extract the kit before uploading: only the ZIP inside `packages/` is the extension submission package. Captures are separate listing uploads and intentionally absent from the extension ZIP itself. `--capture-only` regenerates images; `--bundle-only` revalidates existing images/packages and rebuilds kits.
+
+The ordinary build also creates `dist/packages/chatter-watch-1.0.0-firefox-unsigned.xpi`, byte-identical to the Firefox ZIP. It is not signed for permanent installation. For GitHub distribution, obtain the signed XPI from Mozilla and follow [README.md](../README.md). Check the version/date inside STORE_VALIDATION.md: an internal 1.3.x report is not evidence for the 1.0.0 packages and must not be relabeled as current.
 
 The verified support route is https://github.com/yeraysampedro/Twtich-Moderatr/issues . Publish the current policy and support documents to the repository before submitting their URLs; this command does not commit, push or publish them.
 
@@ -30,7 +43,7 @@ The public privacy check compares the raw published policy with the local policy
 
 ## Listing and Privacy
 
-- Describe actual 1.3.1 behavior using IMPLEMENTATION.md. Superseded v0.1 planning PDFs were removed; no planning document or generated report constitutes platform certification.
+- Describe actual 1.0.0 behavior using IMPLEMENTATION.md. Superseded v0.1 planning PDFs were removed; no planning document or generated report constitutes platform certification.
 - Publish PRIVACY.md at a public URL and provide accurate publisher support/identity details. Complete the store's data and permission declarations for the submitted build.
 - Resolve the local at-rest-encryption policy question documented in STORE_REQUIREMENTS.md/STORE_PERMISSIONS.md before security certification. The code uses browser storage and IndexedDB without its own encryption; do not label it encrypted without evidence.
 - Explain required Twitch host access and storage/identity/alarms/sidePanel. Optional HTTPS access is granted per configured translation origin, not automatically for all websites.

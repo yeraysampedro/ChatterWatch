@@ -1,10 +1,16 @@
 # Permission Justifications - Ready to Paste
 
-Twitch Chatter Watch 1.3.1. English text for the Chrome Web Store Privacy practices fields and Mozilla reviewer notes. Checked against the local manifest and relevant request paths on 7 November 2026. Recheck against the exact ZIP submitted. These explanations are not a security certification or permission to bypass store review.
+ChatterWatch 1.0.0. English text for the Chrome Web Store Privacy practices fields and Mozilla reviewer notes. Technical permission review: 7 November 2026; release metadata updated 8 November 2026. Recheck against the exact ZIP submitted. These explanations are not a security certification or permission to bypass store review.
 
 ## Single Purpose
 
-Twitch Chatter Watch provides one dedicated workspace for monitoring and moderating Twitch chat. Its multichat views, chatter review, message organization and optional translation of a selected chat message support that same workflow. It is not a general website reader, browser automation tool or standalone translation service.
+ChatterWatch provides one dedicated workspace for monitoring and moderating Twitch chat. Its multichat views, chatter review, message organization and optional translation of a selected chat message support that same workflow. It is not a general website reader, browser automation tool or standalone translation service.
+
+## Prominent Disclosure and Affirmative Consent
+
+Put the data-use disclosure at the beginning of the store listing, before installation, and publish the current PRIVACY.md. The extension separately requires an initially unchecked, explicit consent action before Twitch authentication/API/IRC or new account-history records. A previous OAuth session is not consent. The browser's extension-options page opens the dashboard's Data and privacy controls, including withdrawal.
+
+Withdrawal stops new activity, aborts pending fetches where possible and removes session credentials. Existing data remains read-only offline, without remote profile images; deleting local records is a separate user action. Twitch/CDN traffic and optional translator recipients are disclosed, rather than describing the extension as entirely offline or claiming no data transmission. Browser host/OAuth permissions and per-message translation confirmation remain separate requirements.
 
 ## storage
 

@@ -43,6 +43,7 @@ function demoApi({ firefoxApi }) {
   }));
   const chatState = {
     type: "CHAT_STATE", revision: 0, status: "connected", primaryChannel: "demo",
+    dataConsent: { version: 1, accepted: true, id: "store-fixture", acceptedAt: now, revision: 1 },
     config: { channels: channels.slice(1), columns: 3, viewMode: "grid",
       highlights: [{ pattern: "question|schedule|community", color: "#f1bd60" }],
       flow: { batchMs: 200, localSlowSeconds: 0, spamEnabled: true, repeatLimit: 3, frequencyLimit: 6, windowSeconds: 10, pattern: "", pauseOnHover: false } },
@@ -63,7 +64,7 @@ function demoApi({ firefoxApi }) {
       messageCount: 4, firstMessage: false, followedAt: new Date(now - 10 * 60000).toISOString(),
       reasons: ["new-follower"], note: "", recentMessages: [{ text: "Thanks for the welcome. Can we pin the community links?", sentAt: now - 15000 }], lastMessageAt: now - 15000 }
   ];
-  const snapshot = () => ({ settings: window.ModerationCore.normalizeSettings(settings), moderator: { login: "demo_moderator" },
+  const snapshot = () => ({ settings: window.ModerationCore.normalizeSettings(settings), moderator: { login: "demo_moderator" }, dataConsent: chatState.dataConsent,
     status: "connected", statusMessage: "Monitoring demo", flagged: accounts.length, accounts, approved: [] });
   const api = {
     i18n: { getUILanguage: () => "en-US" },
@@ -74,6 +75,7 @@ function demoApi({ firefoxApi }) {
         onDisconnect: { addListener() {} }, disconnect() {}
       }),
       sendMessage: async (message) => {
+        if (message.type === "GET_DATA_CONSENT") return { dataConsent: chatState.dataConsent };
         if (message.type === "GET_STATE") return { state: snapshot() };
         if (message.type === "GET_CHATTERS") {
           const matches = accounts.filter((account) => !message.query || `${account.login} ${account.displayName}`.toLowerCase().includes(message.query.toLowerCase()));
@@ -191,18 +193,18 @@ async function graphics(page) {
       canvas.height = height;
       const drawing = canvas.getContext("2d");
       if (width === 128) {
-        drawing.drawImage(image, 20, 20, 472, 472, 16, 16, 96, 96);
+        drawing.drawImage(image, 0, 0, width, height);
       } else {
-        drawing.fillStyle = "#192c27";
+        drawing.fillStyle = "#160f1f";
         drawing.fillRect(0, 0, width, height);
-        drawing.fillStyle = "#244e3e";
+        drawing.fillStyle = "#38005e";
         drawing.fillRect(width * 0.62, 0, width * 0.38, height);
-        drawing.fillStyle = "#81dfac";
+        drawing.fillStyle = "#d2a4ff";
         drawing.fillRect(0, 0, width * 0.018, height);
         const iconSize = height * 0.7;
         drawing.drawImage(image, width * 0.12, height * 0.12, iconSize, iconSize);
         for (let index = 0; index < 3; index += 1) {
-          drawing.fillStyle = index === 1 ? "#f1bd60" : "#81dfac";
+          drawing.fillStyle = index === 1 ? "#f3ce86" : "#d2a4ff";
           drawing.fillRect(width * 0.70, height * (0.25 + index * 0.2), width * (0.20 - index * 0.025), height * 0.055);
         }
       }
@@ -376,7 +378,7 @@ async function bundle() {
   ];
   const report = { version: manifest.version, validatedAt: new Date().toISOString(), structuralStatus: "PASS", publicationStatus: "NOT_READY_FOR_FINAL_CERTIFICATION", packages, firefoxLint: { tool: "web-ext 9.1.0", exitCode: lintRun.code, ...firefoxLint.summary }, publicLinks: links, publicPrivacy, blockers: failures, warnings, storeKits: [] };
   const sourceEntries = {};
-  const sourceFiles = new Set([...packages[0].entries.map((name) => `src/${name}`), ...documents, "build/build.js", "deno.json", "deno.lock", ".gitignore", "build/store-assets.js", "build/run-example-account-tests.bat", "AGENTS.md", "src/assets/icons/chatter-watch-512.png", "tests/core_test.js", "tests/worker_test.js", "tests/worker_harness.js", "tests/example_accounts.js", "tests/example_accounts_test.js", "tests/example_accounts_ui_test.js", "tests/ui_test.js", "tests/native_popup_test.js", "tests/build_test.js"]);
+  const sourceFiles = new Set([...packages[0].entries.map((name) => `src/${name}`), ...documents, "build/build.js", "build/icon-assets.js", "deno.json", "deno.lock", ".gitignore", "build/store-assets.js", "build/run-example-account-tests.bat", "AGENTS.md", "src/assets/icons/icon.png", "src/assets/icons/chatter-watch-512.png", "tests/core_test.js", "tests/worker_test.js", "tests/worker_harness.js", "tests/browser_harness.js", "tests/example_accounts.js", "tests/example_accounts_test.js", "tests/example_accounts_ui_test.js", "tests/privacy_test.js", "tests/privacy_ui_test.js", "tests/ui_test.js", "tests/native_popup_test.js", "tests/build_test.js"]);
   verifyPublicPaths(sourceFiles);
   for (const name of sourceFiles) sourceEntries[name] = await Deno.readFile(new URL(name, root));
   const sourceZip = zipSync(sourceEntries, { level: 9, mtime: new Date(2000, 0, 1) });

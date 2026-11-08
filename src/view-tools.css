@@ -1,4 +1,4 @@
-html { background: #202723; }
+html { background: #160f1f; }
 /* The popup's initial viewport must not cap its own intrinsic width. */
 html[data-popup="true"] body { width: 760px; height: 580px; min-height: 580px; overflow: auto; }
 .action-dialog { width: min(520px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 22px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
@@ -8,16 +8,25 @@ html[data-popup="true"] body { width: 760px; height: 580px; min-height: 580px; o
 .action-dialog form, .action-dialog label { display: grid; gap: 12px; }
 .action-dialog input, .action-dialog select, .action-dialog textarea { width: 100%; min-width: 0; min-height: 38px; padding: 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); color: var(--ink); font: inherit; }
 .action-dialog textarea { min-height: 110px; resize: vertical; }
+.action-dialog label:has(input[type="checkbox"]) { display: flex; align-items: flex-start; }
+.action-dialog input[type="checkbox"] { order: -1; width: 18px; height: 18px; min-height: 18px; flex: 0 0 18px; padding: 0; accent-color: var(--accent); }
+.privacy-banner, .privacy-controls { margin: 16px 0; padding: 16px; border: 1px solid var(--accent); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.privacy-banner h2, .privacy-controls h3 { margin: 0 0 10px; font-size: 16px; }
+.privacy-banner p, .privacy-controls p { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.privacy-controls details p { white-space: pre-wrap; }
+.privacy-controls summary { cursor: pointer; font-size: 13px; }
+.privacy-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px; }
 .dialog-actions button, .preference-command { min-height: 38px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); color: var(--ink); cursor: pointer; font: inherit; }
 .dialog-actions .danger { color: var(--coral); border-color: var(--coral); }
+.dialog-actions .dialog-confirm:not(.danger) { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 .action-dialog :focus-visible, .preference-command:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
 .preference-group { display: grid; gap: 12px; min-width: 0; margin: 20px 0; padding: 18px 0; border: 0; border-top: 1px solid var(--line); }
-.preference-group legend { padding: 0 8px 0 0; color: var(--green); font-weight: 700; }
+.preference-group legend { padding: 0 8px 0 0; color: var(--accent); font-weight: 700; }
 .preference-field { display: grid; gap: 7px; color: var(--ink); font-size: 13px; overflow-wrap: anywhere; }
 .preference-field:has(input[type="checkbox"]) { display: flex; align-items: center; gap: 12px; }
 .preference-field input:not([type="checkbox"]), .preference-field select { min-width: 0; width: 100%; min-height: 38px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 8px; font: inherit; }
-.preference-field input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--green); }
+.preference-field input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--accent); }
 #save-state { display: block; min-height: 20px; font-size: 12px; color: var(--muted); }
 #save-state[data-state="error"], #save-state[data-state="invalid"] { color: var(--coral); }
 .credential-field { display: flex; gap: 8px; min-width: 0; }

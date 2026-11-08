@@ -1,10 +1,10 @@
-# Functional Implementation - 1.3.1
+# Functional Implementation - ChatterWatch 1.0.0
 
 This is the current functional implementation reference. The superseded English/Spanish v0.1 DOCX/PDF planning drafts were removed during cleanup. This matrix records the shipped code and implementation choices; it does not claim store approval or live Twitch certification. Runtime source is in src/, tooling in build/, and generated deliverables in dist/.
 
 | Requirement | Implementation | Boundaries |
 | --- | --- | --- |
-| RF-01 Dark-mode issues | Theme text inherits from body variables; controls, risk tags and dialogs use dark colors; UI tests check chat-text AA contrast. | Tested headless in both engines, not every OS rendering configuration. |
+| RF-01 Dark-mode issues | Shared violet theme tokens derive from the provided eye artwork. Body text, muted text, actions, dialogs and semantic colors are checked at 4.5:1; control boundaries at 3:1. Generated icons use a light backplate to preserve the black artwork in both themes. | Tested headless in both engines, not every OS rendering configuration. The 512px store derivative enlarges the supplied 128px master. |
 | RF-02 Dark by default | Both HTML views start dark; absent preference resolves to dark. | Explicit saved light preferences are preserved. |
 | RF-03 Autosave + Save | Valid edits save after 350 ms or field commitment; visible pending/saving/saved/error states; Save remains. | Abrupt termination before confirmation can lose a draft. |
 | RF-04 Remember geometry | Independent windows save changed bounds every two seconds, on blur and on pagehide; reopening restores them. | Browser/OS may adjust inaccessible bounds. Workspaces remain explicit. Native multi-monitor behavior needs a manual check. |
@@ -27,6 +27,8 @@ This is the current functional implementation reference. The superseded English/
 
 ## Policy Choices
 
+- Data use is default-off without a current affirmative versioned consent record. The worker gates data actions, startup/resume, alarms, HTTP/IRC and record writes; withdrawal aborts operations and removes session credentials before another grant can proceed. Existing history remains read-only offline. The UI also prevents early OAuth and remote avatar loads; consent revisions prevent stale snapshots from restoring a withdrawn grant.
+- The prominent in-extension notice and unchecked agreement are mirrored by pre-install store-listing copy and the public privacy policy. Publisher publication is still required; an in-app checkbox or test result is not Chrome Web Store approval. Material data-practice changes must increment `DATA_CONSENT_VERSION`; no automatic migration of prior grants is allowed.
 - Automatic moderation/review remains scoped to the primary channel. Manual message deletion, translation and one-second timeout can target retained messages in configured channels with suitable permissions.
 - Manual approval is durable. Inactivity or stream transitions reset message counts, dismissals and automatic approval for reevaluation on the next message, while preserving notes and observed subscription history.
 - Current subscription evidence comes from IRC tags/badges; an explicit subscriber=0 takes precedence over a badge. Previous subscription evidence is only what this installation has observed. Follower evidence used for auto-approval is at most five minutes old and is refreshed on subsequent messages when needed; lookup errors are not positive evidence.

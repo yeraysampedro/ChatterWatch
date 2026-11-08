@@ -28,6 +28,8 @@ Deno.test("browser manifests preserve security settings and select supported bac
   assertEquals(firefox.browser_specific_settings.gecko.data_collection_permissions.optional, ["personalCommunications"]);
   assertEquals(firefox.content_security_policy, source.content_security_policy);
   assertEquals(firefox.action, source.action);
+  assertEquals(chromium.options_ui, { page: "dashboard.html?settings=1", open_in_tab: true });
+  assertEquals(firefox.options_ui, chromium.options_ui);
   assertEquals(source, original);
   assertThrows(() => manifestFor(source, "unknown"));
 });
@@ -72,5 +74,25 @@ Deno.test("distribution ZIPs contain only runtime files at their root and rebuil
       assertEquals(await Deno.readFile(artifact.archive), archives[index]);
       assertThrows(() => Deno.statSync(new URL("stale.txt", artifact.directory)), Deno.errors.NotFound);
     }
+  } finally { await Deno.remove(temporary, { recursive: true }); }
+});
+
+Deno.test("Firefox XPI is explicitly unsigned and byte-identical to the allowlisted ZIP", async () => {
+  const temporary = await Deno.makeTempDir({ prefix: "chatter-watch-xpi-" });
+  const output = pathToFileURL(`${temporary}/`);
+  try {
+    const artifacts = await buildPackages(output);
+    const chromium = artifacts.find((artifact) => artifact.target === "chromium");
+    const firefox = artifacts.find((artifact) => artifact.target === "firefox");
+    assertEquals(chromium.unsignedArchive, undefined);
+    assert(firefox.unsignedArchive instanceof URL, "Firefox must provide an explicitly unsigned XPI artifact");
+    assert(firefox.unsignedArchive.pathname.endsWith(`chatter-watch-${source.version}-firefox-unsigned.xpi`));
+    const bytes = await Deno.readFile(firefox.unsignedArchive);
+    assertEquals(bytes, await Deno.readFile(firefox.archive));
+    const entries = unzipSync(bytes);
+    assertEquals(JSON.parse(new TextDecoder().decode(entries["manifest.json"])), manifestFor(source, "firefox"));
+    assertEquals(Object.keys(entries).some((name) => name.startsWith("META-INF/")), false);
+    await buildPackages(output);
+    assertEquals(await Deno.readFile(firefox.unsignedArchive), bytes);
   } finally { await Deno.remove(temporary, { recursive: true }); }
 });

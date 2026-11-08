@@ -14,18 +14,22 @@ export const exampleAccounts = {
 const exampleScopes = ["chat:read", "moderator:manage:banned_users", "moderator:manage:chat_messages", "moderator:read:followers"];
 const response = (body, status = 200) => ({ ok: status < 400, status, json: async () => structuredClone(body) });
 
-export async function exampleApp({ firefox = false, settings = {}, scopes = exampleScopes, moderationStatus = 200, moderationMessage = "Example channel role denied", realTimers = false } = {}) {
+export async function exampleApp({ firefox = false, settings = {}, scopes = exampleScopes, moderationStatus = 200, moderationMessage = "Example channel role denied", realTimers = false, profileImages = false } = {}) {
   const now = Date.now();
   const app = await harness({
     firefox, scopes, realTimers,
     fetch(url, options) {
       const { origin, pathname, searchParams } = new URL(url);
+      if (origin === "https://id.twitch.tv" && pathname === "/oauth2/validate") return response({
+        client_id: settings.clientId || "example-client", user_id: "42", login: "demo_moderator", scopes, expires_in: 3600
+      });
       if (origin === "https://api.twitch.tv") {
         if (pathname === "/helix/users" && options.method === "GET") {
           const account = Object.values(exampleAccounts).find((account) => searchParams.get("id") === account.id || searchParams.get("login") === account.login);
           if (account) return response({ data: [{
             id: account.id, login: account.login, display_name: account.displayName,
-            created_at: new Date(now - account.ageDays * 86400000).toISOString(), profile_image_url: ""
+            created_at: new Date(now - account.ageDays * 86400000).toISOString(),
+            profile_image_url: profileImages ? `https://avatars.example/${account.id}.png` : ""
           }] });
           if (searchParams.get("login") === "sample_a") return response({ data: [{ id: "200", login: "sample_a" }] });
         }
@@ -55,7 +59,8 @@ export async function exampleApp({ firefox = false, settings = {}, scopes = exam
       autoApproveMessages: false, autoApproveFollowers: false, autoApproveSubscribers: false,
       autoApproveFormerSubscribers: false, ...settings
     } });
-    await app.chrome.storage.session.set({ accessToken: "test-token", moderator: {
+    const { dataConsent } = await app.request({ type: "GET_DATA_CONSENT" });
+    await app.chrome.storage.session.set({ accessToken: "test-token", dataConsentId: dataConsent.id, moderator: {
       user_id: exampleAccounts.moderator.id, login: exampleAccounts.moderator.login, scopes
     } });
     await app.request({ type: "CONNECT" });

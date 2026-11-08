@@ -17,7 +17,7 @@
 1. Extrae el ZIP Chromium, usa `dist/chromium` después de ejecutar `deno task build`, o clona el repositorio en una carpeta estable.
 2. Abre `chrome://extensions` o `edge://extensions` y activa **Modo desarrollador**.
 3. Pulsa **Cargar descomprimida / Load unpacked** y elige la carpeta que contiene `manifest.json`, no `tests` ni `docs`.
-4. Fija Chatter Watch a la barra del navegador. Abre su panel y después **Ajustes**.
+4. Fija ChatterWatch a la barra del navegador y abre su panel. Antes de configurar Twitch, pulsa **Revisar uso de datos**: **Seguir sin conexión** rechaza el uso; marcar la casilla inicialmente vacía y pulsar **Permitir uso de datos** habilita Twitch. Después abre **Ajustes**.
 5. Copia la URL OAuth mostrada. Tiene la forma `https://<ID-DE-EXTENSION>.chromiumapp.org/twitch`.
 6. Registra esa URL exacta como OAuth Redirect URL en tu aplicación Twitch. Copia el **Client ID**, no el client secret, en Ajustes y guarda.
 7. Introduce el nombre del canal principal, sin URL completa, e inicia sesión mediante **Conectar**. Autoriza los permisos solicitados.
@@ -51,6 +51,8 @@ Leer un canal adicional no exige moderarlo. Las acciones Helix sí requieren ser
 Ambas variantes solicitan `storage`, `identity` y `alarms`; solo Chromium añade `sidePanel`. El acceso obligatorio corresponde a Twitch; la traducción añade acceso HTTPS opcional al dominio elegido. No se inyectan scripts ni se carga código remoto. Firefox declara `authenticationInfo` y `personallyIdentifyingInfo` para Twitch y `personalCommunications` opcional para traducción. No hay telemetría ni backend propio. Solo se envía texto a un traductor después de configurar/autorizar el servidor y confirmar el mensaje. Consulta [Privacidad](PRIVACY.md).
 
 ### Desarrollo, pruebas y build
+
+Se prepara el primer lanzamiento público como **ChatterWatch 1.0.0**, con etiqueta prevista `v1.0.0`. Además de los ZIP Chromium y Firefox, `deno task build` crea `dist/packages/chatter-watch-1.0.0-firefox-unsigned.xpi`. Es un paquete sin firmar para desarrollo/envío a Mozilla, no una instalación permanente de Firefox. Consulta el [README en inglés](../README.md) para configurar GitHub Releases y obtener el XPI firmado por Mozilla.
 
 Desde la raíz, con [Deno 2](https://docs.deno.com/runtime/getting_started/installation/) instalado:
 
@@ -90,9 +92,13 @@ Los ajustes del panel, el canal principal y los ajustes de Multichat se guardan 
 
 Los cambios válidos se aplican al guardarse: cambiar el Client ID puede cerrar la sesión, cambiar el canal principal conectado puede reconectar y activar el timeout automático habilita sus reglas de moderación. No se garantiza guardar una edición si el navegador o el equipo termina abruptamente antes de completar la escritura.
 
-### Mejoras de la versión 1.3
+### Panel y funciones de moderación
+
+**Datos y privacidad:** no se inicia autenticación/API/IRC de Twitch, nuevos registros de cuentas ni avatares remotos sin consentimiento afirmativo vigente. El aviso explica datos, destinos, conservación local y retirada; no sustituye OAuth ni la confirmación de cada traducción. En Ajustes o en las opciones de la extensión del navegador, **Retirar consentimiento y desconectar** elimina credenciales de sesión y detiene nueva actividad. El historial existente queda en solo lectura sin conexión. Bórralo aparte desde el almacenamiento del navegador o desinstalando; elimina los TXT por separado. Las preferencias locales de pantalla/ventana siguen disponibles y no se pueden recuperar transmisiones anteriores ni deshacer acciones de Twitch.
 
 El tema inicial es oscuro; una elección clara guardada se conserva. El panel y Ajustes ocupan el ancho disponible y mantienen la geometría al cambiar de tema. Solo se destaca el total pendiente de revisión; el listado dispone de navegación por páginas de 25 personas. **Aprobados** permite consultar aprobaciones y motivos sin ocultar mensajes del chat.
+
+El icono del ojo define la identidad violeta: superficies blancas/lavanda con el violeta oscuro original de día, y fondos violeta carbón con acento lavanda claro de noche. Los trazos negros conservan una base clara en los iconos generados. Avisos y errores mantienen ámbar/rojo para distinguirlos del acento de marca.
 
 La chincheta abre o reutiliza una **pestaña fijada dentro del navegador**, no una ventana independiente. También reutiliza pestañas que están cargando y restaura navegadores minimizados sin cerrar otras vistas. El popup nativo solicita 760 × 580 de contenido, sujeto al espacio para barras de desplazamiento y a los límites del navegador; sigue cerrándose al perder foco. Usa la pestaña fijada o el panel lateral para mantener la extensión abierta. OAuth desde el popup pasa primero a la pestaña fijada; continúa allí el inicio de sesión. El Client ID se muestra oculto con opción de revelarlo; no es un Client Secret. **Todos los ajustes** en Multichat abre la configuración común en la pestaña del dashboard.
 
@@ -110,7 +116,7 @@ Para traducir, configura un endpoint HTTPS compatible con LibreTranslate (habitu
 
 ### Multichat y ventanas
 
-Desde 1.3.1, **Abrir Multichat** y **Separar** reutilizan y enfocan la ventana equivalente, incluso si aún carga o recibe varios clics. La pestaña del dashboard también se reutiliza. Hay un máximo de doce ventanas popup independientes de la extensión, incluyendo dashboards independientes antiguos y las restauradas por espacios; las pestañas fijadas no cuentan para ese límite. No se cierran ventanas ajenas ni duplicados antiguos: ciérralos manualmente si quedan de una versión anterior. Los espacios guardados que excedan la capacidad disponible indican restauración parcial.
+**Abrir Multichat** y **Separar** reutilizan y enfocan la ventana equivalente, incluso si aún carga o recibe varios clics. La pestaña del dashboard también se reutiliza. Hay un máximo de doce ventanas popup independientes de la extensión, incluyendo dashboards independientes antiguos y las restauradas por espacios; las pestañas fijadas no cuentan para ese límite. No se cierran ventanas ajenas ni duplicados antiguos: cierra manualmente los que ya existan. Los espacios guardados que excedan la capacidad disponible indican restauración parcial.
 
 ### Todos los chatters e historial local
 
@@ -225,4 +231,4 @@ Los ajustes se guardan en `chrome.storage.local`; la sesión OAuth, en `chrome.s
 
 Las pruebas automáticas usan tráfico simulado. OAuth real, cambios reales de slow mode, timeout de un segundo, permisos por canal y restauración en monitores físicos requieren validación manual. Prueba primero con una cuenta autorizada en un canal propio y restaura el valor previo de slow mode al terminar.
 
-Los comandos exactos `git init`, `git add`, `git commit`, `git remote` y `git push` están en [Publicar en GitHub](../README.md#publicar-en-github). Publicar el repositorio no publica la extensión en las tiendas.
+Los comandos exactos para el repositorio/rama `ChatterWatch` y la etiqueta `v1.0.0` están en [Publicar en GitHub](../README.md#github-repository-and-release-commands), con secuencias distintas para un repositorio nuevo y para conservar el historial del existente. Revisa los archivos preparados antes del commit. Publicar el repositorio no publica la extensión en las tiendas.

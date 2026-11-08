@@ -8,6 +8,8 @@ Use the issue tracker for non-sensitive bugs, feature requests and setup questio
 
 Homepage: https://github.com/yeraysampedro/Twtich-Moderatr
 
+These are the existing project's verified links. When the publisher creates or renames the GitHub repository to `ChatterWatch`, update this page, STORE_LISTING.md and the public URL constants in `build/store-assets.js` after verifying the new addresses. The repository-creation commands in README.md do not themselves publish or validate those URLs.
+
 ## Before Reporting
 
 1. Check the extension version and use the correct Chromium or Firefox package.

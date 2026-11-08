@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#202723">
-  <title>Chatter Watch</title>
+  <meta name="theme-color" content="#160f1f">
+  <title>ChatterWatch</title>
   <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/chatter-watch-32.png">
   <link rel="stylesheet" href="dashboard.css">
   <link rel="stylesheet" href="view-tools.css">
@@ -12,8 +12,8 @@
 <body data-theme="dark">
   <main class="shell">
     <header class="topbar">
-      <a class="brand" href="#" aria-label="Chatter Watch home" data-i18n-aria="brand.home">
-        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+      <a class="brand" href="#" aria-label="ChatterWatch home" data-i18n-aria="brand.home">
+        <img class="brand-mark" src="assets/icons/chatter-watch-32.png" width="28" height="28" alt="">
         <span>CHATTER<span class="brand-light">WATCH</span></span>
       </a>
       <div class="top-actions">
@@ -32,6 +32,12 @@
         </button>
       </div>
     </header>
+
+    <section class="privacy-banner" id="privacy-banner" aria-labelledby="privacy-title">
+      <h2 id="privacy-title" data-view-label="privacyTitle">Data use before Twitch features start</h2>
+      <p data-view-label="privacySummary">Review how your Twitch identity, chat messages and moderation history are handled locally and by Twitch. You can stay offline.</p>
+      <button id="privacy-review" class="preference-command" type="button" data-view-label="privacyReview">Review data use</button>
+    </section>
 
     <section class="channel-bar" aria-label="Channel connection" data-i18n-aria="channel.connection">
       <div class="channel-input-wrap">
@@ -74,6 +80,16 @@
 
     <section class="settings-panel" id="settings-panel" hidden>
       <div class="settings-heading"><div><p class="eyebrow" data-i18n="settings.eyebrow">CONTROL ROOM</p><h2 data-i18n="settings.heading">Monitor settings</h2></div><button class="icon-button close-settings" id="settings-close" type="button" aria-label="Close settings" title="Close settings" data-i18n-aria="close" data-i18n-title="close"><span aria-hidden="true">×</span></button></div>
+      <section class="privacy-controls" aria-labelledby="privacy-settings-title">
+        <h3 id="privacy-settings-title" data-view-label="privacySettings">Data and privacy</h3>
+        <p id="privacy-status" role="status"></p>
+        <details><summary data-view-label="privacyReview">Review data use</summary><p data-view-label="privacyBody"></p></details>
+        <p data-view-label="privacyDelete"></p>
+        <div class="privacy-actions">
+          <button id="privacy-allow" class="preference-command" type="button" data-view-label="privacyAllow">Allow data use</button>
+          <button id="privacy-withdraw" class="preference-command" type="button" data-view-label="privacyWithdraw" hidden>Withdraw consent and disconnect</button>
+        </div>
+      </section>
       <form id="settings-form">
         <div class="field"><label for="client-id-input" data-i18n="settings.clientId">Twitch application client ID</label><div class="credential-field"><input id="client-id-input" type="password" spellcheck="false" autocomplete="off" placeholder="Register an app at dev.twitch.tv" data-i18n-placeholder="settings.clientIdPlaceholder"><button id="show-client-id" class="icon-button" type="button" data-view-title="show" aria-pressed="false">&#9673;</button></div></div>
         <label class="field"><span data-i18n="settings.language">Language</span><select id="language-input"><option value="en">English</option><option value="de">Deutsch</option><option value="es">Español</option></select></label>
@@ -94,7 +110,7 @@
       </form>
     </section>
 
-    <footer class="footer"><span><span data-i18n="theme.footer">CHAT MONITOR</span> <span class="footer-separator">/</span> <span data-i18n="theme.local">LOCAL ONLY</span></span><span id="auth-label">Not signed in</span></footer>
+    <footer class="footer"><span><span data-i18n="theme.footer">CHAT MONITOR</span> <span class="footer-separator">/</span> <span data-i18n="theme.local">LOCAL RECORDS</span></span><span id="auth-label">Not signed in</span></footer>
   </main>
   <dialog class="history-dialog" id="history-dialog" aria-labelledby="history-title">
     <div class="history-heading"><div><p class="eyebrow" data-i18n="history.local">LOCAL HISTORY</p><h2 id="history-title" data-i18n="history.profile">Chatter history</h2><p class="history-user" id="history-user"></p></div><button class="icon-button" id="history-close" type="button" title="Close history" aria-label="Close history" data-i18n-title="close" data-i18n-aria="close"><span aria-hidden="true">×</span></button></div>

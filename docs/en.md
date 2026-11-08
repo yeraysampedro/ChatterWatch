@@ -17,7 +17,7 @@
 1. Extract the Chromium ZIP, use `dist/chromium` after `deno task build`, or clone the repository into a stable directory.
 2. Open `chrome://extensions` or `edge://extensions` and enable **Developer mode**.
 3. Choose **Load unpacked** and select the directory containing `manifest.json`, not `tests` or `docs`.
-4. Pin Chatter Watch to the toolbar, open its panel and select **Settings**.
+4. Pin ChatterWatch to the toolbar and open its panel. Use **Review data use** before Twitch setup: **Stay offline** declines, while checking the initially unchecked box and choosing **Allow data use** enables Twitch features. Then open **Settings**.
 5. Copy the displayed OAuth URL: `https://<EXTENSION-ID>.chromiumapp.org/twitch`.
 6. Register this exact OAuth Redirect URL in your Twitch application. Enter its **Client ID**, not a client secret, in the extension and save.
 7. Enter the primary channel name, not a full URL, then use **Connect** to sign in and grant the requested permissions.
@@ -51,6 +51,8 @@ Reading additional channels does not require moderator status. Helix moderation 
 Both variants request `storage`, `identity` and `alarms`; only Chromium adds `sidePanel`. Required host access covers Twitch; translation adds optional HTTPS access to the chosen origin. No website scripts or remote code are injected. Firefox declares required `authenticationInfo`/`personallyIdentifyingInfo` for Twitch and optional `personalCommunications` for translation. There is no telemetry or independent backend. Text is sent to a translator only after configuring/authorizing its server and confirming the message. See [Privacy](PRIVACY.md).
 
 ### Development, Tests and Build
+
+The initial public release is prepared as **ChatterWatch 1.0.0**, with intended tag `v1.0.0`. In addition to the Chromium and Firefox ZIPs, `deno task build` creates `dist/packages/chatter-watch-1.0.0-firefox-unsigned.xpi`. This is unsigned development/signing input, not a permanent Firefox installation. Follow the [English README](../README.md) for GitHub release setup and obtaining a Mozilla-signed XPI.
 
 Install [Deno 2](https://docs.deno.com/runtime/getting_started/installation/) and run from the project root:
 
@@ -90,9 +92,13 @@ Panel settings, the primary channel and Multichat settings save automatically wh
 
 Valid changes take effect when saved: changing Client ID may sign you out, changing the connected primary channel may reconnect, and enabling automatic timeout activates its moderation rules. Saving an edit is not guaranteed if the browser or computer terminates abruptly before the write completes.
 
-### Version 1.3 Improvements
+### Dashboard and Moderation Features
+
+**Data and privacy:** no Twitch login/API/IRC, new account-history writes or remote avatar loads begin without current affirmative data-use consent. The disclosure explains data categories, destinations, local retention and withdrawal; it does not replace Twitch OAuth or per-message translation consent. In Settings or the browser's extension-options page, **Withdraw consent and disconnect** removes session credentials and stops new activity. Existing history stays read-only offline. Erase it separately through browser storage controls or uninstall; remove exports separately. Local display/window preferences remain available, and earlier transmissions/Twitch actions cannot be recalled.
 
 The initial theme is dark; a saved light choice is preserved. Dashboard and settings use the available width with stable geometry across themes. Only the pending-review total is emphasized; the directory has 25-person pages. **Approved** shows approval reasons without hiding messages from live chat.
+
+The supplied eye icon defines the violet identity: white/lavender surfaces with the original deep-violet accent by day, and charcoal-violet surfaces with a light lavender accent at night. Its black strokes retain a light backplate in the generated icons. Warning/error colors remain amber/red rather than being confused with the brand accent.
 
 The pin button opens or reuses a **pinned tab inside the browser**, not an independent window. It also reuses loading tabs and restores minimized browser windows without closing unrelated views. The native action popup requests 760 x 580 content, subject to browser size limits and scrollbar space; it still closes on focus loss. Use the pinned tab or sidebar to keep the extension open. OAuth started from the popup first moves to the pinned tab; continue sign-in there. Client ID is masked with a reveal option; it is not a Client Secret. **All settings** in Multichat opens the shared configuration in the dashboard tab.
 
@@ -110,7 +116,7 @@ For translation, configure an HTTPS LibreTranslate-compatible endpoint (usually 
 
 ### Multichat Layout and Windows
 
-Since 1.3.1, **Open Multichat** and **Detach** reuse and focus the matching window, even while loading or receiving repeated clicks. The dashboard tab is reused too. A maximum of twelve independent extension popup windows applies, including older detached dashboards and workspace restoration; pinned browser tabs do not count toward that limit. Unrelated windows and old duplicates are not closed; close duplicates from earlier versions manually. Workspaces exceeding available capacity report partial restoration.
+**Open Multichat** and **Detach** reuse and focus the matching window, even while loading or receiving repeated clicks. The dashboard tab is reused too. A maximum of twelve independent extension popup windows applies, including older detached dashboards and workspace restoration; pinned browser tabs do not count toward that limit. Unrelated windows and old duplicates are not closed; close pre-existing duplicates manually. Workspaces exceeding available capacity report partial restoration.
 
 ### All Chatters and Local History
 
@@ -225,4 +231,4 @@ Settings live in `chrome.storage.local`; OAuth state lives in `chrome.storage.se
 
 Automated checks use simulated traffic. Real OAuth, channel privileges, actual slow-mode changes, one-second timeouts and physical multi-monitor restoration still require manual verification. Use an authorized account in a channel you control and restore its previous slow-mode setting afterward.
 
-Precise publishing commands are in [README: GitHub](../README.md#publicar-en-github). Create an empty GitHub repository, substitute your account in the remote URL, then run `git init -b main`, `git add .`, `git commit`, `git remote add origin` and `git push -u origin main` as shown there. Review staged files for secrets first. Publishing a repository does not publish to browser stores.
+Precise publishing commands are in [README: GitHub](../README.md#github-repository-and-release-commands). They use the `ChatterWatch` repository/branch and `v1.0.0` tag, with separate sequences for a new repository and an existing checkout whose history must be preserved. Substitute the owner in the remote URL and review the explicit staging list for secrets before committing. Publishing a repository does not publish to browser stores.
