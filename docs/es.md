@@ -40,7 +40,7 @@ La carga temporal se elimina al cerrar Firefox. Para distribuir una instalación
 | Permiso | Uso |
 | --- | --- |
 | `chat:read` | Lectura IRC de los canales |
-| `moderator:manage:banned_users` | Ban/timeout del panel y botón `/srs 1s` de Multichat |
+| `moderator:manage:banned_users` | Aplicar/retirar bans y timeouts, y botón `/srs 1s` de Multichat |
 | `moderator:manage:warnings` | Avisos a usuarios |
 | `moderator:read:followers` | Señal de seguidores recientes |
 | `moderator:manage:chat_settings` | Slow mode real de Twitch |
@@ -94,7 +94,7 @@ Los cambios válidos se aplican al guardarse: cambiar el Client ID puede cerrar 
 
 El tema inicial es oscuro; una elección clara guardada se conserva. El panel y Ajustes ocupan el ancho disponible y mantienen la geometría al cambiar de tema. Solo se destaca el total pendiente de revisión; el listado dispone de navegación por páginas de 25 personas. **Aprobados** permite consultar aprobaciones y motivos sin ocultar mensajes del chat.
 
-El botón de fijar la ventana abre o reutiliza un panel independiente de 820 × 820 por defecto. El popup nativo sigue cerrándose al perder foco: usa esa ventana, el panel lateral o la página interna para trabajar al cambiar de pestaña. OAuth desde el popup pasa primero a una ventana persistente; continúa allí el inicio de sesión. El Client ID se muestra oculto con opción de revelarlo; no es un Client Secret. **Todos los ajustes** en Multichat abre la configuración común.
+La chincheta abre o reutiliza una **pestaña fijada dentro del navegador**, no una ventana independiente. También reutiliza pestañas que están cargando y restaura navegadores minimizados sin cerrar otras vistas. El popup nativo solicita 760 × 580 de contenido, sujeto al espacio para barras de desplazamiento y a los límites del navegador; sigue cerrándose al perder foco. Usa la pestaña fijada o el panel lateral para mantener la extensión abierta. OAuth desde el popup pasa primero a la pestaña fijada; continúa allí el inicio de sesión. El Client ID se muestra oculto con opción de revelarlo; no es un Client Secret. **Todos los ajustes** en Multichat abre la configuración común en la pestaña del dashboard.
 
 Las ventanas independientes recuerdan su posición/tamaño cada dos segundos si cambian, al perder foco y al cerrarse. La siguiente apertura usa la geometría guardada; un canal separado comienza en 520 × 760 si no hay una previa. No se abren ventanas automáticamente al iniciar el navegador. Los espacios guardados mantienen su restauración explícita. El sistema operativo puede ajustar posiciones de monitores ausentes; la geometría física aún requiere comprobación manual.
 
@@ -110,7 +110,7 @@ Para traducir, configura un endpoint HTTPS compatible con LibreTranslate (habitu
 
 ### Multichat y ventanas
 
-Desde 1.3.1, **Abrir Multichat** y **Separar** reutilizan y enfocan la ventana equivalente, incluso si aún carga o recibe varios clics. El dashboard también se reutiliza. Hay un máximo de doce ventanas independientes de la extensión, incluyendo el dashboard y las restauradas por espacios. No se cierran ventanas ajenas ni duplicados antiguos: ciérralos manualmente si quedan de una versión anterior. Los espacios guardados que excedan la capacidad disponible indican restauración parcial.
+Desde 1.3.1, **Abrir Multichat** y **Separar** reutilizan y enfocan la ventana equivalente, incluso si aún carga o recibe varios clics. La pestaña del dashboard también se reutiliza. Hay un máximo de doce ventanas popup independientes de la extensión, incluyendo dashboards independientes antiguos y las restauradas por espacios; las pestañas fijadas no cuentan para ese límite. No se cierran ventanas ajenas ni duplicados antiguos: ciérralos manualmente si quedan de una versión anterior. Los espacios guardados que excedan la capacidad disponible indican restauración parcial.
 
 ### Todos los chatters e historial local
 
@@ -118,7 +118,9 @@ Desde 1.3.1, **Abrir Multichat** y **Separar** reutilizan y enfocan la ventana e
 
 Un timeout confirmado ya no descarta automáticamente a la persona. Un ban resuelve la entrada pendiente, pero el registro sigue accesible en Todos y los filtros que correspondan. Una aprobación previa conserva su significado; las sanciones no borran notas ni mensajes guardados.
 
-**Historial** abre Mensajes, Notas y Moderación. Se conservan hasta 50 mensajes recientes por persona/canal entre sesiones y hasta 100 eventos locales combinados: timeouts manuales/automáticos y `/srs 1s`, bans, avisos, borrados, aprobaciones manuales y cambios de nota. Los eventos incluyen fecha, motivo, duración, origen y actor cuando están disponibles. Los errores no se registran como sanciones realizadas. La nota actual permanece aunque eventos antiguos salgan del límite.
+Para retirar un ban o timeout activo, busca a la persona en **Todos los chatters**, pulsa **Quitar ban/timeout** y confirma el usuario/canal mostrado. Usa el permiso existente `moderator:manage:banned_users` y exige privilegios en ese canal. Solo una respuesta correcta de Twitch registra la retirada y elimina el descarte local; no aprueba la cuenta ni borra su historial. No se repite el timeout automático en el mismo ciclo de revisión, pero la inactividad o un cambio de emisión pueden iniciar otro ciclo. Una sanción ya caducada/inexistente, un permiso denegado o un cambio simultáneo en Twitch muestran un error, sin registrar un éxito.
+
+**Historial** abre Mensajes, Notas y Moderación. Se conservan hasta 50 mensajes recientes por persona/canal entre sesiones y hasta 100 eventos locales combinados: timeouts manuales/automáticos y `/srs 1s`, bans, retiradas de ban/timeout, avisos, borrados, aprobaciones manuales y cambios de nota. Los eventos incluyen fecha, motivo, duración, origen y actor cuando están disponibles. Los errores no se registran como sanciones realizadas. La nota actual permanece aunque eventos antiguos salgan del límite.
 
 El historial se obtiene solo del almacenamiento local: no recupera timeouts anteriores de Twitch que nunca registró la extensión. Los registros antiguos pueden mostrar únicamente el último estado sin fecha detallada. Después de conectar una vez el canal con esta versión, sus datos locales se pueden consultar al desconectar. Desinstalar o borrar el almacenamiento de la extensión elimina estos registros; no hay purga automática por fecha. Consulta también [Privacidad](PRIVACY.md).
 

@@ -41,10 +41,10 @@ The public privacy check compares the raw published policy with the local policy
 
 ## Reviewer Workflow
 
-1. Load the appropriate package. Open the dashboard and pin it into a persistent extension window.
-2. Register the displayed browser-specific redirect URL in an authorized Twitch application. Enter its Client ID, then sign in from the persistent window and grant the requested scopes.
+1. Load the appropriate package. Open the dashboard and pin it into a browser tab, not a detached window.
+2. Register the displayed browser-specific redirect URL in an authorized Twitch application. Enter its Client ID, then sign in from the pinned tab and grant the requested scopes.
 3. Connect a test channel. Open Multichat and verify a retained message remains visible after local approval. Review the separate Approved list and optional approval settings.
-4. Test manual moderation only on authorized test users/messages. Cancel first to verify no action is sent; then confirm an agreed test action. Deleting a message requires moderator:manage:chat_messages.
+4. Test manual moderation only on authorized test users/messages. Cancel first to verify no action is sent; then confirm an agreed test action. All chatters provides a confirmed Unban / end timeout action using the existing ban scope. Deleting a message requires moderator:manage:chat_messages.
 5. For translation, configure an HTTPS LibreTranslate-compatible endpoint, authorize its origin (and Firefox data consent), and confirm sending one test message. The endpoint must accept the request format without a separately stored API key.
 6. Enable optional review alerts and test sound in an interacted-with view. Taskbar attention is best-effort and must not steal focus.
 

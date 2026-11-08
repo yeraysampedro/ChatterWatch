@@ -40,7 +40,7 @@ Temporary installation ends when Firefox closes. For permanent distribution, sub
 | Scope | Purpose |
 | --- | --- |
 | `chat:read` | Read channel messages through IRC |
-| `moderator:manage:banned_users` | Panel ban/timeout and Multichat's `/srs 1s` button |
+| `moderator:manage:banned_users` | Apply/remove bans and timeouts, plus Multichat's `/srs 1s` button |
 | `moderator:manage:warnings` | Warn users |
 | `moderator:read:followers` | Recent-follower signal |
 | `moderator:manage:chat_settings` | Change actual Twitch slow mode |
@@ -94,7 +94,7 @@ Valid changes take effect when saved: changing Client ID may sign you out, chang
 
 The initial theme is dark; a saved light choice is preserved. Dashboard and settings use the available width with stable geometry across themes. Only the pending-review total is emphasized; the directory has 25-person pages. **Approved** shows approval reasons without hiding messages from live chat.
 
-The pin-window button opens or reuses an independent dashboard, initially 820 x 820. The native action popup still closes on focus loss: use the window, sidebar or internal page when working across tabs. OAuth started from the popup first moves to a persistent window; continue sign-in there. Client ID is masked with a reveal option; it is not a Client Secret. **All settings** in Multichat opens the shared configuration.
+The pin button opens or reuses a **pinned tab inside the browser**, not an independent window. It also reuses loading tabs and restores minimized browser windows without closing unrelated views. The native action popup requests 760 x 580 content, subject to browser size limits and scrollbar space; it still closes on focus loss. Use the pinned tab or sidebar to keep the extension open. OAuth started from the popup first moves to the pinned tab; continue sign-in there. Client ID is masked with a reveal option; it is not a Client Secret. **All settings** in Multichat opens the shared configuration in the dashboard tab.
 
 Independent windows remember changed position/size every two seconds, on blur and on pagehide. Reopening uses saved geometry; a single-channel window starts at 520 x 760 without prior geometry. No windows automatically open at browser startup. Named workspaces retain explicit restoration. The OS may adjust missing-monitor coordinates; physical geometry still needs manual verification.
 
@@ -110,7 +110,7 @@ For translation, configure an HTTPS LibreTranslate-compatible endpoint (usually 
 
 ### Multichat Layout and Windows
 
-Since 1.3.1, **Open Multichat** and **Detach** reuse and focus the matching window, even while loading or receiving repeated clicks. The dashboard is reused too. A maximum of twelve independent extension windows applies, including dashboard and workspace restoration. Unrelated windows and old duplicates are not closed; close duplicates from earlier versions manually. Workspaces exceeding available capacity report partial restoration.
+Since 1.3.1, **Open Multichat** and **Detach** reuse and focus the matching window, even while loading or receiving repeated clicks. The dashboard tab is reused too. A maximum of twelve independent extension popup windows applies, including older detached dashboards and workspace restoration; pinned browser tabs do not count toward that limit. Unrelated windows and old duplicates are not closed; close duplicates from earlier versions manually. Workspaces exceeding available capacity report partial restoration.
 
 ### All Chatters and Local History
 
@@ -118,7 +118,9 @@ Since 1.3.1, **Open Multichat** and **Detach** reuse and focus the matching wind
 
 A confirmed timeout no longer automatically dismisses the person. A ban resolves the pending item, but its record remains in All chatters and applicable filters. Existing approval keeps its meaning; sanctions do not erase notes or retained messages.
 
-**History** opens Messages, Notes and Moderation. Up to 50 recent messages per person/channel persist across sessions, together with up to 100 combined local events: manual/automatic timeouts and `/srs 1s`, bans, warnings, deletions, manual approvals and note edits. Events include date, reason, duration, source and actor when available. Errors are not recorded as successful sanctions. The current note remains even if older events are evicted.
+To remove an active ban or timeout, find the person in **All chatters**, choose **Unban / end timeout**, and confirm the displayed user/channel. This uses the existing `moderator:manage:banned_users` scope and requires channel privileges. Only a successful Twitch response records a removal and clears the local dismissal; it does not approve the account or erase its history. Another automatic timeout is suppressed for the same review cycle, but inactivity or a stream transition can start a new cycle. An expired/nonexistent sanction, denied permission or concurrent Twitch update reports an error without a successful history event.
+
+**History** opens Messages, Notes and Moderation. Up to 50 recent messages per person/channel persist across sessions, together with up to 100 combined local events: manual/automatic timeouts and `/srs 1s`, bans, ban/timeout removals, warnings, deletions, manual approvals and note edits. Events include date, reason, duration, source and actor when available. Errors are not recorded as successful sanctions. The current note remains even if older events are evicted.
 
 History comes only from local storage; it cannot recover earlier Twitch timeouts the extension never recorded. Legacy records may show only the latest state without a detailed date. After this version has connected to a channel once, its local records remain readable after disconnecting. Uninstalling or clearing extension storage removes them; there is no time-based automatic purge. See [Privacy](PRIVACY.md).
 

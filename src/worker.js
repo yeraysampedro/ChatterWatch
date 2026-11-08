@@ -34,7 +34,6 @@ let settingsWrites = Promise.resolve();
 let workspaceWrites = Promise.resolve();
 let windowOperations = Promise.resolve();
 const pendingWindowViews = new Map();
-let pendingDashboardTab = null;
 const MAX_EXTENSION_WINDOWS = 12;
 let geometryWrites = Promise.resolve();
 let streamPolling = false;
@@ -440,7 +439,7 @@ async function saveWindowGeometry(message) {
   return { ok: true };
 }
 
-async function openDashboard(page = false, settings = false) {
+async function openDashboard(page = false, settings = false, pinned = false) {
   const target = new URL(extensionApi.runtime.getURL("dashboard.html"));
   if (settings) target.searchParams.set("settings", "1");
   if (!page) {
@@ -454,35 +453,25 @@ async function openDashboard(page = false, settings = false) {
     const info = await createExtensionWindow({ url: target.href, type: "popup", width: 820, height: 820, ...(bounds ? windowBounds(bounds) : {}) });
     return { windowId: info.id };
   }
-  if (pendingDashboardTab !== null) {
-    try {
-      const tab = await extensionApi.tabs.get(pendingDashboardTab);
-      const url = new URL(tab.url || tab.pendingUrl);
-      if (url.protocol === target.protocol && url.host === target.host && url.pathname === target.pathname) {
-        if (settings) broadcast("OPEN_SETTINGS");
-        await extensionApi.tabs.update(tab.id, { active: true });
-        await extensionApi.windows.update(tab.windowId, { focused: true });
-        return { tabId: tab.id, windowId: tab.windowId };
-      }
-    } catch {}
-    pendingDashboardTab = null;
-  }
-  const contexts = await extensionApi.runtime.getContexts({ contextTypes: ["TAB"] });
-  const windows = await extensionApi.windows.getAll();
-  const existing = contexts.find((context) => {
-    if (!context.documentUrl) return false;
-    const url = new URL(context.documentUrl);
-    const windowInfo = windows.find((info) => info.id === context.windowId);
-    return windowInfo && (page ? windowInfo.type !== "popup" : windowInfo.type === "popup") && url.protocol === target.protocol && url.host === target.host && url.pathname === target.pathname;
+  const windows = await extensionApi.windows.getAll({ windowTypes: ["normal"] });
+  const base = extensionApi.runtime.getURL("dashboard.html");
+  const existing = (await extensionApi.tabs.query({})).find((tab) => {
+    const url = tab.pendingUrl || tab.url || "";
+    return windows.some((info) => info.id === tab.windowId) &&
+      (url === base || url.startsWith(`${base}?`) || url.startsWith(`${base}#`));
   });
   if (existing) {
-    if (settings) broadcast("OPEN_SETTINGS");
-    if (existing.tabId >= 0) await extensionApi.tabs.update(existing.tabId, { active: true });
-    await extensionApi.windows.update(existing.windowId, { focused: true });
-    return { windowId: existing.windowId };
+    const loading = existing.pendingUrl || existing.status === "loading";
+    await extensionApi.tabs.update(existing.id, {
+      active: true, ...(pinned ? { pinned: true } : {}), ...(settings && loading ? { url: target.href } : {})
+    });
+    if (settings && !loading) broadcast("OPEN_SETTINGS");
+    await focusExtensionWindow(windows.find((info) => info.id === existing.windowId));
+    return { tabId: existing.id, windowId: existing.windowId };
   }
-  const tab = await extensionApi.tabs.create({ url: target.href });
-  pendingDashboardTab = tab.id;
+  const windowInfo = windows.find((info) => info.focused) || windows[0];
+  const tab = await extensionApi.tabs.create({ url: target.href, active: true, pinned, ...(windowInfo ? { windowId: windowInfo.id } : {}) });
+  await focusExtensionWindow(windowInfo || { id: tab.windowId });
   return { tabId: tab.id, windowId: tab.windowId };
 }
 
@@ -841,18 +830,25 @@ function drainModeration() {
   }
 }
 
-async function moderateUser(account, { duration, reason, source = "manual" }) {
+async function moderateUser(account, { duration, reason, source = "manual", action = duration == null ? "ban" : "timeout" }) {
   const { moderator } = await getSessionData();
   const broadcasterId = account.broadcasterId;
   if (!moderator?.user_id || !broadcasterId) throw new Error("Sign in and connect to a channel first.");
   if (!moderator.scopes?.includes("moderator:manage:banned_users")) throw new Error("Sign in again and grant moderator:manage:banned_users.");
-  const body = { data: { user_id: account.userId, reason: String(reason || "").slice(0, 500) } };
-  if (duration != null) body.data.duration = duration;
-  await apiRequest(`/moderation/bans?broadcaster_id=${encodeURIComponent(broadcasterId)}&moderator_id=${encodeURIComponent(moderator.user_id)}`, { method: "POST", body });
-  account.latestAction = duration == null ? "Banned" : `Timed out for ${duration} s`;
-  if (duration == null) account.dismissed = true;
-  else account.autoTimeoutApplied = true;
-  recordAccountActivity(account, { type: duration == null ? "ban" : "timeout", duration: duration ?? null, reason: body.data.reason, source }, moderator);
+  const query = { broadcaster_id: broadcasterId, moderator_id: moderator.user_id };
+  if (action === "unban") {
+    await apiRequest("/moderation/bans", { method: "DELETE", query: { ...query, user_id: account.userId } });
+    Object.assign(account, { latestAction: "Ban/timeout removed", dismissed: false, autoTimeoutApplied: true });
+    recordAccountActivity(account, { type: "unban", source }, moderator);
+  } else {
+    const body = { data: { user_id: account.userId, reason: String(reason || "").slice(0, 500) } };
+    if (duration != null) body.data.duration = duration;
+    await apiRequest("/moderation/bans", { method: "POST", query, body });
+    account.latestAction = duration == null ? "Banned" : `Timed out for ${duration} s`;
+    if (duration == null) account.dismissed = true;
+    else account.autoTimeoutApplied = true;
+    recordAccountActivity(account, { type: duration == null ? "ban" : "timeout", duration: duration ?? null, reason: body.data.reason, source }, moderator);
+  }
   await saveAccount(account);
   await publishSnapshot();
 }
@@ -1087,7 +1083,7 @@ async function handleMessage(message) {
       return { account: { ...account, recentMessages: (account.recentMessages || []).slice(0, 50), activityHistory: (account.activityHistory || []).slice(0, 100) } };
     });
   }
-  if (message.type === "OPEN_DASHBOARD") return runWindowOperation(() => openDashboard(message.page === true, message.settings === true));
+  if (message.type === "OPEN_DASHBOARD") return runWindowOperation(() => openDashboard(message.page === true || message.pinned === true, message.settings === true, message.pinned === true));
   if (message.type === "DELETE_MESSAGE") return deleteChatMessage(message);
   if (message.type === "TRANSLATE_MESSAGE") return translateChatMessage(message);
   if (message.type === "SAVE_WINDOW_GEOMETRY") {
@@ -1161,10 +1157,10 @@ async function handleMessage(message) {
       await warnUser(account, reason);
     } else {
       if (message.confirmed !== true) throw new Error("Confirm this moderation action first.");
-      if (!["ban", "timeout"].includes(message.action)) throw new Error("Unsupported moderation action.");
-      const duration = message.action === "ban" ? null : Number(message.duration);
+      if (!["ban", "timeout", "unban"].includes(message.action)) throw new Error("Unsupported moderation action.");
+      const duration = message.action === "timeout" ? Number(message.duration) : null;
       if (duration !== null && (!Number.isInteger(duration) || duration < 1 || duration > 1_209_600)) throw new Error("Timeout must be between 1 second and 14 days.");
-      await moderateUser(account, { duration, reason: message.reason });
+      await moderateUser(account, { action: message.action, duration, reason: message.reason });
     }
     await saveAccount(account);
     await publishSnapshot();

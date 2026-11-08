@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Fixed native toolbar popups collapsing to a narrow strip: removed the viewport-relative cap on their intrinsic 760px content width. Tabs and sidebars retain responsive sizing.
+- The pin button and popup sign-in handoff now open/reuse a pinned browser tab instead of a detached dashboard window. Loading tabs and minimized browsers are reused/restored; unrelated views remain untouched.
+- Added confirmed removal of active bans/timeouts from All chatters using the existing Twitch moderation scope. Successful removals are recorded locally without approving the account; another automatic timeout is suppressed in the same review cycle. Twitch failures leave the account history unchanged.
+- Added a real Chromium extension-popup test across English, Spanish, German and both themes, plus worker/UI regressions for pinned-tab reuse, unban/timeout removal and rejected requests. No live Twitch authorization or moderation is claimed.
+
 ## 1.3.1 - 2026-11-07
 
 - Dashboard, settings and footer fill the available viewport width in both themes; removed the minimum width that clipped narrow views.

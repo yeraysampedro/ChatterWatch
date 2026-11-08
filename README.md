@@ -4,6 +4,8 @@
 
 El panel y Ajustes utilizan el ancho disponible en ambos temas, sin la franja centrada de 960 px. Abrir Multichat, Separar y abrir el dashboard reutilizan la ventana correspondiente, incluso durante su carga o con clics simultáneos. Hay un máximo de doce ventanas independientes de la extensión, incluida la restauración de espacios; las ventanas ajenas y los duplicados ya existentes no se cierran automáticamente.
 
+La chincheta abre o reutiliza una **pestaña fijada dentro del navegador**, no una ventana flotante. El popup del icono solicita 760 px de contenido sin limitarse circularmente a su ancho inicial; el navegador puede reservar espacio para barras de desplazamiento o limitar la altura. La pestaña y el panel lateral siguen adaptándose al espacio disponible. El inicio de sesión desde el popup también pasa a la pestaña fijada.
+
 Un timeout ya no descarta automáticamente al chatter. **Por revisar** muestra pendientes; **Todos los chatters** y los filtros de cuentas nuevas, primeros mensajes, seguidores y aprobados consultan los registros locales del canal, con búsqueda y páginas de 25 personas. La ficha **Historial** muestra los últimos 50 mensajes, la nota actual y hasta 100 eventos de moderación/cambios de nota, con fecha, duración, motivo y origen. Se conserva lo observado entre emisiones, no un historial retrospectivo completo de Twitch. Los timeouts anteriores sin eventos detallados solo pueden mostrar el último estado que ya estuviera guardado.
 
 Modo oscuro por defecto con contraste corregido, panel más amplio, Client ID ocultable, ventanas persistentes y geometría recordada. La configuración se comparte entre popup, panel lateral, página y ventanas. Se conserva Guardar y se muestra el estado del autoguardado.
@@ -11,6 +13,8 @@ Modo oscuro por defecto con contraste corregido, panel más amplio, Client ID oc
 La autoaprobación es configurable y viene desactivada: más de N mensajes, seguidor confirmado, suscriptor actual o antiguo suscriptor observado localmente. Las condiciones activas se combinan con OR. El contador N usa la sesión de revisión del canal; la inactividad (15 minutos por defecto) y los cambios de emisión verificados reinician esa sesión por persona. Las aprobaciones manuales permanecen. La pestaña Aprobados muestra el motivo sin retirar mensajes del directo.
 
 Cada mensaje ofrece Borrar, Traducir y Fijar. Las sanciones manuales y `/srs 1s` requieren confirmación; el timeout automático continúa siendo una opción explícita independiente. Las notas admiten RAID con canal de origen y FRONT PAGE. Las alertas de revisión permiten sonido y atención de ventana/barra de tareas, sujetas al navegador y sistema operativo.
+
+Para retirar un ban o un timeout todavía activo, busca al usuario en **Todos los chatters** y pulsa **Quitar ban/timeout**. La acción requiere confirmación, rol de moderador y el permiso existente `moderator:manage:banned_users`. Solo se registra tras la confirmación de Twitch; no aprueba la cuenta ni borra notas/mensajes. Evita otro timeout automático en el mismo ciclo de revisión, pero las reglas pueden actuar de nuevo después de inactividad o un cambio de emisión. Si la sanción ya no existe o Twitch rechaza la petición, se muestra el error sin inventar un éxito.
 
 La traducción requiere configurar y autorizar un endpoint HTTPS compatible con LibreTranslate y confirmar cada envío. No hay un servidor externo predeterminado. Solo se envían el texto seleccionado y los parámetros de idioma, nunca el token de Twitch. Consulta [docs/PRIVACY.md](docs/PRIVACY.md), [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md), [docs/STORE_SUBMISSION.md](docs/STORE_SUBMISSION.md) y [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
@@ -98,6 +102,9 @@ La limpieza conserva únicamente los entregables finales 1.3.1; los ZIP antiguos
 | [tests/core_test.js](tests/core_test.js) | Reglas, filtros, aislamiento y ráfaga de 20.000 mensajes |
 | [tests/worker_test.js](tests/worker_test.js) | Worker con APIs Chromium/Firefox, red e IndexedDB simulados |
 | [tests/ui_test.js](tests/ui_test.js) | Motores Chromium/Firefox headless, APIs simuladas, panel y chat en tres tamaños e idiomas |
+| [tests/example_accounts_test.js](tests/example_accounts_test.js) | Cuentas ficticias: señales de revisión, límite N+1, roles exentos, aislamiento y errores de moderación |
+| [tests/example_accounts_ui_test.js](tests/example_accounts_ui_test.js) | Panel y chat conectados al worker real con Twitch simulado: notas, historial, aprobación, confirmaciones y mensajes borrados |
+| [tests/native_popup_test.js](tests/native_popup_test.js) | Extensión cargada en Chromium: tamaño real del popup en tres idiomas/ambos temas y pestaña fijada sin ventanas adicionales |
 | [tests/build_test.js](tests/build_test.js) | Manifiestos, contenido exacto de los ZIP y reproducibilidad |
 
 Flujo: `Twitch IRC -> worker -> chat-flow -> lotes por runtime.Port -> VirtualChat`.
@@ -127,6 +134,10 @@ Para verificar también el motor Firefox:
 deno run -A npm:playwright@1.56.1 install firefox
 deno task test:ui:firefox
 ```
+
+En Windows, haz doble clic en [build/run-example-account-tests.bat](build/run-example-account-tests.bat) para ejecutar solo las pruebas con cuentas ficticias: worker, Chrome/Edge y Firefox. Requiere Deno 2 en PATH y los navegadores indicados arriba; respeta `CHATTER_BROWSER`, se detiene si falla una prueba y mantiene los resultados visibles. Usa `--no-pause` para ejecutarlo sin pausa desde una terminal o un proceso automatizado.
+
+`deno task test:native` comprueba además el popup real con la extensión cargada en un perfil temporal vacío, sin iniciar sesión en Twitch. Necesita el Chromium completo de Playwright, no `headless-shell`; Chrome comercial puede impedir la carga por argumentos. Si ya tienes otro Chromium compatible instalado, indica su ejecutable con `$env:CHATTER_CHROMIUM_EXECUTABLE = 'C:\ruta\a\chromium\chrome.exe'`. Esta prueba no está incluida en el BAT de cuentas ficticias.
 
 Las pruebas headless guardan capturas en una carpeta temporal del sistema, no en el repositorio. La API y el tráfico Twitch se simulan: no se ha verificado aquí un inicio de sesión real ni una sanción o cambio real de configuración en Twitch. No se afirma una tasa de FPS garantizada en todos los equipos.
 

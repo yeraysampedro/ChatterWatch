@@ -40,7 +40,7 @@ Die temporäre Installation endet beim Schließen von Firefox. Für dauerhafte V
 | Scope | Zweck |
 | --- | --- |
 | `chat:read` | Nachrichten über IRC lesen |
-| `moderator:manage:banned_users` | Ban/Timeout im Panel und Multichat-Schaltfläche `/srs 1s` |
+| `moderator:manage:banned_users` | Bans/Timeouts setzen und aufheben sowie Multichat-Schaltfläche `/srs 1s` |
 | `moderator:manage:warnings` | Nutzer verwarnen |
 | `moderator:read:followers` | Signal für kürzlich gefolgte Nutzer |
 | `moderator:manage:chat_settings` | Tatsächlichen Twitch Slow Mode ändern |
@@ -94,7 +94,7 @@ Gültige Änderungen gelten nach dem Speichern: Eine andere Client ID kann die A
 
 Der anfängliche Modus ist dunkel; eine gespeicherte helle Auswahl bleibt erhalten. Dashboard und Einstellungen nutzen die verfügbare Breite mit gleicher Geometrie in beiden Designs. Nur die Zahl ausstehender Prüfungen wird hervorgehoben; das Verzeichnis hat Seiten mit 25 Personen. **Freigegeben** zeigt Freigabegründe, ohne Nachrichten im Live-Chat auszublenden.
 
-Die Fenster-Anheften-Schaltfläche öffnet oder verwendet ein unabhängiges Dashboard, anfangs 820 x 820. Das native Popup schließt weiterhin bei Fokusverlust: Fenster, Seitenleiste oder interne Seite für Tabwechsel verwenden. OAuth aus dem Popup wechselt zuerst in ein dauerhaftes Fenster; dort die Anmeldung fortsetzen. Die Client ID ist verdeckt und kann angezeigt werden; sie ist kein Client Secret. **Alle Einstellungen** in Multichat öffnet die gemeinsame Konfiguration.
+Die Anheften-Schaltfläche öffnet oder verwendet einen **angehefteten Tab im Browser**, kein unabhängiges Fenster. Auch ladende Tabs werden wiederverwendet und minimierte Browserfenster wiederhergestellt, ohne andere Ansichten zu schließen. Das native Popup fordert 760 x 580 Inhaltsgröße an, begrenzt durch den Browser und den Platz für Scrollleisten; bei Fokusverlust schließt es weiterhin. Für dauerhaftes Öffnen den angehefteten Tab oder die Seitenleiste verwenden. OAuth aus dem Popup wechselt zuerst zum angehefteten Tab; dort die Anmeldung fortsetzen. Die Client ID ist verdeckt und kann angezeigt werden; sie ist kein Client Secret. **Alle Einstellungen** in Multichat öffnet die gemeinsame Konfiguration im Dashboard-Tab.
 
 Unabhängige Fenster speichern geänderte Position/Größe alle zwei Sekunden, bei Fokusverlust und beim Schließen. Erneutes Öffnen verwendet gespeicherte Werte; ein Ein-Kanal-Fenster beginnt ohne frühere Geometrie bei 520 x 760. Beim Browserstart werden keine Fenster automatisch geöffnet. Arbeitsbereiche behalten die ausdrückliche Wiederherstellung. Das Betriebssystem kann Koordinaten fehlender Monitore anpassen; physische Positionierung muss manuell geprüft werden.
 
@@ -110,7 +110,7 @@ Für Übersetzung einen HTTPS-Endpunkt mit LibreTranslate-Kompatibilität (meist
 
 ### Multichat und Fenster
 
-Seit 1.3.1 verwenden **Multichat öffnen** und **Abtrennen** das passende Fenster erneut und fokussieren es, auch während des Ladens oder bei mehrfachen Klicks. Das Dashboard wird ebenfalls wiederverwendet. Höchstens zwölf unabhängige Erweiterungsfenster sind erlaubt, einschließlich Dashboard und Arbeitsbereich-Wiederherstellung. Fremde Fenster und alte Duplikate werden nicht geschlossen; Duplikate früherer Versionen manuell schließen. Reicht die Kapazität für einen Arbeitsbereich nicht, wird teilweise Wiederherstellung gemeldet.
+Seit 1.3.1 verwenden **Multichat öffnen** und **Abtrennen** das passende Fenster erneut und fokussieren es, auch während des Ladens oder bei mehrfachen Klicks. Der Dashboard-Tab wird ebenfalls wiederverwendet. Höchstens zwölf unabhängige Erweiterungs-Popupfenster sind erlaubt, einschließlich älterer abgetrennter Dashboards und Arbeitsbereich-Wiederherstellung; angeheftete Browser-Tabs zählen nicht dazu. Fremde Fenster und alte Duplikate werden nicht geschlossen; Duplikate früherer Versionen manuell schließen. Reicht die Kapazität für einen Arbeitsbereich nicht, wird teilweise Wiederherstellung gemeldet.
 
 ### Alle Chatter und lokaler Verlauf
 
@@ -118,7 +118,9 @@ Seit 1.3.1 verwenden **Multichat öffnen** und **Abtrennen** das passende Fenste
 
 Ein bestätigter Timeout verwirft die Person nicht mehr automatisch. Ein Ban löst den ausstehenden Eintrag auf; der Datensatz bleibt in Alle Chatter und passenden Filtern verfügbar. Bestehende Freigaben behalten ihre Bedeutung; Sanktionen löschen weder Notizen noch gespeicherte Nachrichten.
 
-**Verlauf** öffnet Nachrichten, Notizen und Moderation. Bis zu 50 aktuelle Nachrichten je Person/Kanal bleiben über Sitzungen erhalten, dazu höchstens 100 gemeinsame lokale Ereignisse: manuelle/automatische Timeouts und `/srs 1s`, Bans, Warnungen, Löschungen, manuelle Freigaben und Notizänderungen. Ereignisse enthalten Datum, Grund, Dauer, Herkunft und handelnde Person, soweit bekannt. Fehler gelten nicht als erfolgreiche Sanktionen. Die aktuelle Notiz bleibt auch nach Verdrängung älterer Ereignisse erhalten.
+Zum Aufheben eines aktiven Bans oder Timeouts die Person unter **Alle Chatter** suchen, **Ban/Timeout aufheben** wählen und den angezeigten Nutzer/Kanal bestätigen. Dafür gelten der vorhandene Scope `moderator:manage:banned_users` und die Kanalrechte. Erst eine erfolgreiche Twitch-Antwort protokolliert die Aufhebung und entfernt die lokale Verwerfung; das Konto wird nicht freigegeben und sein Verlauf bleibt erhalten. Ein weiterer automatischer Timeout wird im selben Prüfzyklus unterdrückt; Inaktivität oder Streamwechsel können einen neuen Zyklus beginnen. Eine abgelaufene/nicht vorhandene Sanktion, fehlende Rechte oder gleichzeitige Twitch-Änderungen zeigen einen Fehler statt eines Erfolgseintrags.
+
+**Verlauf** öffnet Nachrichten, Notizen und Moderation. Bis zu 50 aktuelle Nachrichten je Person/Kanal bleiben über Sitzungen erhalten, dazu höchstens 100 gemeinsame lokale Ereignisse: manuelle/automatische Timeouts und `/srs 1s`, Bans, aufgehobene Bans/Timeouts, Warnungen, Löschungen, manuelle Freigaben und Notizänderungen. Ereignisse enthalten Datum, Grund, Dauer, Herkunft und handelnde Person, soweit bekannt. Fehler gelten nicht als erfolgreiche Sanktionen. Die aktuelle Notiz bleibt auch nach Verdrängung älterer Ereignisse erhalten.
 
 Der Verlauf stammt ausschließlich aus lokalem Speicher; frühere, nie erfasste Twitch-Timeouts lassen sich nicht rekonstruieren. Alte Datensätze können nur den letzten Zustand ohne genaue Datumsangabe enthalten. Nach einmaligem Verbinden eines Kanals mit dieser Version bleiben lokale Daten nach dem Trennen lesbar. Deinstallation oder Löschen des Erweiterungsspeichers entfernt sie; keine automatische zeitbasierte Bereinigung. Siehe [Datenschutz](PRIVACY.md).
 

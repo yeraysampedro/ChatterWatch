@@ -1,98 +1,6 @@
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
 import vm from "node:vm";
-import { IDBFactory, IDBKeyRange } from "npm:fake-indexeddb@6.2.2";
-
-const sources = Object.fromEntries(await Promise.all(["core.js", "chat-flow.js", "worker.js"].map(async (name) => [
-  name, await Deno.readTextFile(new URL(`../src/${name}`, import.meta.url))
-])));
-
-function eventBus() {
-  const listeners = [];
-  return { addListener: (listener) => listeners.push(listener), emit: (...args) => listeners.forEach((listener) => listener(...args)) };
-}
-
-function storage(initial) {
-  const data = structuredClone(initial);
-  return {
-    async get(keys) { return Object.fromEntries((Array.isArray(keys) ? keys : [keys]).map((key) => [key, structuredClone(data[key])])); },
-    async set(values) { Object.assign(data, structuredClone(values)); },
-    async remove(keys) { for (const key of Array.isArray(keys) ? keys : [keys]) delete data[key]; }
-  };
-}
-
-async function harness({ scopes = ["moderator:manage:chat_settings"], connected = false, firefox = false, locale = "en-US" } = {}) {
-  const sockets = [];
-  const requests = [];
-  const windows = [];
-  const tabs = [];
-  const timers = new Map();
-  let nextTimer = 0;
-  let nextWindowId = 0;
-  class Socket {
-    static OPEN = 1;
-    static CONNECTING = 0;
-    constructor() { this.readyState = 0; this.sent = []; sockets.push(this); }
-    send(line) { this.sent.push(line); }
-    close() { this.readyState = 3; this.onclose?.(); }
-    open() { this.readyState = 1; this.onopen(); }
-    receive(line) { this.onmessage({ data: `${line}\r\n` }); }
-  }
-  const chrome = {
-    i18n: { getUILanguage: () => locale },
-    permissions: { contains: async () => true },
-    action: { setBadgeText: async () => {} },
-    storage: {
-      local: storage({ settings: { channel: "primary", clientId: "client" } }),
-      session: storage({ accessToken: "test-token", moderator: { user_id: "42", login: "mod", scopes }, chatConnected: connected })
-    },
-    runtime: {
-      onMessage: eventBus(), onConnect: eventBus(), sendMessage: () => Promise.resolve(), getURL: (path) => `${firefox ? "moz" : "chrome"}-extension://test/${path}`,
-      getContexts: async () => windows.map((info) => ({ documentUrl: info.url, windowId: info.id }))
-    },
-    windows: {
-      async create(options) { const info = { id: ++nextWindowId, left: 0, top: 0, state: "normal", ...options }; windows.push(info); return info; },
-      async getAll(options = {}) { return windows.filter((info) => !options.windowTypes || options.windowTypes.includes(info.type)); },
-      async update(id, values) { const info = windows.find((item) => item.id === id); Object.assign(info, values); return info; }
-    },
-    tabs: {
-      async create({ url }) {
-        const info = { id: tabs.length + 1, windowId: 200, url };
-        tabs.push(info);
-        if (!windows.some((window) => window.id === 200)) windows.push({ id: 200, type: "normal", url });
-        return info;
-      },
-      async get(id) { const tab = tabs.find((info) => info.id === id); if (!tab) throw new Error("Tab closed"); return tab; },
-      async update(id, values) { const tab = tabs.find((info) => info.id === id); Object.assign(tab, values); return tab; }
-    },
-    alarms: { create() {}, onAlarm: eventBus() }
-  };
-  const context = vm.createContext({
-    chrome, crypto, URL, console, AbortSignal, indexedDB: new IDBFactory(), IDBKeyRange, WebSocket: Socket,
-    setTimeout: (callback) => { timers.set(++nextTimer, callback); return nextTimer; },
-    clearTimeout: (timer) => timers.delete(timer),
-    setInterval: (callback) => { timers.set(++nextTimer, callback); return nextTimer; },
-    clearInterval: (timer) => timers.delete(timer),
-    fetch: async (url, options) => {
-      requests.push({ url: String(url), options });
-      return {
-        ok: true, status: 200,
-        json: async () => String(url).includes("/chat/settings")
-          ? { data: [{ slow_mode: true, slow_mode_wait_time: 12 }] }
-          : { data: [{ id: "100", login: new URL(url).searchParams.get("login") || "primary" }] }
-      };
-    }
-  });
-  if (firefox) {
-    context.browser = chrome;
-    context.chrome = {};
-    for (const name of ["core.js", "chat-flow.js"]) vm.runInContext(sources[name], context);
-  } else {
-    context.importScripts = (...names) => names.forEach((name) => vm.runInContext(sources[name], context));
-  }
-  vm.runInContext(sources["worker.js"], context);
-  await vm.runInContext("chatReady", context);
-  return { context, chrome, sockets, requests, windows, tabs, call: (message) => context.handleMessage(message) };
-}
+import { eventBus, harness } from "./worker_harness.js";
 
 Deno.test("worker detects the browser locale until a supported language is saved", async () => {
   for (const [locale, expected] of [["es-MX", "es"], ["de-AT", "de"], ["fr-FR", "en"]]) {
@@ -438,6 +346,42 @@ Deno.test("window opens reuse a loading dashboard page without creating popup wi
   assertEquals(app.tabs.length, 1);
   assertEquals(new Set(pages.map((info) => info.tabId)).size, 1);
   assertEquals(app.windows.filter((info) => info.type === "popup").length, 0);
+});
+
+for (const firefox of [false, true]) Deno.test(`pinning the dashboard reuses a browser tab without runtime contexts (${firefox ? "Firefox" : "Chromium"})`, async () => {
+  const app = await harness({ firefox });
+  app.chrome.runtime.getContexts = undefined;
+  const results = await Promise.all(Array.from({ length: 30 }, () => app.call({ type: "OPEN_DASHBOARD", page: true, pinned: true })));
+  assertEquals(app.tabs.length, 1);
+  assertEquals(app.tabs[0].pinned, true);
+  assertEquals(app.tabs[0].active, true);
+  assertEquals(new Set(results.map((result) => result.tabId)).size, 1);
+  assertEquals(app.windows.filter((info) => info.type === "popup").length, 0);
+  await app.call({ type: "OPEN_DASHBOARD", page: true });
+  assertEquals(app.tabs[0].pinned, true);
+});
+
+for (const firefox of [false, true]) Deno.test(`pinning finds loading tabs, restores minimized browsers and preserves other windows (${firefox ? "Firefox" : "Chromium"})`, async () => {
+  const app = await harness({ firefox });
+  const url = app.chrome.runtime.getURL("dashboard.html");
+  app.windows.push({ id: 200, type: "normal", state: "minimized" }, { id: 201, type: "popup", url });
+  const unrelated = { id: 9, windowId: 200, url: "https://example.com/", pinned: false };
+  app.tabs.push({ ...unrelated }, { id: 50, windowId: 200, pendingUrl: `${url}?settings=1`, pinned: false });
+  app.chrome.runtime.getContexts = async () => [];
+  const result = await app.call({ type: "OPEN_DASHBOARD", page: true, pinned: true });
+  assertEquals(result.tabId, 50);
+  assertEquals(app.tabs.length, 2);
+  assertEquals(app.tabs[0], unrelated);
+  assertEquals(app.tabs[1].pinned, true);
+  assertEquals(app.windows[0].state, "normal");
+  assertEquals(app.windows[0].focused, true);
+  assertEquals(app.windows.length, 2);
+  app.tabs[1].url = url;
+  app.tabs[1].pendingUrl = "https://example.com/leaving";
+  const replacement = await app.call({ type: "OPEN_DASHBOARD", page: true, pinned: true });
+  assert(replacement.tabId !== 50);
+  assertEquals(app.tabs[1].pendingUrl, "https://example.com/leaving");
+  assertEquals(app.tabs.length, 3);
 });
 
 Deno.test("workspace restores share the window limit and never close unrelated windows", async () => {

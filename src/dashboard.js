@@ -19,6 +19,7 @@ const iconPaths = {
 
 const messages = {
   en: {
+    "action.unban": "Unban / end timeout", "history.unban": "Ban/timeout removed", "unban.done": "Ban/timeout removed for {name}", "unban.explanation": "Remove this user's active ban or timeout on Twitch. This does not approve the account.",
     "directory.connectOnce": "Connect this channel once to identify its local history.", "directory.error": "Could not load chatters.",
     "filter.pending": "Pending review", "filter.everyone": "All chatters", "directory.search": "Search chatters", "directory.previous": "Previous page", "directory.next": "Next page", "directory.page": "{total} people · {page}/{pages}", "directory.loading": "Loading...", "directory.empty": "No matching chatters recorded in this channel.", "directory.title": "Channel chatters",
     "history.profile": "Chatter history", "history.local": "LOCAL HISTORY", "history.coverage": "Local records only: up to 50 messages and 100 activity events. Earlier unrecorded actions are unavailable.", "history.messages": "Messages", "history.notes": "Notes", "history.actions": "Moderation", "history.currentNote": "Current note", "history.noNote": "No note", "history.noEvents": "No recorded activity in this view.", "history.previous": "Previous", "history.current": "Current", "history.timeout": "Timeout: {seconds} s", "history.ban": "Ban", "history.warning": "Warning", "history.delete": "Message deleted", "history.approval": "Approval", "history.note": "Note changed", "history.manual": "Manual", "history.automatic": "Automatic", "history.quick": "/srs 1s", "history.legacy": "Previous state (no detailed event): {action}",
@@ -40,6 +41,7 @@ const messages = {
     "error.extension": "The extension service is unavailable. Reload the extension and try again.", "error.approval": "That chatter is no longer available.", "error.oauth": "Save your Twitch application client ID first.", "error.login": "Sign in with Twitch before connecting chat.", "error.helixLogin": "Sign in with Twitch before using Helix.", "error.moderateLogin": "Sign in and connect to a channel first.", "error.unsupported": "Unsupported request.", "error.warningScope": "Warning needs moderator:manage:warnings. Disconnect Twitch and sign in again to grant it.", "error.timeoutBounds": "Timeout must be between 1 second and 14 days.", "error.channelRequired": "Enter a channel name first.", "error.channelNotFound": "Twitch channel {channel} was not found.", "error.authExpired": "Twitch sign-in expired. Sign in again to continue.", "error.clientMismatch": "The Twitch token does not match this app or is not a user token.", "error.chatScope": "Grant the chat:read permission to connect to Twitch chat.", "error.banScope": "Grant the moderator:manage:banned_users permission to moderate chatters.", "error.followerScope": "Grant the moderator:read:followers permission or turn off recent-follower checks.", "error.signInCancelled": "Twitch sign-in was cancelled.", "error.authorization": "Twitch did not authorize this app.", "error.stateMismatch": "The Twitch sign-in state did not match. Please try again.", "error.noToken": "Twitch did not return an access token."
   },
   de: {
+    "action.unban": "Ban/Timeout aufheben", "history.unban": "Ban/Timeout aufgehoben", "unban.done": "Ban/Timeout für {name} aufgehoben", "unban.explanation": "Den aktiven Ban oder Timeout dieses Nutzers auf Twitch aufheben. Das Konto wird dadurch nicht freigegeben.",
     "directory.connectOnce": "Diesen Kanal einmal verbinden, um seinen lokalen Verlauf zuzuordnen.", "directory.error": "Chatter konnten nicht geladen werden.",
     "filter.pending": "Zur Prüfung", "filter.everyone": "Alle Chatter", "directory.search": "Chatter suchen", "directory.previous": "Vorherige Seite", "directory.next": "Nächste Seite", "directory.page": "{total} Personen · {page}/{pages}", "directory.loading": "Lädt...", "directory.empty": "Keine passenden Chatter für diesen Kanal gespeichert.", "directory.title": "Chatter des Kanals",
     "history.profile": "Chatter-Verlauf", "history.local": "LOKALER VERLAUF", "history.coverage": "Nur lokale Daten: bis zu 50 Nachrichten und 100 Ereignisse. Frühere nicht erfasste Aktionen sind nicht verfügbar.", "history.messages": "Nachrichten", "history.notes": "Notizen", "history.actions": "Moderation", "history.currentNote": "Aktuelle Notiz", "history.noNote": "Keine Notiz", "history.noEvents": "Keine aufgezeichneten Ereignisse in dieser Ansicht.", "history.previous": "Vorher", "history.current": "Aktuell", "history.timeout": "Timeout: {seconds} s", "history.ban": "Ban", "history.warning": "Verwarnung", "history.delete": "Nachricht gelöscht", "history.approval": "Freigabe", "history.note": "Notiz geändert", "history.manual": "Manuell", "history.automatic": "Automatisch", "history.quick": "/srs 1s", "history.legacy": "Vorheriger Zustand (ohne Ereignisdetails): {action}",
@@ -61,6 +63,7 @@ const messages = {
     "error.extension": "Der Erweiterungsdienst ist nicht verfügbar. Lade die Erweiterung neu und versuche es erneut.", "error.approval": "Dieser Chatter ist nicht mehr verfügbar.", "error.oauth": "Speichere zuerst deine Twitch-Client-ID.", "error.login": "Melde dich bei Twitch an, bevor du den Chat verbindest.", "error.helixLogin": "Melde dich bei Twitch an, bevor du Helix verwendest.", "error.moderateLogin": "Melde dich an und verbinde zuerst einen Kanal.", "error.unsupported": "Nicht unterstützte Anfrage.", "error.warningScope": "Für Warnungen wird moderator:manage:warnings benötigt. Trenne Twitch und melde dich erneut an, um die Berechtigung zu erteilen.", "error.timeoutBounds": "Der Timeout muss zwischen 1 Sekunde und 14 Tagen liegen.", "error.channelRequired": "Gib zuerst einen Kanalnamen ein.", "error.channelNotFound": "Der Twitch-Kanal {channel} wurde nicht gefunden.", "error.authExpired": "Die Twitch-Anmeldung ist abgelaufen. Bitte erneut anmelden.", "error.clientMismatch": "Das Twitch-Token gehört nicht zu dieser App oder ist kein Benutzer-Token.", "error.chatScope": "Erteile chat:read, um den Twitch-Chat zu verbinden.", "error.banScope": "Erteile moderator:manage:banned_users, um Chatter moderieren zu können.", "error.followerScope": "Erteile moderator:read:followers oder deaktiviere die Prüfung neuer Follower.", "error.signInCancelled": "Die Twitch-Anmeldung wurde abgebrochen.", "error.authorization": "Twitch hat diese App nicht autorisiert.", "error.stateMismatch": "Der Twitch-Anmeldestatus stimmt nicht überein. Bitte erneut versuchen.", "error.noToken": "Twitch hat kein Zugriffstoken zurückgegeben."
   },
   es: {
+    "action.unban": "Quitar ban/timeout", "history.unban": "Ban/timeout retirado", "unban.done": "Ban/timeout retirado a {name}", "unban.explanation": "Retirar el ban o timeout activo de este usuario en Twitch. Esto no aprueba la cuenta.",
     "directory.connectOnce": "Conecta este canal una vez para identificar su historial local.", "directory.error": "No se pudo cargar la lista.",
     "filter.pending": "Por revisar", "filter.everyone": "Todos los chatters", "directory.search": "Buscar chatters", "directory.previous": "Página anterior", "directory.next": "Página siguiente", "directory.page": "{total} personas · {page}/{pages}", "directory.loading": "Cargando...", "directory.empty": "No hay chatters registrados que coincidan en este canal.", "directory.title": "Chatters del canal",
     "history.profile": "Historial del chatter", "history.local": "HISTORIAL LOCAL", "history.coverage": "Solo registros locales: hasta 50 mensajes y 100 eventos. Las acciones anteriores no registradas no están disponibles.", "history.messages": "Mensajes", "history.notes": "Notas", "history.actions": "Moderación", "history.currentNote": "Nota actual", "history.noNote": "Sin nota", "history.noEvents": "No hay actividad registrada en esta vista.", "history.previous": "Anterior", "history.current": "Actual", "history.timeout": "Timeout: {seconds} s", "history.ban": "Ban", "history.warning": "Aviso", "history.delete": "Mensaje borrado", "history.approval": "Aprobación", "history.note": "Nota modificada", "history.manual": "Manual", "history.automatic": "Automático", "history.quick": "/srs 1s", "history.legacy": "Estado anterior (sin evento detallado): {action}",
@@ -278,6 +281,7 @@ function localizedAction(action) {
   if (action === "Approved") return t("action.approvedState");
   if (action === "Warned") return t("action.warnedState");
   if (action === "Banned") return t("action.bannedState");
+  if (action === "Ban/timeout removed") return t("history.unban");
   const seconds = action.match(/^Timed out for (\d+) s$/);
   if (seconds) return t("history.timeout", { seconds: seconds[1] });
   const timeout = action.match(/^Timed out for (\d+) min$/);
@@ -388,7 +392,8 @@ function renderCard(account, index) {
   secondaryActions.className = "secondary-actions";
   secondaryActions.append(
     makeButton(account.note ? t("action.editNote") : t("action.note"), "", "note", account),
-    makeButton(t("action.approve"), "vet", "vet", account)
+    makeButton(t("action.approve"), "vet", "vet", account),
+    makeButton(t("action.unban"), "unban", "unban", account)
   );
   card.append(secondaryActions);
   return card;
@@ -534,6 +539,12 @@ async function runAction(action, account, button) {
       if (!window.confirm(t("warning.confirm", { name: account.displayName }))) return;
       await request("WARN", { key: account.key, reason });
       showToast(t("warning.sent", { name: account.displayName }));
+    } else if (action === "unban") {
+      if (!await ExtensionView.dialog({
+        title: t("action.unban"), body: `#${currentState.settings.channel} / ${account.displayName || account.login}\n${t("unban.explanation")}`
+      })) return;
+      await request("MODERATE", { key: account.key, action, confirmed: true });
+      showToast(t("unban.done", { name: account.displayName }));
     } else if (action === "ban" || action === "timeout") {
       const values = await ExtensionView.dialog({ title: t(`action.${action}`), danger: true,
         body: `#${currentState.settings.channel} / ${account.displayName || account.login}${action === "ban" ? `\n${ExtensionView.label("permanent")}` : ""}`,
@@ -617,7 +628,7 @@ async function saveSettings() {
 
 async function signIn() {
   if (document.documentElement.dataset.popup === "true") {
-    await request("OPEN_DASHBOARD");
+    await request("OPEN_DASHBOARD", { page: true, pinned: true });
     window.close();
     return false;
   }
@@ -754,12 +765,15 @@ if (extensionApi.sidePanel?.open || extensionApi.sidebarAction?.open) byId("open
 async function openView(button, type, payload = {}) {
   if (button.disabled) return;
   button.disabled = true;
-  try { await request(type, payload); }
+  try {
+    await request(type, payload);
+    if (type === "OPEN_DASHBOARD" && payload.page && document.documentElement.dataset.popup === "true") window.close();
+  }
   catch (error) { showToast(error.message, true); }
   finally { button.disabled = false; }
 }
 byId("open-multichat").addEventListener("click", (event) => void openView(event.currentTarget, "OPEN_CHAT_WINDOW"));
-byId("pin-window").addEventListener("click", (event) => void openView(event.currentTarget, "OPEN_DASHBOARD"));
+byId("pin-window").addEventListener("click", (event) => void openView(event.currentTarget, "OPEN_DASHBOARD", { page: true, pinned: true }));
 byId("open-page").addEventListener("click", (event) => void openView(event.currentTarget, "OPEN_DASHBOARD", { page: true }));
 byId("show-client-id").addEventListener("click", () => {
   const input = byId("client-id-input");

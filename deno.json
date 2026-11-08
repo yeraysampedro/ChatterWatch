@@ -2,9 +2,10 @@
   "tasks": {
     "store:assets": "deno run -A build/store-assets.js",
     "build": "deno run --allow-read --allow-write=dist build/build.js",
-    "test": "deno test --allow-read tests/core_test.js tests/worker_test.js",
+    "test": "deno test --allow-read tests/core_test.js tests/worker_test.js tests/example_accounts_test.js",
     "test:build": "deno test --allow-read --allow-write tests/build_test.js",
-    "test:ui": "deno test -A tests/ui_test.js",
-    "test:ui:firefox": "CHATTER_BROWSER=firefox deno test -A tests/ui_test.js"
+    "test:ui": "deno test -A tests/ui_test.js tests/example_accounts_ui_test.js",
+    "test:native": "deno test -A tests/native_popup_test.js",
+    "test:ui:firefox": "CHATTER_BROWSER=firefox deno test -A tests/ui_test.js tests/example_accounts_ui_test.js"
   }
 }

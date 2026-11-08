@@ -376,7 +376,7 @@ async function bundle() {
   ];
   const report = { version: manifest.version, validatedAt: new Date().toISOString(), structuralStatus: "PASS", publicationStatus: "NOT_READY_FOR_FINAL_CERTIFICATION", packages, firefoxLint: { tool: "web-ext 9.1.0", exitCode: lintRun.code, ...firefoxLint.summary }, publicLinks: links, publicPrivacy, blockers: failures, warnings, storeKits: [] };
   const sourceEntries = {};
-  const sourceFiles = new Set([...packages[0].entries.map((name) => `src/${name}`), ...documents, "build/build.js", "deno.json", "deno.lock", ".gitignore", "build/store-assets.js", "AGENTS.md", "src/assets/icons/chatter-watch-512.png", "tests/core_test.js", "tests/worker_test.js", "tests/ui_test.js", "tests/build_test.js"]);
+  const sourceFiles = new Set([...packages[0].entries.map((name) => `src/${name}`), ...documents, "build/build.js", "deno.json", "deno.lock", ".gitignore", "build/store-assets.js", "build/run-example-account-tests.bat", "AGENTS.md", "src/assets/icons/chatter-watch-512.png", "tests/core_test.js", "tests/worker_test.js", "tests/worker_harness.js", "tests/example_accounts.js", "tests/example_accounts_test.js", "tests/example_accounts_ui_test.js", "tests/ui_test.js", "tests/native_popup_test.js", "tests/build_test.js"]);
   verifyPublicPaths(sourceFiles);
   for (const name of sourceFiles) sourceEntries[name] = await Deno.readFile(new URL(name, root));
   const sourceZip = zipSync(sourceEntries, { level: 9, mtime: new Date(2000, 0, 1) });

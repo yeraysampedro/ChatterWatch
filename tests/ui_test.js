@@ -217,7 +217,7 @@ Deno.test({
         assert((await page.locator("#feed").textContent()).includes("ApprovedViewer"));
         assert((await page.locator("#feed").textContent()).includes("Aprobado: cantidad de mensajes"));
         await page.locator("#pin-window").click();
-        assertEquals(await page.evaluate(() => window.testRequests.at(-1).type), "OPEN_DASHBOARD");
+        assertEquals(await page.evaluate(() => window.testRequests.at(-1)), { type: "OPEN_DASHBOARD", page: true, pinned: true });
         await page.setViewportSize({ width: 360, height: 800 });
         assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
         assert(await page.locator('[data-filter="approved"]').isVisible());

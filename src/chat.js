@@ -495,7 +495,7 @@ function applyPreferences({ settings, appearance }) {
 }
 
 element("chat-settings").addEventListener("click", openSettings);
-element("all-settings").addEventListener("click", () => request("OPEN_DASHBOARD", { settings: true }).catch((error) => toast(error.message)));
+element("all-settings").addEventListener("click", () => request("OPEN_DASHBOARD", { page: true, settings: true }).catch((error) => toast(error.message)));
 element("add-highlight").addEventListener("click", () => { addHighlight(); scheduleChatSettingsSave(); });
 element("open-workspaces").addEventListener("click", async () => {
   element("workspace-error").textContent = "";

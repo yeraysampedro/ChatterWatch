@@ -48,9 +48,9 @@ Second ordinary test chatter: <ENTER_USERNAME_AND_PASSWORD_PRIVATELY_OR_STATE_RE
 New-device/2FA verification arrangement: <ENTER_A_WORKING_PRIVATE_CONTACT_AND_PROCEDURE>
 
 Setup:
-1. Open the toolbar popup and use the pin-window button to open a persistent dashboard.
+1. Open the toolbar popup and use the pin button to open a pinned dashboard tab inside the browser.
 2. Open Settings, enter the Client ID and primary test channel, and save.
-3. Click Connect, sign in through Twitch with the test moderator/broadcaster account and approve the requested scopes.
+3. Click Connect in that tab, sign in through Twitch with the test moderator/broadcaster account and approve the requested scopes.
 4. Wait for Connected / Monitoring.
 
 Core features:
@@ -70,10 +70,10 @@ After testing, restore any changed channel settings and disconnect. The publishe
 
 1. Extract the browser-specific store kit. Install only `packages/chatter-watch-1.3.1-chromium.zip` or `packages/chatter-watch-1.3.1-firefox.zip` through the relevant review workflow. The store kit itself is not an installable extension ZIP.
 2. Use desktop Chromium/Chrome 116+ or Firefox 140+. The ordinary Firefox release requires signing for permanent installation; temporary loading is a development check, not proof of signing. No mobile compatibility is claimed.
-3. Open the extension and use the pin-window button for a persistent dashboard. This avoids the native toolbar popup closing while the official OAuth flow runs.
+3. Open the extension and use the pin button for a pinned dashboard tab inside the browser, not a detached window. Repeated clicks reuse the tab. This avoids the native toolbar popup closing while the official OAuth flow runs.
 4. Open Settings. Confirm the displayed browser-specific OAuth redirect is registered in the test Twitch application. A locally unpacked Chrome installation can have a different ID/redirect from the store build. Prepare the final redirect after the item ID is known, before submitting the item for review.
 5. Enter the supplied Client ID and primary test channel. Settings save automatically after a valid edit or through Save. No Client Secret is requested.
-6. Select Connect in the persistent window and complete Twitch's official sign-in. Grant the listed scopes: `chat:read`, `moderator:manage:banned_users`, `moderator:manage:warnings`, `moderator:read:followers`, `moderator:manage:chat_settings`, `moderator:manage:chat_messages`.
+6. Select Connect in the pinned tab and complete Twitch's official sign-in. Grant the listed scopes: `chat:read`, `moderator:manage:banned_users`, `moderator:manage:warnings`, `moderator:read:followers`, `moderator:manage:chat_settings`, `moderator:manage:chat_messages`.
 7. Wait for Connected/Monitoring. Scope authorization is not the same as permission to moderate any channel: the account must have the appropriate role in the target channel.
 
 ## Core Reading and Review
@@ -91,9 +91,10 @@ After an authorized timeout, verify the chatter remains in applicable review/cat
 
 1. Open a ban/timeout dialog for the authorized test chatter and cancel. No sanction should be sent. Verify that the target and channel remain clear while the dialog is open.
 2. With the publisher's authorization, confirm a short timeout on the test account. The manual duration is in seconds; never use a real participant for an unarranged sanction. `/srs 1s` also requests confirmation before its one-second timeout.
-3. Delete one agreed test message using the row's Delete action and confirm. Only that retained message is targeted; the local feed keeps it as a marked deletion ghost. Missing scope or role must report an error rather than success.
-4. If testing actual slow mode, record the channel's existing value, make an agreed temporary change, confirm it and restore the original value immediately afterward. Local slow/filter controls do not themselves change Twitch settings.
-5. Automatic timeout is separate and initially disabled. Leave it disabled unless testing it has been specifically arranged. A ban is permanent; no successful ban test is required merely to demonstrate the confirmation UI.
+3. While an agreed timeout is still active, find the person in All chatters and choose **Unban / end timeout**. Cancel first, then confirm removal. The same action can remove an agreed test ban; the record remains accessible after a ban resolves Pending Review. Verify a removal event in History and unchanged approval/notes. A timeout that already expired must report Twitch's error rather than an invented successful removal.
+4. Delete one agreed test message using the row's Delete action and confirm. Only that retained message is targeted; the local feed keeps it as a marked deletion ghost. Missing scope or role must report an error rather than success.
+5. If testing actual slow mode, record the channel's existing value, make an agreed temporary change, confirm it and restore the original value immediately afterward. Local slow/filter controls do not themselves change Twitch settings.
+6. Automatic timeout is separate and initially disabled. Leave it disabled unless testing it has been specifically arranged. A ban has no automatic expiry; no successful ban test is required merely to demonstrate the confirmation UI. Removing a sanction suppresses another automatic timeout in the current review cycle, not indefinitely.
 
 ## Optional Translation and Host Permission
 
@@ -105,7 +106,7 @@ After an authorized timeout, verify the chatter remains in applicable review/cat
 
 ## Preferences, Alerts and Cleanup
 
-Repeated and concurrent Open Multichat/Detach clicks must reuse the matching window, including while it loads. Minimizing and reopening focuses/restores it; closing it permits a later replacement. At most twelve extension popup windows can be open, including workspace restoration. Existing duplicates and unrelated windows are not closed. Check the dashboard and settings fill 280px through wide desktop viewports without a centered strip or a theme-dependent size change.
+Repeated and concurrent Open Multichat/Detach clicks must reuse the matching window, including while it loads. Minimizing and reopening focuses/restores it; closing it permits a later replacement. The dashboard pin action reuses a pinned browser tab, including loading tabs, and restores a minimized browser. At most twelve extension popup windows can be open, including workspace restoration; pinned tabs are not counted. Existing duplicates and unrelated windows are not closed. Check the actual toolbar popup opens with wide content (760px requested, subject to browser limits/scrollbar space), rather than testing only a file opened in a tab. Dashboard tabs and sidebars still fill 280px through wide desktop viewports in both themes.
 
 1. Change language or theme and open another view. Confirm the shared preference appears there and persists after reload; pause, scroll and pins remain window-local.
 2. Move/resize a detached window, close and reopen it. The browser may adjust unavailable-monitor positions. The native action popup itself cannot be forced to remain open on focus loss.
@@ -113,6 +114,44 @@ Repeated and concurrent Open Multichat/Detach clicks must reuse the matching win
 4. Export TXT from a channel or Unified view using harmless sample messages. The file is local and limited to the retained live buffer; do not upload private chat records with a review report.
 5. Disconnect Twitch and restore all changed test-channel/settings values. Clear extension storage/IndexedDB or uninstall the test profile to remove stored notes and samples; delete downloaded exports separately.
 
+## Automated Example-Account Scenarios
+
+The automated counterparts use only the fictional identities in [tests/example_accounts.js](../tests/example_accounts.js), not the owner's private account file. No real passwords, tokens or Twitch logins are required, and no messages or sanctions are sent to Twitch. These fixtures do not verify that any similarly named real account exists or has a channel role.
+
+| Fictional identity | Simulated role / evidence |
+| --- | --- |
+| `demo` / DemoBroadcaster | Primary-channel broadcaster; exempt from automatic review sanctions. |
+| `demo_moderator` / DemoModerator | Authorized session actor and a moderation-exempt chatter. |
+| `sample_viewer_01` / SampleViewer01 | Two-day-old ordinary account, first-message tag and a recent follow. |
+| `sample_viewer_02` / SampleViewer02 | Established ordinary account with a recent follow, but no first-message tag. |
+| `demo_regular` / DemoRegular | Established ordinary account without an enabled review signal. |
+| `demo_subscriber` / DemoSubscriber | Current subscription evidence, with automatic approval initially disabled. |
+| `demo_helper` / DemoHelper | VIP with otherwise applicable review signals; exempt from automatic sanctions. |
+
+[Worker scenarios](../tests/example_accounts_test.js) run with both Chromium and Firefox API shapes. They feed IRC frames through the production worker and inspect its runtime-message responses rather than inserting preapproved database records:
+
+- Pending Review contains only applicable accounts; All chatters and name search retain ordinary and exempt accounts.
+- With only quantity approval enabled and N=2, the second message is still pending and the third is approved. All three messages remain in chat.
+- Extra-channel messages and broadcaster/moderator/VIP roles cannot trigger automatic account sanctions. An ordinary primary-channel account is the positive control for the explicitly enabled automatic-timeout scenario.
+- Unconfirmed actions, a zero-second timeout, a missing OAuth scope and a simulated channel-role denial return errors without adding successful moderation history or dismissing the chatter.
+- Removing bans/timeouts records success only after the simulated Twitch response, preserves approval/history and prevents another automatic timeout in that review cycle. Missing confirmation/scope and Twitch 400/403/409 failures leave the account unchanged.
+
+The [browser scenario](../tests/example_accounts_ui_test.js) connects the actual dashboard and Multichat pages to the actual worker, using simulated extension APIs, Twitch HTTP/IRC and IndexedDB. It checks cancel-before-confirm, an exact one-second timeout with a stable target while another chatter speaks, removing that timeout and a later ban through All chatters, note edits and previous values, local history, manual approval without hiding chat, canceled/confirmed deletion with live and pinned ghosts, and history access after disconnect. Worker snapshot/batch timers run normally in this scenario; unexpected browser HTTP(S) requests are blocked.
+
+Run the focused account scenarios from the repository root:
+
+```text
+deno task test --filter "example accounts"
+deno task test:ui --filter "example accounts"
+deno task test:ui:firefox --filter "example accounts"
+```
+
+They are also included in the unfiltered test tasks. Browser prerequisites and the `CHATTER_BROWSER=msedge` alternative are described in [README.md](../README.md#desarrollo-y-pruebas). Test dependencies may download on the first run. The browser suite uses isolated headless contexts; it does not sign in through an existing personal browser profile.
+
+On Windows, double-click [build/run-example-account-tests.bat](../build/run-example-account-tests.bat) to run all three focused suites. It requires Deno 2 on PATH and the browsers described above, works from any current directory, honors `CHATTER_BROWSER`, and pauses to keep the results visible. It stops at the first failing suite and preserves its exit code. Pass `--no-pause` when invoking it from an automated command or an existing terminal.
+
+Separately, `deno task test:native` runs [native_popup_test.js](../tests/native_popup_test.js) with the actual extension loaded in an empty headless Chromium profile. It checks native popup sizing and Settings in EN/ES/DE and light/dark themes, pinned-tab reuse, full tab width and the popup sign-in handoff. It requires Playwright's full Chromium; `CHATTER_CHROMIUM_EXECUTABLE` can select an existing compatible binary. This test neither signs in to Twitch nor verifies the publisher's accounts.
+
 ## Known Evidence Limits
 
-The repository's automated tests and store screenshots simulate extension APIs and Twitch traffic. They validate local behavior, not live authorization/delivery, a deployed translation provider, native multi-monitor behavior or browser suspension guarantees. The current build does not implement its own encryption of local records at rest; the corresponding store-policy compliance question remains unresolved. Do not certify or publish until the owner resolves the recorded blockers in STORE_VALIDATION.md.
+Most automated tests and store screenshots simulate extension APIs and Twitch traffic; the separate native popup test uses actual local Chromium extension APIs without Twitch sign-in. These checks do not establish live authorization/delivery, a deployed translation provider, native multi-monitor behavior or browser suspension guarantees. The current build does not implement its own encryption of local records at rest; the corresponding store-policy compliance question remains unresolved. Do not certify or publish until the owner resolves the recorded blockers in STORE_VALIDATION.md.
