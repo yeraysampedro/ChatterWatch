@@ -1,10 +1,10 @@
 # Testing Instructions for Store Reviewers
 
-ChatterWatch 1.0.0. These instructions describe the implemented extension. They are suitable for the Chrome Web Store Test instructions field and Mozilla Notes for Reviewers after the publisher provides the private test-access details below.
+ChatterWatch 1.0.0. These instructions describe the implemented extension. This public version contains **no account data**. The paste-ready plain-text note for the Chrome Web Store Test instructions fields and AMO Notes to Reviewer, including the private test-account access, is generated locally by `deno task store:submission` into the Git-ignored `dist/store-submission/*/PRIVATE-reviewer-instructions.txt` (see [STORE_SUBMISSION.md](STORE_SUBMISSION.md#ready-to-fill-store-folders)).
 
 ## Credentials and Access: Publisher Must Supply Privately
 
-**Real credentials are private and are not included in this document or any store/source kit.** The owner has reported preparing accounts in an ignored local file; its contents were not opened or validated during housekeeping. Actual sign-in, channel roles, the store callback and private reviewer access still require verification. Screenshot accounts such as SampleViewer01 and demo_moderator are fictional fixtures, not usable login credentials. Automated-test strings such as test-token are not valid Twitch authorization.
+**Real credentials are private and are not included in this document, the repository or any store/source kit.** The owner keeps the test accounts in the Git-ignored `example_accounts.md`; only `deno task store:submission` reads it, to write the Git-ignored private reviewer note. It checks the file's format, not whether sign-in works. Actual sign-in, channel roles, the store callback and private reviewer access still require verification. Screenshot accounts such as SampleViewer01 and demo_moderator are fictional fixtures, not usable login credentials. Automated-test strings such as test-token are not valid Twitch authorization.
 
 | Required access item | Value / preparation |
 | --- | --- |
@@ -154,7 +154,7 @@ deno task test:ui:firefox --filter "example accounts"
 
 They are also included in the unfiltered test tasks. Browser prerequisites and the `CHATTER_BROWSER=msedge` alternative are described in [README.md](../README.md#development-and-verification). Test dependencies may download on the first run. The browser suite uses isolated headless contexts; it does not sign in through an existing personal browser profile.
 
-On Windows, double-click [build/run-example-account-tests.bat](../build/run-example-account-tests.bat) to run all three focused suites. It requires Deno 2 on PATH and the browsers described above, works from any current directory, honors `CHATTER_BROWSER`, and pauses to keep the results visible. It stops at the first failing suite and preserves its exit code. Pass `--no-pause` when invoking it from an automated command or an existing terminal.
+On Windows, a local `.bat` wrapper around these three commands may be kept for convenience; such launchers are Git-ignored and not part of the repository.
 
 Separately, `deno task test:native` runs [native_popup_test.js](../tests/native_popup_test.js) with the actual extension loaded in an empty headless Chromium profile. It checks native popup sizing and Settings in EN/ES/DE and light/dark themes, pinned-tab reuse, full tab width and the popup sign-in handoff. It requires Playwright's full Chromium; `CHATTER_CHROMIUM_EXECUTABLE` can select an existing compatible binary. This test neither signs in to Twitch nor verifies the publisher's accounts.
 

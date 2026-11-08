@@ -4,11 +4,12 @@ ChatterWatch is a Manifest V3 browser extension for reading Twitch chat and mode
 
 > **Data use:** Twitch identity/session information, chatter metadata, message text and moderation history support this workspace. Twitch receives authentication/chat/API traffic and permitted avatar requests; an optional translator receives selected text only after separate permission and message confirmation. Records are stored locally. Twitch features and new account records remain blocked until an explicit, versioned **Allow data use** choice. **Stay offline** keeps prior history read-only without those requests or remote avatars. Read the [privacy policy](docs/PRIVACY.md) before installation.
 
-- **Initial public release target:** `v1.0.0`
+- **Initial public release:** `v1.0.0`
 - **Manifest version:** `1.0.0`
-- **Target repository and release-branch name:** `ChatterWatch`
+- **Repository:** https://github.com/yeraysampedro/ChatterWatch (branch `main`)
+- **License:** All Rights Reserved; see [LICENSE](LICENSE).
 
-The files and packages can be prepared locally before publication. Building them does **not** create a GitHub release, sign a Firefox add-on or establish store approval.
+Building packages locally does **not** create a GitHub release, sign a Firefox add-on or establish store approval. Publishing a GitHub release is a separate, explicit step: see [Publish a GitHub release](#publish-a-github-release).
 
 ## Features
 
@@ -60,6 +61,7 @@ Development dependencies are pinned through [deno.lock](deno.lock). They are not
 | `chatter-watch-1.0.0-firefox.zip` | Firefox-specific files for temporary development loading or submission to Mozilla. |
 | `chatter-watch-1.0.0-firefox-unsigned.xpi` | The same Firefox package in XPI format, explicitly **unsigned**. Development/signing input, not a permanent-install package. |
 | `chatter-watch-1.0.0-firefox.xpi` | Permanent-install asset **only if the publisher has obtained it signed by Mozilla**. The build script does not generate this file. |
+| `SHA256SUMS.txt` | SHA-256 checksums of the other assets. Verify with `Get-FileHash -Algorithm SHA256 <file>` (Windows) or `sha256sum -c SHA256SUMS.txt`. |
 
 GitHub's automatic **Source code (zip)** and **Source code (tar.gz)** downloads are repository snapshots, not the browser-specific installable assets. Do not select the repository root as an extension folder.
 
@@ -173,10 +175,10 @@ Do not edit generated files. Change `src`, rebuild and reload the installed exte
 
 1. Build and test the final source version first.
 2. Sign in to the [AMO Developer Hub](https://addons.mozilla.org/developers/) using the publisher's account.
-3. Submit the generated Firefox ZIP or `-unsigned.xpi`, choosing **self-distribution/unlisted** if GitHub will distribute it without a public AMO listing.
-4. Complete Mozilla's validation, policy and review requirements. Supply requested source/reviewer information through the approved private channels.
-5. Download the **signed XPI returned by Mozilla**. You may name that downloaded file `chatter-watch-1.0.0-firefox.xpi`.
-6. Verify permanent installation in ordinary Firefox before advertising that installation path or attaching it as the signed release asset.
+3. Submit `chatter-watch-1.0.0-firefox.zip` as a **listed** add-on, using the values prepared in `dist/store-submission/firefox-amo/` (see [Prepare the store submissions](#prepare-the-store-submissions)).
+4. Complete Mozilla's validation, policy and review requirements. Supply reviewer access only through AMO's private **Notes to Reviewer** field.
+5. Download the **signed XPI returned by Mozilla** and save it as `dist/packages/chatter-watch-1.0.0-firefox.xpi`. `deno task release` attaches it to the GitHub release only if it carries a Mozilla signature for the same version and add-on ID.
+6. Verify permanent installation in ordinary Firefox before advertising that installation path.
 
 Do not rename the unsigned build to make it appear signed. Any runtime change after signing requires a new signed package. Keep signing credentials outside the repository. See Mozilla's [packaging guide](https://extensionworkshop.com/documentation/publish/package-your-extension/) and [signing/distribution requirements](https://extensionworkshop.com/documentation/publish/signing-and-distribution-overview/).
 
@@ -203,7 +205,15 @@ deno task test:native
 
 This needs full Playwright Chromium, not `headless-shell`. If using another compatible full Chromium binary, set `$env:CHATTER_CHROMIUM_EXECUTABLE = 'C:\path\to\chromium\chrome.exe'` first. The native test loads the extension in an empty temporary profile and does not sign in to Twitch.
 
-Windows users can double-click [build/run-example-account-tests.bat](build/run-example-account-tests.bat) for the focused example-account worker/Chrome/Firefox suites. It pauses to display results; pass `--no-pause` for automation. It does not run the separate native-popup test.
+For only the focused example-account worker/Chrome/Firefox suites (fictional fixtures; the native-popup test is separate):
+
+```powershell
+deno task test --filter "example accounts"
+deno task test:ui --filter "example accounts"
+deno task test:ui:firefox --filter "example accounts"
+```
+
+Windows `.bat`/`.cmd` launchers that wrap these commands are owner-local conveniences and are Git-ignored; the `deno task` commands are the versioned interface.
 
 **Test accounts are fictional fixtures.** Passing tests does not verify your real account credentials, channel privileges or actual Twitch delivery. Before release, perform an authorized live smoke test for sign-in, messages and agreed moderation/removal actions. Cross-monitor behavior, browser sleep/suspension and optional translation providers also need appropriate manual checks.
 
@@ -211,73 +221,74 @@ The privacy regressions additionally verify no automatic Twitch access before co
 
 ## GitHub repository and release commands
 
-Git's local directory name, branch name and GitHub repository name are separate. These instructions use **ChatterWatch** for the GitHub repository and branch, as requested. The manifest uses `1.0.0`; the Git tag uses `v1.0.0`.
+The repository is https://github.com/yeraysampedro/ChatterWatch with the default branch `main`. The manifest uses `1.0.0`; the Git tag uses `v1.0.0`. Stop if any command fails. Use Git Credential Manager or SSH; never put access tokens in remote URLs, commands or tracked files, and never force-push or move a published tag.
 
-Replace uppercase placeholders before running commands and stop if any command fails. Use Git Credential Manager or your normal SSH authentication; do not put access tokens in remote URLs, commands or tracked files.
+### Commit the release source
 
-### A. New local repository only
-
-Use this sequence only in a new source directory named `ChatterWatch` that has **no existing `.git` directory**. Place the reviewed project source/development files there first; do not copy private account files, credentials, generated packages or another repository's `.git` directory.
+New repository from scratch (a directory with **no** `.git` folder, containing only the reviewed project files):
 
 ```powershell
-git init --initial-branch=ChatterWatch
-git config user.name "YOUR NAME"
-git config user.email "YOUR_GITHUB_NOREPLY_ADDRESS"
+git init --initial-branch=main
+git add .gitignore .gitattributes README.md AGENTS.md LICENSE deno.json deno.lock .github src build tests docs
 git status --short --ignored
-git add .gitignore README.md AGENTS.md deno.json deno.lock src build tests docs
 git diff --cached --check
-git diff --cached --name-only
-git commit -m "Initial release of ChatterWatch v1.0.0" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
-git tag --annotate v1.0.0 --message "ChatterWatch v1.0.0"
+git commit -m "Initial release of ChatterWatch v1.0.0"
+git remote add origin https://github.com/yeraysampedro/ChatterWatch.git
+git push --set-upstream origin main
 ```
 
-Review the staged file list before committing. If a project license has been selected, add that file explicitly as well. `.gitignore` is not a secret scanner: it cannot detect credentials embedded inside otherwise allowed source files.
-
-### B. Existing repository: preserve its history
-
-For an existing checkout, **do not delete `.git` or start over**. Review outstanding changes and use this alternative:
+Existing checkout (preserve its history; do not delete `.git`):
 
 ```powershell
+git remote set-url origin https://github.com/yeraysampedro/ChatterWatch.git
 git status --short
-git branch -m ChatterWatch
-git add .gitignore README.md AGENTS.md deno.json deno.lock src build tests docs
+git add .gitignore .gitattributes README.md AGENTS.md LICENSE deno.json deno.lock .github src build tests docs
 git diff --cached --check
 git diff --cached --name-only
-git commit -m "Prepare ChatterWatch v1.0.0" -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
-git tag --list v1.0.0
+git commit -m "Prepare ChatterWatch v1.0.0"
+git push origin main
+```
+
+`git add` skips ignored files, so private accounts, local launchers, reviewer notes and generated packages stay out of the commit. Still review the staged list: `.gitignore` is not a secret scanner and cannot detect credentials inside otherwise allowed files.
+
+The earlier `1.3.x` numbers were internal development snapshots, not public releases; `1.0.0` starts the public release sequence. This assumes no higher version has already been registered with a store or signing service.
+
+### Publish a GitHub release
+
+Both paths below build the packages, run the checks and publish (not draft) the release, marked as latest, with these assets: the Chromium ZIP, the Firefox ZIP, the unsigned Firefox XPI and `SHA256SUMS.txt`. A Mozilla-signed `dist/packages/chatter-watch-1.0.0-firefox.xpi` is attached as well, but only after its signature, version and add-on ID have been verified. The release notes come from the `1.0.0` section of [docs/CHANGELOG.md](docs/CHANGELOG.md).
+
+**A. GitHub Actions (recommended).** [.github/workflows/release.yml](.github/workflows/release.yml) runs `deno task test`, `deno task test:build` and `deno task release --yes` with the workflow's own `GITHUB_TOKEN`. It starts when a `v*` tag is pushed or from **Actions > Release > Run workflow**:
+
+```powershell
 git tag --annotate v1.0.0 --message "ChatterWatch v1.0.0"
-```
-
-Skip the branch-rename command if already on `ChatterWatch`. Configure your Git identity first if needed. If `git tag --list v1.0.0` prints an existing tag, stop rather than replacing it. Do not amend old commits, force-push or overwrite a published version tag.
-
-The earlier `1.3.x` numbers were internal development snapshots, not public releases. Their history is retained; `1.0.0` starts the public release sequence. This assumes a higher version has not already been registered with a store/signing service, including an unlisted AMO submission. Editing the manifest is not a downgrade/update procedure for an already submitted or signed higher version.
-
-### Connect to GitHub and publish
-
-1. On GitHub, create an **empty** repository named **ChatterWatch** under the intended owner. Choose the appropriate visibility; do not initialize it with another README, license or `.gitignore`.
-2. Check licensing and secrets before making it public.
-3. For a repository with no `origin`, run:
-
-```powershell
-git remote add origin https://github.com/OWNER/ChatterWatch.git
-git push --set-upstream origin ChatterWatch
 git push origin v1.0.0
 ```
 
-If `origin` already exists, use this instead of `git remote add`:
+**B. Local script.** Push `main` first, then:
 
 ```powershell
-git remote set-url origin https://github.com/OWNER/ChatterWatch.git
-git push --set-upstream origin ChatterWatch
-git push origin v1.0.0
+deno task test
+deno task test:build
+deno task release --dry-run   # prints the tag, commit and assets; changes nothing
+deno task release             # asks you to type "yes" before publishing
 ```
 
-Confirm that the repository's default branch is `ChatterWatch`; update it in GitHub Settings if necessary. A rejected push is a reason to inspect the remote, not to add `--force`.
+The script requires a clean tracked working tree and a `HEAD` commit that already exists on GitHub. It takes the token from `GITHUB_TOKEN`/`GH_TOKEN`, then Git Credential Manager, then a hidden prompt; the token is never printed or stored. If `v1.0.0` does not exist yet, GitHub creates it at `HEAD` when the release is published (which can also start the workflow; the workflow then finds identical assets and changes nothing). Options: `--yes` (no prompt), `--draft`, `--tag vX.Y.Z`, `--replace` (replace assets whose checksum differs).
 
-4. Build packages from the reviewed/tagged source. Do not attach stale packages from an internal version or an uncommitted runtime change.
-5. Open **Releases > Draft a new release**, choose the existing `v1.0.0` tag, and use **ChatterWatch v1.0.0** as the title.
-6. Attach the Chromium ZIP and, once obtained, the Mozilla-signed Firefox XPI. The Firefox ZIP/unsigned XPI may be attached as clearly labeled temporary-development assets, not as permanent-install packages.
-7. Describe supported browsers, installation instructions and known limits, then publish when ready.
+Re-running is safe: assets with an identical SHA-256 are skipped, a different file is refused unless `--replace` is given, and a tag that points to another commit stops the run. Publish a new version instead of moving a published tag.
+
+### Prepare the store submissions
+
+```powershell
+deno task store:assets --capture-only
+deno task store:submission --client-id YOUR_TWITCH_CLIENT_ID
+# After the first Chrome upload, once the item ID and support address are known:
+deno task store:submission --chrome-item-id YOUR_32_LETTER_ITEM_ID --support-email YOUR_SUPPORT_ADDRESS
+```
+
+This builds the packages and writes `dist/store-submission/chrome-web-store/` and `dist/store-submission/firefox-amo/`. Each folder contains `00-READ-FIRST.txt` (the steps in order), the package to upload, the images and copy-ready text for every form field. The options are remembered in the Git-ignored `store-submission.local.json`.
+
+It also requires the owner's Git-ignored `example_accounts.md` (one account per line: `username password`, the moderator/channel owner first) and writes `PRIVATE-reviewer-instructions.txt` in each folder: a plain-text note to paste only into the store's private reviewer fields. The generator refuses to run unless these files are ignored by Git, and it stops if the account data appears in any public output, tracked file or Git history. Never commit, publish or attach the private notes.
 
 Generated artifacts belong in release assets, not in Git commits. Never attach credentials, private account notes, chat exports, local browser profiles or an entire store kit as an installable extension.
 
@@ -301,15 +312,23 @@ Icon generation uses a local headless browser (Chrome by default; `CHATTER_BROWS
 | Path | Contents |
 | --- | --- |
 | [src/](src/) | Runtime scripts, pages, styles, manifest, original branding and third-party icon license. |
-| [build/](build/) | Reproducible packaging, optional store-asset tooling and the Windows test launcher. |
-| [tests/](tests/) | Core, worker, browser, native-popup and packaging checks. |
+| [build/](build/) | Reproducible packaging, icon and store-asset tooling, the GitHub release publisher and the store-submission generator. |
+| [tests/](tests/) | Core, worker, browser, native-popup, packaging, release and ignore-policy checks. |
+| [.github/workflows/](.github/workflows/) | The release workflow. |
 | [docs/](docs/) | User guides, privacy, implementation details and store preparation. |
 | `dist/` | Ignored generated packages, loadable folders and store/source artifacts. |
 | [deno.json](deno.json), [deno.lock](deno.lock) | Development tasks and locked tooling dependencies. |
 
-The strict [.gitignore](.gitignore) allows the project's top-level source/development files and excludes local editor settings, environment values, private keys, credentials, dependencies, caches, exports and generated archives. Placeholder-only `.env.example`/`.env.template` files may be tracked; the extension itself does not read Twitch credentials from environment files.
+The strict [.gitignore](.gitignore) allows only the project's top-level source/development files and, at any depth, excludes:
 
-Ignore rules do not remove files already tracked by Git. Review tracked files and rotate any credentials that were exposed; never assume adding an ignore pattern repairs a previous disclosure.
+- the private `example_accounts.md`, store-reviewer notes (`PRIVATE-*`, any `store-submission/` folder) and `*.local.*` settings;
+- owner-only Windows launchers (`*.bat`, `*.cmd`), such as local publish or test shortcuts; the versioned interface is the `deno task` commands;
+- environment files, private keys, Git/`.netrc` credentials and Mozilla `web-ext` signing state;
+- dependencies, caches, exports, editor settings and generated archives (`dist/`, `*.zip`, `*.xpi`, `*.crx`).
+
+Placeholder-only `.env.example`/`.env.template` files may be tracked; the extension itself does not read Twitch credentials from environment files. `deno task test:build` includes [tests/gitignore_test.js](tests/gitignore_test.js), which fails if any of these paths becomes versionable or a tracked file matches an ignore rule. Add new local-only files to `.gitignore` and to that test.
+
+Ignore rules do not remove files already tracked by Git; untrack them with `git rm --cached <path>` (the local file is kept). Review tracked files and rotate any credentials that were exposed; never assume adding an ignore pattern repairs a previous disclosure.
 
 ## Privacy, licensing and release limits
 
@@ -318,9 +337,9 @@ Ignore rules do not remove files already tracked by Git. Review tracked files an
 - Settings, observed account records, notes and bounded activity history are stored locally. Chat buffers in memory are not a permanent log.
 - Local storage/IndexedDB have no application-provided encryption and no configurable time-based retention policy. Uninstalling or clearing extension storage removes local records; delete downloaded exports separately.
 - There is no publisher-operated telemetry/backend. Optional translation sends selected message text only after configuration, permission and per-message confirmation.
-- A project-wide distribution license has **not** been selected. The owner must choose and add an appropriate license before public distribution. [src/LICENSE.lucide](src/LICENSE.lucide) covers the included Lucide icons only.
+- ChatterWatch is licensed **All Rights Reserved** ([LICENSE](LICENSE)): official releases may be installed and used, but no rights to redistribute or modify are granted. [src/LICENSE.lucide](src/LICENSE.lucide) covers the included Lucide icons.
 - Signing, store approval, public privacy-policy publication and live Twitch verification are separate publisher tasks. Historical store reports describe their recorded internal builds; they are not certification for v1.0.0.
 
-See [Privacy](docs/PRIVACY.md), [Implementation](docs/IMPLEMENTATION.md), [Changelog](docs/CHANGELOG.md), [Reviewer testing](docs/STORE_TESTING.md) and [Store submission](docs/STORE_SUBMISSION.md). The existing support/privacy URLs in store materials refer to the earlier repository; update and verify them after creating or renaming the GitHub repository. Do not claim a new URL is published before it is accessible and current.
+See [Privacy](docs/PRIVACY.md), [Implementation](docs/IMPLEMENTATION.md), [Changelog](docs/CHANGELOG.md), [Reviewer testing](docs/STORE_TESTING.md) and [Store submission](docs/STORE_SUBMISSION.md). Store URLs point to https://github.com/yeraysampedro/ChatterWatch; push the current documents to `main` before submitting so the public privacy policy matches.
 
 Additional usage guides: [English](docs/en.md), [Spanish](docs/es.md), [German](docs/de.md). Use the repository's Issues tab for non-sensitive reports; never post passwords, tokens, private messages or unredacted storage exports.

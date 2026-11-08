@@ -1,0 +1,30 @@
+ChatterWatch
+Copyright (c) 2026 yeraysampedro (https://github.com/yeraysampedro). All rights reserved.
+
+This software, including its source code, documentation, artwork and release
+packages, is proprietary. No license is granted to copy, modify, merge, publish,
+distribute, sublicense or sell it, or to create derivative works, except as
+stated below or with the copyright holder's prior written permission.
+
+Permitted use:
+
+1. You may install and use unmodified copies of ChatterWatch obtained from the
+   Chrome Web Store, Mozilla Add-ons (addons.mozilla.org) or the official
+   GitHub Releases of https://github.com/yeraysampedro/ChatterWatch.
+2. You may view the source code in this repository and fork it on GitHub only
+   to the extent permitted by the GitHub Terms of Service.
+3. Browser-store and add-on reviewers may examine, build and test the source
+   code for the purpose of reviewing the extension.
+
+Third-party components keep their own licenses. The Lucide icons included in
+src/icons.js are provided under the ISC License in src/LICENSE.lucide.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+ChatterWatch is an independent project. It is not affiliated with or endorsed
+by Twitch, Google or Mozilla.

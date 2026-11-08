@@ -9,7 +9,7 @@ ChatterWatch 1.0.0. This checklist supports Chrome Web Store and Mozilla Add-ons
 3. Submit the build containing the initial disclosure, initially unchecked consent box, **Stay offline** choice and **Settings > Data and privacy > Withdraw consent and disconnect** control. Browser options open the same settings page.
 4. Test with no prior consent and with an old signed-in session: no Twitch authentication/API/IRC or remote avatar request may start before explicit current consent. Cancel/unchecked submission must remain offline.
 5. Test withdrawal during normal use and an in-flight request. New activity stops, session credentials are removed and existing history remains read-only. Reopening the view must not load remote avatars or revive the old grant. Previous transmissions and Twitch actions cannot be recalled.
-6. Supply the updated public listing/policy and reviewer steps when requesting another review. Automated tests demonstrate local behavior, not Google approval or legal certification. Other documented publication blockers, including licensing and at-rest-security assessment, remain separate.
+6. Supply the updated public listing/policy and reviewer steps when requesting another review. Automated tests demonstrate local behavior, not Google approval or legal certification. Other documented publication blockers, including the at-rest-security assessment, remain separate.
 
 Official references: [Disclosure requirements](https://developer.chrome.com/docs/webstore/program-policies/disclosure-requirements) and [Limited Use](https://developer.chrome.com/docs/webstore/program-policies/limited-use).
 
@@ -26,7 +26,18 @@ Run `deno task store:assets` to capture both browser sets, rebuild the extension
 
 The ordinary build also creates `dist/packages/chatter-watch-1.0.0-firefox-unsigned.xpi`, byte-identical to the Firefox ZIP. It is not signed for permanent installation. For GitHub distribution, obtain the signed XPI from Mozilla and follow [README.md](../README.md). Check the version/date inside STORE_VALIDATION.md: an internal 1.3.x report is not evidence for the 1.0.0 packages and must not be relabeled as current.
 
-The verified support route is https://github.com/yeraysampedro/Twtich-Moderatr/issues . Publish the current policy and support documents to the repository before submitting their URLs; this command does not commit, push or publish them.
+The verified support route is https://github.com/yeraysampedro/ChatterWatch/issues . Publish the current policy and support documents to `main` before submitting their URLs; this command does not commit, push or publish them.
+
+## Ready-to-fill store folders
+
+`deno task store:submission --client-id YOUR_TWITCH_CLIENT_ID` (after `deno task store:assets --capture-only`) writes two Git-ignored folders:
+
+- `dist/store-submission/chrome-web-store/`: `00-READ-FIRST.txt`, `upload/` (Chromium ZIP), `images/` (icon, small promo, marquee, five screenshots) and `fields/` with copy-ready text for the Store listing, Privacy, Distribution and Test instructions tabs.
+- `dist/store-submission/firefox-amo/`: `00-READ-FIRST.txt`, `upload/` (Firefox ZIP), `images/` and `fields/` for the AMO submit, describe and details steps, plus the plain-text privacy policy.
+
+Each folder also gets `PRIVATE-reviewer-instructions.txt`, generated from the owner's Git-ignored `example_accounts.md`: one plain-text note with both test accounts, the Twitch Client ID and the reviewer steps, to paste only into the Chrome Web Store **Test instructions** fields or AMO **Notes to Reviewer**. The generator refuses to run unless these files are ignored by Git and stops if the account data appears in any public output, tracked file or Git history. Re-run it with `--chrome-item-id` after the first Chrome upload so the Chrome callback can be registered, and with `--support-email` once a support address is chosen.
+
+Publishing the GitHub release is separate: see [Publish a GitHub release](../README.md#publish-a-github-release).
 
 ## Prepare the Release
 
@@ -48,8 +59,8 @@ The public privacy check compares the raw published policy with the local policy
 - Resolve the local at-rest-encryption policy question documented in STORE_REQUIREMENTS.md/STORE_PERMISSIONS.md before security certification. The code uses browser storage and IndexedDB without its own encryption; do not label it encrypted without evidence.
 - Explain required Twitch host access and storage/identity/alarms/sidePanel. Optional HTTPS access is granted per configured translation origin, not automatically for all websites.
 - Firefox declares required authenticationInfo/personallyIdentifyingInfo and optional personalCommunications for translation. Do not claim that chat text is never transmitted if the optional translator is enabled.
-- Choose the project's distribution/license terms as the owner. The included LICENSE.lucide covers the selected third-party icons only; it does not license the entire application.
-- Supply appropriate screenshots and reviewer instructions. Do not place reusable account secrets or access tokens in public documents or the repository.
+- The owner selected **All Rights Reserved** ([LICENSE](../LICENSE)) for the application. The included LICENSE.lucide covers the selected third-party icons.
+- Supply appropriate screenshots and reviewer instructions. Do not place reusable account secrets or access tokens in public documents or the repository; the private reviewer note exists only in the Git-ignored `dist/store-submission/` folders.
 - Original branding PNGs are in `src/assets/icons/`. Use the 128px icon where requested and the 512px artwork for high-resolution listing materials, checking the store's current asset requirements. Runtime packages include the 16/32/48/64/96/128px variants; the 512px artwork stays outside those packages. These are separate from the licensed Lucide UI-action icons.
 
 ## Reviewer Workflow

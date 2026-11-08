@@ -1,0 +1,6 @@
+# Identical bytes on Windows, Linux and GitHub Actions, so local and CI release packages match.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+*.zip binary
+*.xpi binary

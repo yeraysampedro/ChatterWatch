@@ -1,6 +1,6 @@
 # Final ZIP Validation
 
-Version 1.3.1. Validated 2026-11-07T23:00:58.171Z.
+Version 1.0.0. Validated 2026-11-08T18:46:16.138Z.
 
 **Archive/asset checks: PASS. Publication certification: NOT READY.**
 
@@ -17,15 +17,14 @@ Extract these ZIPs. Upload only the nested package from packages/ as the extensi
 
 | Kit | Listing icon | Screenshots | Pixel dimensions | ZIP integrity |
 | --- | --- | --- | --- | --- |
-| dist/store-kits/chatter-watch-1.3.1-chromium-store-kit.zip | Exactly one 128x128 PNG | Exactly 5 | All 1280x800, opaque | PASS |
-| dist/store-kits/chatter-watch-1.3.1-firefox-store-kit.zip | Exactly one 128x128 PNG | Exactly 5 | All 1280x800, opaque | PASS |
+| dist/store-kits/chatter-watch-1.0.0-chromium-store-kit.zip | Exactly one 128x128 PNG | Exactly 5 | All 1280x800, opaque | PASS |
+| dist/store-kits/chatter-watch-1.0.0-firefox-store-kit.zip | Exactly one 128x128 PNG | Exactly 5 | All 1280x800, opaque | PASS |
 
 ## Publication Blockers / Missing Evidence
 
-- Public URL unavailable or unverified (404): https://github.com/yeraysampedro/Twtich-Moderatr/blob/main/docs/PRIVACY.md
 - The publicly published privacy text does not match the local policy, or could not be verified. Publish the current policy and rerun validation; HTTP 200 alone is insufficient.
-- Reviewer credentials, the actual store callback and live Twitch access are not validated by this build. Any local account file remains private, unread and excluded from every archive; supply review access only through the store's private fields.
-- Application-wide distribution license and publisher/account contact declarations require the owner's decision.
+- Reviewer credentials, the actual store callback and live Twitch access are not validated by this build. This tool never reads the local account file and excludes it from every archive; only `deno task store:submission` reads it, to write the Git-ignored private reviewer notes for the stores' private fields.
+- Publisher/account contact declarations (for example the AMO support email) require the owner's decision.
 - At-rest encryption compliance remains unresolved: this implementation uses browser storage/IndexedDB without its own encryption. Do not certify compliance without resolving the store-policy requirement.
 
 ## Warnings
@@ -38,19 +37,19 @@ Extract these ZIPs. Upload only the nested package from packages/ as the extensi
 
 ## Public URLs
 
-- HTTP 200: https://github.com/yeraysampedro/Twtich-Moderatr/issues (publicly reachable)
-- HTTP 200: https://github.com/yeraysampedro/Twtich-Moderatr (publicly reachable)
-- HTTP 404: https://github.com/yeraysampedro/Twtich-Moderatr/blob/main/docs/PRIVACY.md (unavailable/unverified)
+- HTTP 200: https://github.com/yeraysampedro/ChatterWatch/issues (publicly reachable)
+- HTTP 200: https://github.com/yeraysampedro/ChatterWatch (publicly reachable)
+- HTTP 200: https://github.com/yeraysampedro/ChatterWatch/blob/main/docs/PRIVACY.md (publicly reachable)
 
 ## Package SHA-256
 
-- dist/packages/chatter-watch-1.3.1-chromium.zip: 63ebbe73c403d47e4a7d6a9e0592935685b3e691ad185bddeadbb9ae4931396e
-- dist/packages/chatter-watch-1.3.1-firefox.zip: b36707895d20964fd4cd323ac93b148c8bd1ba0fa574967cefb254f424cc98d0
+- dist/packages/chatter-watch-1.0.0-chromium.zip: 6c6e153f37badce3b48750720631a341c4f27c13977c736e668789f12e8b47a8
+- dist/packages/chatter-watch-1.0.0-firefox.zip: 82b78b7244f2ea30a28457812277e246c632413125c83a0adf254eca9e0fc851
 
 ## Kit SHA-256
 
-- dist/store-kits/chatter-watch-1.3.1-chromium-store-kit.zip: 2b09728e14f4f5460f6b9a0fa0d2cf2fe5017cb1f395f869ff223bab8078c822
-- dist/store-kits/chatter-watch-1.3.1-firefox-store-kit.zip: 901c2ac78bb1e8e735490b6754be188c40a2abdc83616a3cbd686c09afa655bc
+- dist/store-kits/chatter-watch-1.0.0-chromium-store-kit.zip: 1bd8c6751e5daeeaa85171a28a53bdf9e75cb6549f60d027017bd0487c8cbc58
+- dist/store-kits/chatter-watch-1.0.0-firefox-store-kit.zip: 4dc6076f1316a62110a52b5d4c20610ef5d2c1066f6eb8c0363eb8187fac147e
 
 Machine-readable evidence: dist/store/validation.json, metadata.json and inventory.json. Remote-code checks are focused static checks, not a penetration test or a store approval.
 
@@ -58,11 +57,11 @@ Machine-readable evidence: dist/store/validation.json, metadata.json and invento
 
 BLOCKED: public and local policy text differ or the public content could not be checked.
 
-Source: https://raw.githubusercontent.com/yeraysampedro/Twtich-Moderatr/main/docs/PRIVACY.md
+Source: https://raw.githubusercontent.com/yeraysampedro/ChatterWatch/main/docs/PRIVACY.md
 
-Local SHA-256: 89989bd407db3e1d7070c2382cba4f6b13c0c5af35f05c1dc17679f8cd8ae560
+Local SHA-256: fd0958d322eff706026aa43d0c0780309f7a31afcc8e7bfa11960a7144307190
 
-Published SHA-256: unavailable
+Published SHA-256: 7a0dc8668a33345cd02e5931fbb4165910047d45f09763603bfba2dcf781b28a
 
 ## Mozilla Validator
 
@@ -70,6 +69,6 @@ web-ext 9.1.0: exit 0, 0 errors, 0 warnings. Actual output: dist/store/firefox-l
 
 ## Source Archive
 
-dist/source/chatter-watch-1.3.1-source.zip: 0ff5af967851c846a6e4b61b2b3a291483310c5f4a65151a5bddb4d0b8cce775. 45 allowlisted source/resource/documentation files. Extract and run deno task build; no Twitch credentials are needed to reproduce the runtime packages.
+dist/source/chatter-watch-1.0.0-source.zip: 9c0cde4030f052878643423d48a381e695054c1ca184d2fd7be07cde35d8b84c. 63 allowlisted source/resource/documentation files. Extract and run deno task build; no Twitch credentials are needed to reproduce the runtime packages.
 
 PASS: extracted source archive rebuild matches both runtime ZIP SHA-256 values.

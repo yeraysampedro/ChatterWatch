@@ -2,13 +2,13 @@
 
 ## Public Support URL
 
-https://github.com/yeraysampedro/Twtich-Moderatr/issues
+https://github.com/yeraysampedro/ChatterWatch/issues
 
-Use the issue tracker for non-sensitive bugs, feature requests and setup questions. The page was publicly accessible on 7 November 2026; a GitHub account is needed to submit an issue. The publisher must monitor this channel; no response-time guarantee is implied.
+Use the issue tracker for non-sensitive bugs, feature requests and setup questions. The public `ChatterWatch` repository was verified on 8 November 2026; a GitHub account is needed to submit an issue. The publisher must monitor this channel; no response-time guarantee is implied.
 
-Homepage: https://github.com/yeraysampedro/Twtich-Moderatr
+Homepage: https://github.com/yeraysampedro/ChatterWatch
 
-These are the existing project's verified links. When the publisher creates or renames the GitHub repository to `ChatterWatch`, update this page, STORE_LISTING.md and the public URL constants in `build/store-assets.js` after verifying the new addresses. The repository-creation commands in README.md do not themselves publish or validate those URLs.
+If the repository moves again, update this page, STORE_LISTING.md and the public URL constants in `build/store-assets.js` and `build/store-submission.js` after verifying the new addresses.
 
 ## Before Reporting
 
@@ -38,4 +38,4 @@ Disconnect Twitch to stop the session. To erase local extension settings, notes 
 
 ## Before Store Publication
 
-The owner must publish this file and the current privacy policy, provide any required account contact details, select the application's license and confirm they will monitor support. These files are local preparation materials until published; creating them does not push to GitHub or submit to either store.
+The owner must publish this file and the current privacy policy, provide any required account contact details and confirm they will monitor support. The application is licensed All Rights Reserved; see the root LICENSE. These files are local preparation materials until published; creating them does not push to GitHub or submit to either store.

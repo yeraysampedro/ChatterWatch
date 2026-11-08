@@ -42,9 +42,27 @@ id_rsa*
 id_ed25519*
 .ssh/
 .gnupg/
+.netrc
+_netrc
+.git-credentials
 example_accounts.md
 chatter-*.txt
 exports/
+
+# Owner-only Windows launchers (publishing, local test runs). Use the deno tasks
+# documented in README.md instead; launchers stay on the owner's machine.
+*.bat
+*.cmd
+
+# Store-reviewer notes may contain test-account access: never version them, even
+# if copied out of dist/. Regenerate with `deno task store:submission`.
+PRIVATE-*
+store-submission/
+
+# Mozilla web-ext signing state and artifacts.
+web-ext-artifacts/
+.web-extension-id
+.amo-upload-uuid
 
 # Placeholder-only environment templates may be versioned; never real credentials.
 !.env.example

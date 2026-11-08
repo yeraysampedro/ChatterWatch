@@ -1,0 +1,40 @@
+name: Release
+
+# Publishes dist/packages to a GitHub release when a v* tag is pushed.
+# Re-running for an already published release with identical packages changes nothing.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Core and worker tests
+        run: deno task test
+
+      - name: Build and release tests
+        run: deno task test:build
+
+      - name: Build packages and publish the release
+        run: deno task release --yes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

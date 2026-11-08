@@ -13,8 +13,8 @@ const screenshots = ["01-review-dashboard", "02-multichat-grid", "03-unified-fee
 const assets = [];
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-const supportUrl = "https://github.com/yeraysampedro/Twtich-Moderatr/issues";
-const homepageUrl = "https://github.com/yeraysampedro/Twtich-Moderatr";
+const supportUrl = "https://github.com/yeraysampedro/ChatterWatch/issues";
+const homepageUrl = "https://github.com/yeraysampedro/ChatterWatch";
 const privacyUrl = `${homepageUrl}/blob/main/docs/PRIVACY.md`;
 
 function demoApi({ firefoxApi }) {
@@ -221,7 +221,7 @@ function verify(condition, detail) {
 }
 
 function verifyPublicPaths(paths) {
-  for (const path of paths) verify(!/(^|\/)(example_accounts\.md|\.env(?:\..*)?|[^/]+\.(?:pem|pfx|p12|key))$/i.test(path), `Private file is not allowed in an archive: ${path}`);
+  for (const path of paths) verify(!/(^|\/)(example_accounts\.md|\.env(?:\..*)?|[^/]+\.(?:pem|pfx|p12|key)|[^/]+\.(?:bat|cmd)|[^/]*\.local\.[^/]+|PRIVATE-[^/]*)$|(^|\/)store-submission\//i.test(path), `Private file is not allowed in an archive: ${path}`);
 }
 
 async function hash(bytes) {
@@ -257,13 +257,13 @@ async function metadata() {
     solePurpose: paragraphUnder(permissionText, "Single Purpose"),
     permissions, hostPermission: paragraphUnder(permissionText, "Host Permission - Combined Store Field"),
     remoteCode: "No executable remote JavaScript or Wasm in the inspected runtime package; network responses are data. See STORE_PERMISSIONS.md.",
-    locales: localized, testCredentials: { status: privateAccountsPresent ? "LOCAL_PRIVATE_FILE_PRESENT_NOT_READ_OR_VALIDATED" : "OWNER_REQUIRED_PRIVATE_SUBMISSION", included: false },
-    license: { status: "OWNER_DECISION_REQUIRED", thirdPartyIcons: "LICENSE.lucide" } };
+    locales: localized, testCredentials: { status: privateAccountsPresent ? "LOCAL_PRIVATE_FILE_PRESENT_NOT_READ_BY_THIS_TOOL" : "OWNER_REQUIRED_PRIVATE_SUBMISSION", included: false, privateNotes: "deno task store:submission (Git-ignored dist/store-submission only)" },
+    license: { application: "All Rights Reserved (LICENSE)", thirdPartyIcons: "LICENSE.lucide" } };
 }
 
 async function checkUrl(url) {
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "ChatterWatch-Publication-Validation/1.3" } });
+    const response = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "ChatterWatch-Publication-Validation/1.0" } });
     await response.body?.cancel();
     return { url, status: response.status, accessible: response.ok };
   } catch (error) { return { url, status: 0, accessible: false, error: error.message }; }
@@ -275,7 +275,7 @@ async function checkPublicPrivacy() {
   const url = `https://raw.githubusercontent.com${new URL(homepageUrl).pathname}/main/docs/PRIVACY.md`;
   const localSha256 = await hash(encoder.encode(local));
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "ChatterWatch-Publication-Validation/1.3" } });
+    const response = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "ChatterWatch-Publication-Validation/1.0" } });
     if (!response.ok) {
       await response.body?.cancel();
       return { url, status: response.status, matchesLocal: false, localSha256 };
@@ -341,7 +341,7 @@ async function reproduceSource(sourceZip, packages) {
 }
 
 async function bundle() {
-  const documents = ["README.md", "docs/PRIVACY.md", "src/LICENSE.lucide", "docs/CHANGELOG.md", "docs/SUPPORT.md", "docs/STORE_SUBMISSION.md", "docs/STORE_REQUIREMENTS.md", "docs/STORE_PERMISSIONS.md", "docs/STORE_LISTING.md", "docs/STORE_TESTING.md", "docs/IMPLEMENTATION.md", "docs/en.md", "docs/es.md", "docs/de.md"];
+  const documents = ["README.md", "LICENSE", "docs/PRIVACY.md", "src/LICENSE.lucide", "docs/CHANGELOG.md", "docs/SUPPORT.md", "docs/STORE_SUBMISSION.md", "docs/STORE_REQUIREMENTS.md", "docs/STORE_PERMISSIONS.md", "docs/STORE_LISTING.md", "docs/STORE_TESTING.md", "docs/IMPLEMENTATION.md", "docs/en.md", "docs/es.md", "docs/de.md"];
   verifyPublicPaths(documents);
   const artifacts = await buildPackages();
   const packages = [];
@@ -365,8 +365,8 @@ async function bundle() {
     ...(!lintRun.success || firefoxLint.summary.errors ? ["Firefox web-ext validation failed; see firefox-lint.json for actual findings."] : []),
     ...links.filter((link) => !link.accessible).map((link) => `Public URL unavailable or unverified (${link.status}): ${link.url}`),
     ...(!publicPrivacy.matchesLocal ? ["The publicly published privacy text does not match the local policy, or could not be verified. Publish the current policy and rerun validation; HTTP 200 alone is insufficient."] : []),
-    "Reviewer credentials, the actual store callback and live Twitch access are not validated by this build. Any local account file remains private, unread and excluded from every archive; supply review access only through the store's private fields.",
-    "Application-wide distribution license and publisher/account contact declarations require the owner's decision.",
+    "Reviewer credentials, the actual store callback and live Twitch access are not validated by this build. This tool never reads the local account file and excludes it from every archive; only `deno task store:submission` reads it, to write the Git-ignored private reviewer notes for the stores' private fields.",
+    "Publisher/account contact declarations (for example the AMO support email) require the owner's decision.",
     "At-rest encryption compliance remains unresolved: this implementation uses browser storage/IndexedDB without its own encryption. Do not certify compliance without resolving the store-policy requirement."
   ];
   const warnings = [
@@ -378,7 +378,7 @@ async function bundle() {
   ];
   const report = { version: manifest.version, validatedAt: new Date().toISOString(), structuralStatus: "PASS", publicationStatus: "NOT_READY_FOR_FINAL_CERTIFICATION", packages, firefoxLint: { tool: "web-ext 9.1.0", exitCode: lintRun.code, ...firefoxLint.summary }, publicLinks: links, publicPrivacy, blockers: failures, warnings, storeKits: [] };
   const sourceEntries = {};
-  const sourceFiles = new Set([...packages[0].entries.map((name) => `src/${name}`), ...documents, "build/build.js", "build/icon-assets.js", "deno.json", "deno.lock", ".gitignore", "build/store-assets.js", "build/run-example-account-tests.bat", "AGENTS.md", "src/assets/icons/icon.png", "src/assets/icons/chatter-watch-512.png", "tests/core_test.js", "tests/worker_test.js", "tests/worker_harness.js", "tests/browser_harness.js", "tests/example_accounts.js", "tests/example_accounts_test.js", "tests/example_accounts_ui_test.js", "tests/privacy_test.js", "tests/privacy_ui_test.js", "tests/ui_test.js", "tests/native_popup_test.js", "tests/build_test.js"]);
+  const sourceFiles = new Set([...packages[0].entries.map((name) => `src/${name}`), ...documents, "build/build.js", "build/icon-assets.js", "deno.json", "deno.lock", ".gitignore", "build/store-assets.js", "build/release.js", "build/store-submission.js", ".gitattributes", ".github/workflows/release.yml", "AGENTS.md", "src/assets/icons/icon.png", "src/assets/icons/chatter-watch-512.png", "tests/core_test.js", "tests/worker_test.js", "tests/worker_harness.js", "tests/browser_harness.js", "tests/example_accounts.js", "tests/example_accounts_test.js", "tests/example_accounts_ui_test.js", "tests/privacy_test.js", "tests/privacy_ui_test.js", "tests/ui_test.js", "tests/native_popup_test.js", "tests/build_test.js", "tests/release_test.js", "tests/store_submission_test.js", "tests/gitignore_test.js"]);
   verifyPublicPaths(sourceFiles);
   for (const name of sourceFiles) sourceEntries[name] = await Deno.readFile(new URL(name, root));
   const sourceZip = zipSync(sourceEntries, { level: 9, mtime: new Date(2000, 0, 1) });
